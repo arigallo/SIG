@@ -151,6 +151,9 @@
                 <td>{{ cuota['referencia_pago'] or '-' }}</td>
                 <td class="actions">
                     {% set comprobante_estado = cuota['comprobante_estado'] or ('aceptado' if cuota['comprobante_drive_file_id'] and cuota['pagado'] else 'pendiente' if cuota['comprobante_drive_file_id'] else 'sin_comprobante') %}
+                    {% if cuota['comprobante_drive_file_id'] and comprobante_estado == 'sin_comprobante' %}
+                        {% set comprobante_estado = 'pendiente' %}
+                    {% endif %}
                     {% if cuota['comprobante_drive_file_id'] %}
                         {% if comprobante_estado == 'aceptado' %}
                             <span class="badge badge-success">Aceptado</span>

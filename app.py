@@ -2150,7 +2150,7 @@ def obtener_estado_sistema_admin():
                     SELECT COUNT(*)
                     FROM cuotas
                     WHERE comprobante_drive_file_id IS NOT NULL
-                      AND COALESCE(NULLIF(comprobante_estado, ''), 'pendiente') = 'pendiente'
+                      AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
                 ) AS comprobantes_pendientes,
                 (
                     SELECT COUNT(*)
@@ -2506,7 +2506,7 @@ def obtener_notificaciones_operativas():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.comprobante_drive_file_id IS NOT NULL
-          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente') = 'pendiente'
+          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
         ORDER BY c.comprobante_fecha DESC NULLS LAST, c.id DESC
         LIMIT 50
     """).fetchall()
@@ -2571,7 +2571,7 @@ def obtener_contador_notificaciones():
                     SELECT COUNT(*)
                     FROM cuotas c
                     WHERE c.comprobante_drive_file_id IS NOT NULL
-                      AND COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente') = 'pendiente'
+                      AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
                 ) AS comprobantes,
                 (
                     SELECT COUNT(*)
@@ -3282,6 +3282,10 @@ def init_db():
         END
         WHERE comprobante_estado IS NULL
            OR comprobante_estado = ''
+           OR (
+               comprobante_drive_file_id IS NOT NULL
+               AND comprobante_estado = 'sin_comprobante'
+           )
     """)
 
     conn.execute("""
@@ -4569,7 +4573,7 @@ def index():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.comprobante_drive_file_id IS NOT NULL
-          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente') = 'pendiente'
+          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
         ORDER BY c.comprobante_fecha DESC NULLS LAST, c.id DESC
         LIMIT 10
     """).fetchall()
@@ -4578,7 +4582,7 @@ def index():
         SELECT COUNT(*) AS total
         FROM cuotas
         WHERE comprobante_drive_file_id IS NOT NULL
-          AND COALESCE(NULLIF(comprobante_estado, ''), 'pendiente') = 'pendiente'
+          AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
     """).fetchone()["total"]
 
     conn.close()
@@ -6772,8 +6776,11 @@ def listar_comprobantes_revision():
     filtros = ["c.comprobante_drive_file_id IS NOT NULL"]
     params = []
     if estado != "todos":
-        filtros.append("COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente') = %s")
-        params.append(estado)
+        if estado == "pendiente":
+            filtros.append("COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')")
+        else:
+            filtros.append("COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') = %s")
+            params.append(estado)
 
     where_sql = " AND ".join(filtros)
 
@@ -6781,7 +6788,12 @@ def listar_comprobantes_revision():
     comprobantes = conn.execute(f"""
         SELECT
             c.*,
-            COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente') AS comprobante_estado_resuelto,
+            CASE
+                WHEN c.comprobante_drive_file_id IS NOT NULL
+                 AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') = 'sin_comprobante'
+                THEN 'pendiente'
+                ELSE COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante')
+            END AS comprobante_estado_resuelto,
             j.apellido,
             j.nombre
         FROM cuotas c
@@ -6790,6 +6802,7 @@ def listar_comprobantes_revision():
         ORDER BY
             CASE COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente')
                 WHEN 'pendiente' THEN 0
+                WHEN 'sin_comprobante' THEN 0
                 WHEN 'rechazado' THEN 1
                 WHEN 'aceptado' THEN 2
                 ELSE 3
@@ -6803,7 +6816,8 @@ def listar_comprobantes_revision():
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (
-                WHERE COALESCE(NULLIF(comprobante_estado, ''), 'pendiente') = 'pendiente'
+                WHERE COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
+                  AND comprobante_drive_file_id IS NOT NULL
             ) AS pendientes,
             COUNT(*) FILTER (
                 WHERE COALESCE(NULLIF(comprobante_estado, ''), 'pendiente') = 'aceptado'
