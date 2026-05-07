@@ -56,9 +56,22 @@
                         {% for cuota in cuotas %}
                         <tr>
                             <td>{{ cuota['periodo'] }}</td>
-                            <td>{{ cuota['importe'] | moneda }}</td>
                             <td>
-                                {% if cuota['pagado'] %}
+                                {{ cuota['importe'] | moneda }}
+                                {% if cuota['plan_pago_monto'] %}
+                                    <span class="muted-line">Plan de pago: {{ cuota['plan_pago_monto'] | moneda }}</span>
+                                {% endif %}
+                                {% if cuota['plan_pago_detalle'] %}
+                                    <span class="muted-line">{{ cuota['plan_pago_detalle'] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuota['anulada'] %}
+                                    <span class="badge badge-muted">Anulada</span>
+                                    {% if cuota['anulacion_motivo'] %}
+                                        <span class="muted-line">{{ cuota['anulacion_motivo'] }}</span>
+                                    {% endif %}
+                                {% elif cuota['pagado'] %}
                                     <span class="status-paid">Pagada</span>
                                 {% else %}
                                     <span class="status-pending">Pendiente</span>
@@ -70,7 +83,9 @@
                             <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
                             <td>{{ cuota['fecha_pago'] or '-' }}</td>
                             <td>
-                                {% if cuota['pagado'] %}
+                                {% if cuota['anulada'] %}
+                                    -
+                                {% elif cuota['pagado'] %}
                                     <a class="button secondary" href="{{ url_for('portal_descargar_recibo', token=token, cuota_id=cuota['id']) }}">Recibo</a>
                                 {% else %}
                                     {% set comprobante_estado = cuota['comprobante_estado'] or ('pendiente' if cuota['comprobante_drive_file_id'] else 'sin_comprobante') %}

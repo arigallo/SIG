@@ -67,7 +67,12 @@
                 {% for plan in planes_pago %}
                 <tr>
                     <td>{{ plan['fecha_inicio'] or '-' }}</td>
-                    <td>{{ plan['monto_total'] | moneda }}</td>
+                    <td>
+                        {{ plan['monto_total'] | moneda }}
+                        {% if plan['cuotas_incluidas'] %}
+                            <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
+                        {% endif %}
+                    </td>
                     <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
                     <td>{{ plan['estado'] }}</td>
                     <td>
@@ -77,6 +82,9 @@
                         {% endif %}
                     </td>
                     <td class="actions">
+                        {% if puede('planes_pago_gestionar') %}
+                            <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
+                        {% endif %}
                         {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
                             <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -90,8 +98,20 @@
                                 <input type="hidden" name="estado" value="Caido">
                                 <button class="button danger" type="submit">Caido</button>
                             </form>
-                        {% else %}
-                            -
+                        {% elif puede('planes_pago_gestionar') %}
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Activo">
+                                <button class="button secondary" type="submit">Reactivar</button>
+                            </form>
+                        {% endif %}
+                        {% if puede('planes_pago_gestionar') %}
+                            <form method="post" action="{{ url_for('eliminar_plan_pago', plan_id=plan['id']) }}" onsubmit="return confirm('Eliminar este plan y restaurar las cuotas incluidas?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <button class="button danger" type="submit">Eliminar</button>
+                            </form>
                         {% endif %}
                     </td>
                 </tr>
@@ -124,8 +144,17 @@
                 <td>{{ cuota['periodo'] }}</td>
                 <td>
                     {{ cuota['importe'] | moneda }}
+                    {% if cuota['anulada'] and (cuota['importe_anulado'] or cuota['importe_original']) %}
+                        <span class="muted-line">Anulada sobre {{ (cuota['importe_anulado'] or cuota['importe_original']) | moneda }}</span>
+                    {% endif %}
                     {% if cuota['becada'] and cuota['importe_original'] %}
                         <span class="muted-line">Original: {{ cuota['importe_original'] | moneda }}</span>
+                    {% endif %}
+                    {% if cuota['plan_pago_monto'] %}
+                        <span class="muted-line">Plan de pago: {{ cuota['plan_pago_monto'] | moneda }}</span>
+                    {% endif %}
+                    {% if cuota['plan_pago_detalle'] %}
+                        <span class="muted-line">{{ cuota['plan_pago_detalle'] }}</span>
                     {% endif %}
                 </td>
                 <td>
@@ -137,7 +166,12 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if cuota['becada'] and cuota['importe'] == 0 %}
+                    {% if cuota['anulada'] %}
+                        <span class="badge badge-muted">Anulada</span>
+                        {% if cuota['anulacion_motivo'] %}
+                            <span class="muted-line">{{ cuota['anulacion_motivo'] }}</span>
+                        {% endif %}
+                    {% elif cuota['becada'] and cuota['importe'] == 0 %}
                         <span class="status-paid">Becada</span>
                     {% elif cuota['pagado'] %}
                         <span class="status-paid">Pagado</span>
@@ -154,7 +188,9 @@
                     {% if cuota['comprobante_drive_file_id'] and comprobante_estado == 'sin_comprobante' %}
                         {% set comprobante_estado = 'pendiente' %}
                     {% endif %}
-                    {% if cuota['comprobante_drive_file_id'] %}
+                    {% if cuota['anulada'] %}
+                        -
+                    {% elif cuota['comprobante_drive_file_id'] %}
                         {% if comprobante_estado == 'aceptado' %}
                             <span class="badge badge-success">Aceptado</span>
                         {% elif comprobante_estado == 'rechazado' %}
@@ -177,16 +213,20 @@
                     {% endif %}
                 </td>
                 <td class="actions">
-                    {% if not cuota['pagado'] %}
+                    {% if cuota['anulada'] %}
+                        -
+                    {% elif not cuota['pagado'] %}
                         <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Marcar pago</a>
                     {% else %}
                         <a class="button secondary" href="{{ url_for('descargar_recibo', cuota_id=cuota['id']) }}">Recibo</a>
                     {% endif %}
 
-                    <form method="post" action="{{ url_for('eliminar_cuota', cuota_id=cuota['id']) }}" onsubmit="return confirm('¿Eliminar esta cuota?');">
+                    {% if not cuota['anulada'] %}
+                    <form method="post" action="{{ url_for('eliminar_cuota', cuota_id=cuota['id']) }}" onsubmit="return confirm('Eliminar esta cuota?');">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button class="button danger" type="submit">Eliminar</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}

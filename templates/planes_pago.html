@@ -46,7 +46,12 @@
                     <span class="muted-line">{{ plan['categoria'] or '-' }}</span>
                 </td>
                 <td>{{ plan['fecha_inicio'] or '-' }}</td>
-                <td>{{ plan['monto_total'] | moneda }}</td>
+                <td>
+                    {{ plan['monto_total'] | moneda }}
+                    {% if plan['cuotas_incluidas'] %}
+                        <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
+                    {% endif %}
+                </td>
                 <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
                 <td>{{ plan['deuda_actual'] | moneda }}</td>
                 <td>{{ plan['estado'] }}</td>
@@ -58,16 +63,35 @@
                 </td>
                 <td class="actions">
                     <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=plan['jugador_id']) }}">Cuotas</a>
+                    {% if puede('planes_pago_gestionar') %}
+                        <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
+                    {% endif %}
                     {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
                         <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
                             <input type="hidden" name="estado" value="Cumplido">
                             <button class="button secondary" type="submit">Cumplido</button>
                         </form>
                         <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
                             <input type="hidden" name="estado" value="Caido">
                             <button class="button danger" type="submit">Caido</button>
+                        </form>
+                    {% elif puede('planes_pago_gestionar') %}
+                        <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <input type="hidden" name="estado" value="Activo">
+                            <button class="button secondary" type="submit">Reactivar</button>
+                        </form>
+                    {% endif %}
+                    {% if puede('planes_pago_gestionar') %}
+                        <form method="post" action="{{ url_for('eliminar_plan_pago', plan_id=plan['id']) }}" onsubmit="return confirm('Eliminar este plan y restaurar las cuotas incluidas?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button class="button danger" type="submit">Eliminar</button>
                         </form>
                     {% endif %}
                 </td>

@@ -1,43 +1,93 @@
 {% extends "base.html" %}
 
-{% block title %}Nuevo plan de pago{% endblock %}
+{% set es_edicion = modo == 'editar' %}
+
+{% block title %}{% if es_edicion %}Editar plan de pago{% else %}Nuevo plan de pago{% endif %}{% endblock %}
 
 {% block content %}
-<h2>Nuevo plan de pago</h2>
+<h2>{% if es_edicion %}Editar plan de pago{% else %}Nuevo plan de pago{% endif %}</h2>
 
 <form method="post" class="card form-card form-card-medium">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <p><strong>Jugador:</strong> {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</p>
-    <p><strong>Deuda actual:</strong> {{ deuda | moneda }}</p>
 
     <div class="field">
-        <label>Fecha de inicio</label>
-        <input type="date" name="fecha_inicio" value="{{ now().strftime('%Y-%m-%d') }}">
+        <label>{% if es_edicion %}Fecha de inicio{% else %}Inicio del recargo mensual{% endif %}</label>
+        <input type="date" name="fecha_inicio" value="{{ plan['fecha_inicio'] if es_edicion and plan else now().strftime('%Y-%m-%d') }}">
     </div>
 
-    <div class="field">
-        <label>Monto total</label>
-        <input type="number" name="monto_total" min="0" step="0.01" value="{{ deuda }}" required>
-    </div>
+    {% if es_edicion %}
+        <div class="field">
+            <label>Monto total</label>
+            <input type="number" name="monto_total" min="0" step="0.01" value="{{ plan['monto_total'] if plan else deuda }}" required>
+        </div>
+    {% else %}
+        <input type="hidden" name="monto_total" value="{{ deuda }}">
+        <div class="field">
+            <label>Cuotas incluidas</label>
+            {% if cuotas_impagas %}
+                <div class="table-wrapper flush">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Periodo</th>
+                                <th>Vencimiento</th>
+                                <th>Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuota in cuotas_impagas %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="cuotas_incluidas" value="{{ cuota['id'] }}" checked>
+                                </td>
+                                <td>{{ cuota['periodo'] }}</td>
+                                <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                                <td>{{ cuota['importe'] | moneda }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p><strong>Total disponible:</strong> {{ deuda | moneda }}</p>
+            {% else %}
+                <p>No hay cuotas impagas disponibles para incluir.</p>
+            {% endif %}
+        </div>
+    {% endif %}
 
     <div class="field">
-        <label>Cantidad de cuotas</label>
-        <input type="number" name="cantidad_cuotas" min="1" step="1" value="1" required>
+        <label>Cantidad de cuotas del plan</label>
+        <input type="number" name="cantidad_cuotas" min="1" step="1" value="{{ plan['cantidad_cuotas'] if es_edicion and plan else 1 }}" required>
     </div>
+
+    {% if es_edicion %}
+        <div class="field">
+            <label>Estado</label>
+            <select name="estado">
+                <option value="Activo" {% if plan and plan['estado'] == 'Activo' %}selected{% endif %}>Activo</option>
+                <option value="Cumplido" {% if plan and plan['estado'] == 'Cumplido' %}selected{% endif %}>Cumplido</option>
+                <option value="Caido" {% if plan and plan['estado'] == 'Caido' %}selected{% endif %}>Caido</option>
+            </select>
+        </div>
+    {% endif %}
 
     <div class="field">
         <label>Descripcion</label>
-        <input type="text" name="descripcion" placeholder="Ej: acuerdo de regularizacion">
+        <input type="text" name="descripcion" placeholder="Ej: acuerdo de regularizacion" value="{{ plan['descripcion'] if es_edicion and plan else '' }}">
     </div>
 
     <div class="field">
         <label>Observaciones</label>
-        <textarea name="observaciones" rows="4"></textarea>
+        <textarea name="observaciones" rows="4">{{ plan['observaciones'] if es_edicion and plan else '' }}</textarea>
     </div>
 
     <div class="actions-row">
-        <button class="button" type="submit">Crear plan</button>
-        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cancelar</a>
+        <button class="button" type="submit" {% if not es_edicion and not cuotas_impagas %}disabled{% endif %}>
+            {% if es_edicion %}Guardar plan{% else %}Crear plan{% endif %}
+        </button>
+        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['jugador_id'] if es_edicion else jugador['id']) }}">Cancelar</a>
     </div>
 </form>
 {% endblock %}

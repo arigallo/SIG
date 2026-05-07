@@ -299,6 +299,7 @@
                             <th>Monto</th>
                             <th>Cuotas</th>
                             <th>Estado</th>
+                            <th>Accion</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -308,6 +309,13 @@
                             <td>{{ plan['monto_total'] | moneda }}</td>
                             <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
                             <td>{{ plan['estado'] }}</td>
+                            <td>
+                                {% if puede('planes_pago_gestionar') %}
+                                    <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -353,7 +361,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if cuota['becada'] and cuota['importe'] == 0 %}
+                            {% if cuota['anulada'] %}
+                                <span class="badge badge-muted">Anulada</span>
+                            {% elif cuota['becada'] and cuota['importe'] == 0 %}
                                 <span class="status-paid">Becada</span>
                             {% elif cuota['pagado'] %}
                                 <span class="status-paid">Pagado</span>
@@ -364,7 +374,9 @@
                         <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
                         <td>{{ cuota['metodo_pago'] or '-' }}</td>
                         <td>
-                            {% if not cuota['pagado'] %}
+                            {% if cuota['anulada'] %}
+                                -
+                            {% elif not cuota['pagado'] %}
                                 <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Registrar pago</a>
                             {% else %}
                                 -
