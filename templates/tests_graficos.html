@@ -99,6 +99,76 @@
 
 <div class="page-section">
     <div class="section-header">
+        <h3>Comparativo por fecha</h3>
+        {% if test_actual %}
+            <span class="report-note">
+                {% if comparativo['mayor_es_mejor'] %}
+                    Mayor valor es mejor
+                {% else %}
+                    Menor valor es mejor
+                {% endif %}
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="table-wrapper">
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    {% for fecha in comparativo['fechas'] %}
+                        <th>{{ fecha }}</th>
+                    {% endfor %}
+                    <th>Ultimo cambio</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in comparativo['filas'] %}
+                <tr>
+                    <td>{{ fila['nombre'] }}</td>
+                    <td>{{ fila['categoria'] }}</td>
+                    {% for fecha in comparativo['fechas'] %}
+                        <td class="{% if fila['ordenados'] and fecha == fila['ordenados'][-1]['fecha'] %}latest-value{% endif %}">
+                            {% if fecha in fila['valores'] %}
+                                {{ fila['valores'][fecha] }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td>
+                        {% if fila['delta'] is not none %}
+                            {% if fila['delta'] > 0 %}+{% endif %}{{ fila['delta'] }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if fila['estado'] == 'mejora' %}
+                            <span class="badge badge-success">{{ fila['estado_label'] }}</span>
+                        {% elif fila['estado'] == 'empeora' %}
+                            <span class="badge badge-danger">{{ fila['estado_label'] }}</span>
+                        {% elif fila['estado'] == 'igual' %}
+                            <span class="badge badge-warning">{{ fila['estado_label'] }}</span>
+                        {% else %}
+                            <span class="badge badge-muted">{{ fila['estado_label'] }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{{ 4 + (comparativo['fechas']|length) }}" class="empty">No hay datos comparativos para mostrar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
         <h3>Datos del grafico</h3>
     </div>
     <div class="table-wrapper">

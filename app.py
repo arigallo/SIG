@@ -1499,7 +1499,8 @@ def obtener_reportes(desde, hasta):
             COALESCE(SUM(
                 CASE
                     WHEN fecha_vencimiento IS NOT NULL
-                     AND fecha_vencimiento <> ''
+                     AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+                     AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND fecha_vencimiento::date < CURRENT_DATE
                     THEN importe
                     ELSE 0
@@ -1614,7 +1615,8 @@ def obtener_reportes(desde, hasta):
             COALESCE(SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN c.importe
                     ELSE 0
@@ -1654,14 +1656,15 @@ def obtener_reportes(desde, hasta):
             SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1
                     ELSE 0
                 END
             ) AS cuotas_vencidas,
             COALESCE(SUM(c.importe), 0) AS deuda,
-            MIN(NULLIF(c.fecha_vencimiento, '')) AS primer_vencimiento
+            MIN(NULLIF(c.fecha_vencimiento::text, '')) AS primer_vencimiento
         FROM jugadores j
         JOIN cuotas c ON c.jugador_id = j.id
         WHERE c.pagado = 0
@@ -1785,7 +1788,7 @@ def obtener_alertas():
         WHERE c.pagado = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
-          AND c.fecha_vencimiento <> ''
+          AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
           AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -1808,7 +1811,7 @@ def obtener_alertas():
         WHERE c.pagado = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
-          AND c.fecha_vencimiento <> ''
+          AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
           AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -1826,7 +1829,7 @@ def obtener_alertas():
         FROM fichas_medicas f
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
-          AND f.fecha_vencimiento <> ''
+          AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
           AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -1844,7 +1847,7 @@ def obtener_alertas():
         FROM fichas_medicas f
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
-          AND f.fecha_vencimiento <> ''
+          AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
           AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2101,7 +2104,7 @@ def obtener_panel_salud():
         FROM documentos_jugadores d
         JOIN jugadores j ON j.id = d.jugador_id
         WHERE d.fecha_vencimiento IS NOT NULL
-          AND d.fecha_vencimiento <> ''
+          AND NULLIF(d.fecha_vencimiento::text, '') IS NOT NULL
           AND d.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND d.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
         ORDER BY d.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2236,7 +2239,7 @@ def obtener_calendario(mes):
         WHERE c.pagado = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
-          AND c.fecha_vencimiento <> ''
+          AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
           AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento >= %s
           AND c.fecha_vencimiento < %s
@@ -2254,7 +2257,7 @@ def obtener_calendario(mes):
         FROM fichas_medicas f
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
-          AND f.fecha_vencimiento <> ''
+          AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
           AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento >= %s
           AND f.fecha_vencimiento < %s
@@ -2378,7 +2381,7 @@ def obtener_morosos_para_comunicacion():
             SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
                      AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1
@@ -2386,7 +2389,7 @@ def obtener_morosos_para_comunicacion():
                 END
             ) AS cuotas_vencidas,
             COALESCE(SUM(c.importe), 0) AS deuda,
-            MIN(NULLIF(c.fecha_vencimiento, '')) AS primer_vencimiento
+            MIN(NULLIF(c.fecha_vencimiento::text, '')) AS primer_vencimiento
         FROM jugadores j
         JOIN cuotas c ON c.jugador_id = j.id
         WHERE c.pagado = 0
@@ -2419,7 +2422,7 @@ def obtener_notificaciones_operativas():
         WHERE c.pagado = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
-          AND c.fecha_vencimiento <> ''
+          AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
           AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2442,7 +2445,7 @@ def obtener_notificaciones_operativas():
         WHERE c.pagado = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
-          AND c.fecha_vencimiento <> ''
+          AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
           AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date >= CURRENT_DATE
           AND c.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '7 days'
@@ -2459,8 +2462,8 @@ def obtener_notificaciones_operativas():
             j.telefono_tutor,
             f.fecha_vencimiento,
             CASE
-                WHEN f.fecha_vencimiento IS NULL OR f.fecha_vencimiento = '' THEN 'faltante'
-                WHEN f.fecha_vencimiento !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'faltante'
+                WHEN NULLIF(f.fecha_vencimiento::text, '') IS NULL THEN 'faltante'
+                WHEN f.fecha_vencimiento::text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'faltante'
                 WHEN f.fecha_vencimiento::date < CURRENT_DATE THEN 'vencida'
                 WHEN f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'
                 ELSE 'vigente'
@@ -2471,7 +2474,7 @@ def obtener_notificaciones_operativas():
           AND (
               f.id IS NULL
               OR f.fecha_vencimiento IS NULL
-              OR f.fecha_vencimiento = ''
+              OR NULLIF(f.fecha_vencimiento::text, '') IS NULL
               OR (
                   f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                   AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
@@ -2565,7 +2568,7 @@ def obtener_contador_notificaciones():
                     WHERE c.pagado = 0
                       AND COALESCE(c.importe, 0) > 0
                       AND c.fecha_vencimiento IS NOT NULL
-                      AND c.fecha_vencimiento <> ''
+                      AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
                       AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                       AND c.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '7 days'
                 ) AS cuotas,
@@ -2575,7 +2578,7 @@ def obtener_contador_notificaciones():
                     JOIN jugadores j ON j.id = f.jugador_id
                     WHERE j.estado = 'Activo'
                       AND f.fecha_vencimiento IS NOT NULL
-                      AND f.fecha_vencimiento <> ''
+                      AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
                       AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                       AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
                 ) AS fichas,
@@ -2945,18 +2948,18 @@ def parsear_puntaje_test(valor):
         return None
 
 
-def normalizar_fecha_test(valor):
+def normalizar_fecha_test(valor, usar_hoy_si_vacia=True):
     if isinstance(valor, datetime):
         return valor.strftime("%Y-%m-%d")
     texto = str(valor or "").strip()
     if not texto:
-        return datetime.now().strftime("%Y-%m-%d")
+        return datetime.now().strftime("%Y-%m-%d") if usar_hoy_si_vacia else None
     for formato in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
         try:
             return datetime.strptime(texto[:10], formato).strftime("%Y-%m-%d")
         except ValueError:
             continue
-    return validar_fecha_movimiento(texto) or datetime.now().strftime("%Y-%m-%d")
+    return validar_fecha_movimiento(texto)
 
 
 def obtener_test_tipos(conn, solo_activos=True):
@@ -3111,6 +3114,67 @@ def construir_grafico_tests(resultados):
         "inner_w": inner_w,
         "inner_h": inner_h,
         "eje_y": eje_y,
+    }
+
+
+def construir_comparativo_tests(resultados, test_actual):
+    fechas = sorted({fila["fecha"] for fila in resultados if fila["fecha"]})
+    mayor_es_mejor = True
+    if test_actual is not None:
+        mayor_es_mejor = bool(test_actual["mayor_es_mejor"])
+
+    agrupado = {}
+    for fila in resultados:
+        jugador_id = fila["jugador_id"]
+        jugador = agrupado.setdefault(jugador_id, {
+            "jugador_id": jugador_id,
+            "nombre": f"{fila['apellido']}, {fila['nombre']}",
+            "categoria": fila["categoria"] or "-",
+            "valores": {},
+            "ordenados": [],
+            "primero": None,
+            "ultimo": None,
+            "delta": None,
+            "estado": "sin_datos",
+            "estado_label": "Sin datos",
+        })
+        valor = float(fila["puntaje"] or 0)
+        punto = {"fecha": fila["fecha"], "valor": valor}
+        jugador["valores"][fila["fecha"]] = valor
+        jugador["ordenados"].append(punto)
+
+    filas = []
+    for jugador in agrupado.values():
+        jugador["ordenados"].sort(key=lambda item: item["fecha"])
+        if jugador["ordenados"]:
+            jugador["primero"] = jugador["ordenados"][0]["valor"]
+            jugador["ultimo"] = jugador["ordenados"][-1]["valor"]
+
+        if len(jugador["ordenados"]) >= 2:
+            anterior = jugador["ordenados"][-2]["valor"]
+            ultimo = jugador["ultimo"]
+            delta = ultimo - anterior
+            jugador["delta"] = round(delta, 2)
+            if delta == 0:
+                jugador["estado"] = "igual"
+                jugador["estado_label"] = "Sin cambio"
+            elif (delta > 0 and mayor_es_mejor) or (delta < 0 and not mayor_es_mejor):
+                jugador["estado"] = "mejora"
+                jugador["estado_label"] = "Mejora"
+            else:
+                jugador["estado"] = "empeora"
+                jugador["estado_label"] = "Empeora"
+        elif jugador["ordenados"]:
+            jugador["estado"] = "unico"
+            jugador["estado_label"] = "Sin comparar"
+
+        filas.append(jugador)
+
+    filas.sort(key=lambda item: (item["categoria"], item["nombre"]))
+    return {
+        "fechas": fechas,
+        "filas": filas,
+        "mayor_es_mejor": mayor_es_mejor,
     }
 
 
@@ -4734,7 +4798,8 @@ def index():
             SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1
                     ELSE 0
@@ -4758,7 +4823,8 @@ def index():
         FROM jugadores j
         JOIN fichas_medicas f ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
-          AND f.fecha_vencimiento <> ''
+          AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
+          AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
     """).fetchall()
@@ -4830,7 +4896,8 @@ def index():
     ORDER BY
         CASE
             WHEN c.fecha_vencimiento IS NOT NULL
-             AND c.fecha_vencimiento <> ''
+             AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+             AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
              AND c.fecha_vencimiento::date < CURRENT_DATE
             THEN 0
             ELSE 1
@@ -5349,7 +5416,11 @@ def revisar_fichas_medicas_batch(batch_id):
                     VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (jugador_id) DO UPDATE SET
                         presentada = 1,
-                        fecha_vencimiento = COALESCE(NULLIF(EXCLUDED.fecha_vencimiento, ''), fichas_medicas.fecha_vencimiento),
+                        fecha_vencimiento = CASE
+                            WHEN NULLIF(EXCLUDED.fecha_vencimiento::text, '') IS NULL
+                            THEN fichas_medicas.fecha_vencimiento
+                            ELSE EXCLUDED.fecha_vencimiento
+                        END,
                         apto_fisico = EXCLUDED.apto_fisico,
                         contacto_emergencia = COALESCE(NULLIF(EXCLUDED.contacto_emergencia, ''), fichas_medicas.contacto_emergencia),
                         telefono_emergencia = COALESCE(NULLIF(EXCLUDED.telefono_emergencia, ''), fichas_medicas.telefono_emergencia),
@@ -5546,7 +5617,7 @@ def ver_documentos_vencidos():
         FROM documentos_jugadores d
         JOIN jugadores j ON j.id = d.jugador_id
         WHERE d.fecha_vencimiento IS NOT NULL
-          AND d.fecha_vencimiento <> ''
+          AND NULLIF(d.fecha_vencimiento::text, '') IS NOT NULL
           AND d.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND d.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
         ORDER BY d.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -5562,8 +5633,8 @@ def ver_documentos_vencidos():
             f.presentada,
             CASE
                 WHEN f.id IS NULL THEN 'faltante'
-                WHEN f.fecha_vencimiento IS NULL OR f.fecha_vencimiento = '' THEN 'sin_vencimiento'
-                WHEN f.fecha_vencimiento !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'sin_vencimiento'
+                WHEN NULLIF(f.fecha_vencimiento::text, '') IS NULL THEN 'sin_vencimiento'
+                WHEN f.fecha_vencimiento::text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'sin_vencimiento'
                 WHEN f.fecha_vencimiento::date < CURRENT_DATE THEN 'vencida'
                 WHEN f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'
                 ELSE 'vigente'
@@ -5574,7 +5645,7 @@ def ver_documentos_vencidos():
           AND (
               f.id IS NULL
               OR f.fecha_vencimiento IS NULL
-              OR f.fecha_vencimiento = ''
+              OR NULLIF(f.fecha_vencimiento::text, '') IS NULL
               OR (
                   f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                   AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
@@ -8671,7 +8742,7 @@ def exportar_datos_integral():
             SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
                      AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1 ELSE 0
@@ -9064,7 +9135,8 @@ def exportar_morosos():
             SUM(
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
-                     AND c.fecha_vencimiento <> ''
+                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1
                     ELSE 0
@@ -10633,7 +10705,7 @@ def importar_test_resultados():
             puntaje = parsear_puntaje_test(
                 datos.get("puntaje") or datos.get("score") or datos.get("valor") or datos.get("resultado")
             )
-            fecha = normalizar_fecha_test(datos.get("fecha"))
+            fecha = normalizar_fecha_test(datos.get("fecha"), usar_hoy_si_vacia=False)
             observaciones = str(datos.get("observaciones") or datos.get("obs") or "").strip()
 
             test_id = test_id_fijo
@@ -10646,6 +10718,8 @@ def importar_test_resultados():
                 errores_fila.append("Revisar jugador")
             if not test_id:
                 errores_fila.append("Revisar test")
+            if not fecha:
+                errores_fila.append("Revisar fecha")
             if puntaje is None:
                 errores_fila.append("Revisar puntaje")
 
@@ -10713,7 +10787,7 @@ def revisar_test_importacion(batch_id):
 
             jugador_id = request.form.get(f"jugador_id_{item_id}", "").strip()
             test_id = request.form.get(f"test_id_{item_id}", "").strip()
-            fecha = normalizar_fecha_test(request.form.get(f"fecha_{item_id}"))
+            fecha = normalizar_fecha_test(request.form.get(f"fecha_{item_id}"), usar_hoy_si_vacia=False)
             puntaje = parsear_puntaje_test(request.form.get(f"puntaje_{item_id}"))
             observaciones = request.form.get(f"observaciones_{item_id}", "").strip()
 
@@ -10725,6 +10799,10 @@ def revisar_test_importacion(batch_id):
                 errores += 1
                 flash(f"La fila #{item_id} no tiene test asignado.", "error")
                 continue
+            if not fecha:
+                errores += 1
+                flash(f"La fila #{item_id} no tiene fecha valida.", "error")
+                continue
             if puntaje is None:
                 errores += 1
                 flash(f"La fila #{item_id} no tiene puntaje valido.", "error")
@@ -10734,6 +10812,7 @@ def revisar_test_importacion(batch_id):
                 SELECT *
                 FROM test_importaciones_batch
                 WHERE id = %s AND batch_id = %s AND estado = 'pendiente'
+                FOR UPDATE
             """, (item_id, batch_id)).fetchone()
 
             jugador = conn.execute("""
@@ -10900,8 +10979,9 @@ def graficos_tests():
             ORDER BY j.apellido, j.nombre, r.fecha
         """, params).fetchall()
 
-    grafico = construir_grafico_tests(resultados)
     test_actual = next((test for test in tests if test["id"] == test_id), None)
+    grafico = construir_grafico_tests(resultados)
+    comparativo = construir_comparativo_tests(resultados, test_actual)
 
     conn.close()
     return render_template(
@@ -10915,6 +10995,7 @@ def graficos_tests():
         desde=desde or "",
         hasta=hasta or "",
         grafico=grafico,
+        comparativo=comparativo,
         resultados=resultados,
         test_id=test_id,
     )
