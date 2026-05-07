@@ -1786,7 +1786,7 @@ def obtener_alertas():
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND c.fecha_vencimiento <> ''
-          AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 25
@@ -1809,7 +1809,7 @@ def obtener_alertas():
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND c.fecha_vencimiento <> ''
-          AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 25
@@ -1827,7 +1827,7 @@ def obtener_alertas():
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
           AND f.fecha_vencimiento <> ''
-          AND f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 25
@@ -1845,7 +1845,7 @@ def obtener_alertas():
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
           AND f.fecha_vencimiento <> ''
-          AND f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 25
@@ -2008,14 +2008,14 @@ def obtener_panel_salud():
             SUM(CASE WHEN f.id IS NOT NULL AND COALESCE(f.apto_fisico, 0) = 0 THEN 1 ELSE 0 END) AS no_aptos,
             SUM(
                 CASE
-                    WHEN f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                    WHEN f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND f.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1 ELSE 0
                 END
             ) AS vencidas,
             SUM(
                 CASE
-                    WHEN f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                    WHEN f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND f.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
                     THEN 1 ELSE 0
                 END
@@ -2034,14 +2034,14 @@ def obtener_panel_salud():
             SUM(CASE WHEN f.id IS NULL OR COALESCE(f.presentada, 0) = 0 THEN 1 ELSE 0 END) AS faltantes,
             SUM(
                 CASE
-                    WHEN f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                    WHEN f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND f.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1 ELSE 0
                 END
             ) AS vencidas,
             SUM(
                 CASE
-                    WHEN f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                    WHEN f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND f.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
                     THEN 1 ELSE 0
                 END
@@ -2102,7 +2102,7 @@ def obtener_panel_salud():
         JOIN jugadores j ON j.id = d.jugador_id
         WHERE d.fecha_vencimiento IS NOT NULL
           AND d.fecha_vencimiento <> ''
-          AND d.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND d.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND d.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
         ORDER BY d.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 40
@@ -2167,7 +2167,7 @@ def obtener_estado_sistema_admin():
                 (
                     SELECT COUNT(*)
                     FROM fichas_medicas
-                    WHERE fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                    WHERE fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                       AND fecha_vencimiento::date < CURRENT_DATE
                 ) AS fichas_vencidas,
                 (SELECT COUNT(*) FROM auditoria) AS auditoria_registros
@@ -2237,7 +2237,7 @@ def obtener_calendario(mes):
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND c.fecha_vencimiento <> ''
-          AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento >= %s
           AND c.fecha_vencimiento < %s
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2255,7 +2255,7 @@ def obtener_calendario(mes):
         JOIN jugadores j ON j.id = f.jugador_id
         WHERE f.fecha_vencimiento IS NOT NULL
           AND f.fecha_vencimiento <> ''
-          AND f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND f.fecha_vencimiento >= %s
           AND f.fecha_vencimiento < %s
         ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2379,7 +2379,7 @@ def obtener_morosos_para_comunicacion():
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
                      AND c.fecha_vencimiento <> ''
-                     AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1
                     ELSE 0
@@ -2420,7 +2420,7 @@ def obtener_notificaciones_operativas():
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND c.fecha_vencimiento <> ''
-          AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date < CURRENT_DATE
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
         LIMIT 50
@@ -2443,7 +2443,7 @@ def obtener_notificaciones_operativas():
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND c.fecha_vencimiento <> ''
-          AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND c.fecha_vencimiento::date >= CURRENT_DATE
           AND c.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '7 days'
         ORDER BY c.fecha_vencimiento ASC, j.apellido, j.nombre
@@ -2473,7 +2473,7 @@ def obtener_notificaciones_operativas():
               OR f.fecha_vencimiento IS NULL
               OR f.fecha_vencimiento = ''
               OR (
-                  f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                  f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                   AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
               )
           )
@@ -2566,7 +2566,7 @@ def obtener_contador_notificaciones():
                       AND COALESCE(c.importe, 0) > 0
                       AND c.fecha_vencimiento IS NOT NULL
                       AND c.fecha_vencimiento <> ''
-                      AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                      AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                       AND c.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '7 days'
                 ) AS cuotas,
                 (
@@ -2576,7 +2576,7 @@ def obtener_contador_notificaciones():
                     WHERE j.estado = 'Activo'
                       AND f.fecha_vencimiento IS NOT NULL
                       AND f.fecha_vencimiento <> ''
-                      AND f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                      AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                       AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
                 ) AS fichas,
                 (
@@ -5547,7 +5547,7 @@ def ver_documentos_vencidos():
         JOIN jugadores j ON j.id = d.jugador_id
         WHERE d.fecha_vencimiento IS NOT NULL
           AND d.fecha_vencimiento <> ''
-          AND d.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND d.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           AND d.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
         ORDER BY d.fecha_vencimiento ASC, j.apellido, j.nombre
     """).fetchall()
@@ -5576,7 +5576,7 @@ def ver_documentos_vencidos():
               OR f.fecha_vencimiento IS NULL
               OR f.fecha_vencimiento = ''
               OR (
-                  f.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                  f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                   AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
               )
           )
@@ -6205,7 +6205,7 @@ def importar_jugadores():
     if check:
         return check
 
-    batches_recientes = obtener_test_importaciones_batch_recientes(conn)
+    resultado = None
 
     if request.method == "POST":
         archivo = request.files.get("archivo")
@@ -7285,7 +7285,7 @@ def conciliar_pagos():
     if check:
         return check
 
-    batches_recientes = obtener_test_importaciones_batch_recientes(conn)
+    resultado = None
     matches = []
     matches_json = ""
 
@@ -8672,7 +8672,7 @@ def exportar_datos_integral():
                 CASE
                     WHEN c.fecha_vencimiento IS NOT NULL
                      AND c.fecha_vencimiento <> ''
-                     AND c.fecha_vencimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                      AND c.fecha_vencimiento::date < CURRENT_DATE
                     THEN 1 ELSE 0
                 END
@@ -10580,7 +10580,7 @@ def importar_test_resultados():
 
     conn = get_connection()
     tests = obtener_test_tipos(conn, solo_activos=True)
-    resultado = None
+    batches_recientes = obtener_test_importaciones_batch_recientes(conn)
 
     if request.method == "POST":
         archivo = request.files.get("archivo")
