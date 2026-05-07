@@ -6924,6 +6924,7 @@ def pagar_cuota(cuota_id):
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.id = %s
+        FOR UPDATE
     """, (cuota_id,)).fetchone()
 
     if cuota is None:
@@ -6961,6 +6962,9 @@ def pagar_cuota(cuota_id):
         nuevo_numero = cuota["numero_recibo"] or siguiente_numero_recibo(conn)
         comprobante_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None
         comprobante_usuario = session.get("username") if comprobante_info else None
+        hay_comprobante = bool(comprobante_info or cuota.get("comprobante_drive_file_id"))
+        revisado_en = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if hay_comprobante else None
+        revisado_por = session.get("username") if hay_comprobante else None
 
         conn.execute("""
             UPDATE cuotas
@@ -6977,19 +6981,19 @@ def pagar_cuota(cuota_id):
                 comprobante_usuario = COALESCE(%s, comprobante_usuario),
                 comprobante_web_url = COALESCE(%s, comprobante_web_url),
                 comprobante_estado = CASE
-                    WHEN %s IS NOT NULL THEN 'aceptado'
+                    WHEN COALESCE(%s, comprobante_drive_file_id) IS NOT NULL THEN 'aceptado'
                     ELSE comprobante_estado
                 END,
                 comprobante_revisado_en = CASE
-                    WHEN %s IS NOT NULL THEN %s
+                    WHEN COALESCE(%s, comprobante_drive_file_id) IS NOT NULL THEN %s
                     ELSE comprobante_revisado_en
                 END,
                 comprobante_revisado_por = CASE
-                    WHEN %s IS NOT NULL THEN %s
+                    WHEN COALESCE(%s, comprobante_drive_file_id) IS NOT NULL THEN %s
                     ELSE comprobante_revisado_por
                 END,
                 comprobante_observaciones = CASE
-                    WHEN %s IS NOT NULL THEN NULL
+                    WHEN COALESCE(%s, comprobante_drive_file_id) IS NOT NULL THEN NULL
                     ELSE comprobante_observaciones
                 END
             WHERE id = %s
@@ -7006,9 +7010,9 @@ def pagar_cuota(cuota_id):
             comprobante_info["web_url"] if comprobante_info else None,
             comprobante_info["file_id"] if comprobante_info else None,
             comprobante_info["file_id"] if comprobante_info else None,
-            comprobante_fecha,
+            revisado_en,
             comprobante_info["file_id"] if comprobante_info else None,
-            comprobante_usuario,
+            revisado_por,
             comprobante_info["file_id"] if comprobante_info else None,
             cuota_id,
         ))
