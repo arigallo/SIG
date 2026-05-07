@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Graficos de tests{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Graficos de tests</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_tests') }}">Tests</a>
+        {% if test_actual and puede('tests_gestionar') %}
+            <a class="button" href="{{ url_for('cargar_test_resultados', test_id=test_actual['id']) }}">Cargar</a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="get" class="card">
+    <div class="report-filter-grid">
+        <label>
+            Test
+            <select name="test_id">
+                {% for test in tests %}
+                    <option value="{{ test['id'] }}" {% if test['id'] == test_id %}selected{% endif %}>{{ test['nombre'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Categoria
+            <select name="categoria">
+                <option value="">Todas</option>
+                {% for item in categorias %}
+                    <option value="{{ item['categoria'] }}" {% if item['categoria'] == categoria %}selected{% endif %}>{{ item['categoria'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Desde
+            <input type="date" name="desde" value="{{ desde }}">
+        </label>
+        <label>
+            Hasta
+            <input type="date" name="hasta" value="{{ hasta }}">
+        </label>
+        <label class="full">
+            Jugadores
+            <select name="jugadores" multiple size="8">
+                {% for jugador in jugadores %}
+                    <option value="{{ jugador['id'] }}" {% if jugador['id'] in jugadores_seleccionados %}selected{% endif %}>
+                        {{ jugador['categoria'] or '-' }} - {{ jugador['apellido'] }}, {{ jugador['nombre'] }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <div class="actions">
+        <button class="button" type="submit">Actualizar grafico</button>
+        <a class="button secondary" href="{{ url_for('graficos_tests', test_id=test_id) }}">Ver todos</a>
+    </div>
+</form>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>{{ test_actual['nombre'] if test_actual else 'Sin test seleccionado' }}</h3>
+        {% if test_actual %}
+            <span class="report-note">{{ test_actual['unidad'] or 'Puntaje' }}</span>
+        {% endif %}
+    </div>
+
+    {% if grafico['series'] %}
+        <div class="test-chart">
+            <svg viewBox="0 0 {{ grafico['svg_width'] }} {{ grafico['svg_height'] }}" role="img" aria-label="Grafico de evolucion de tests">
+                {% for marca in grafico['eje_y'] %}
+                    <line class="chart-grid-line" x1="{{ grafico['pad_left'] }}" y1="{{ marca['y'] }}" x2="{{ grafico['svg_width'] - grafico['pad_right'] }}" y2="{{ marca['y'] }}"></line>
+                    <text class="chart-axis-label" x="8" y="{{ marca['y'] + 4 }}">{{ marca['valor'] }}</text>
+                {% endfor %}
+                {% for serie in grafico['series'] %}
+                    <polyline class="chart-line" points="{{ serie['polyline'] }}" style="stroke: {{ serie['color'] }}"></polyline>
+                    {% for punto in serie['puntos'] %}
+                        <circle class="chart-point" cx="{{ punto['x'] }}" cy="{{ punto['y'] }}" r="4" style="fill: {{ serie['color'] }}">
+                            <title>{{ serie['nombre'] }} - {{ punto['fecha'] }}: {{ punto['valor'] }}</title>
+                        </circle>
+                    {% endfor %}
+                {% endfor %}
+            </svg>
+        </div>
+        <div class="chart-legend">
+            {% for serie in grafico['series'] %}
+                <span class="chart-legend-item">
+                    <span class="chart-color" style="background: {{ serie['color'] }}"></span>
+                    {{ serie['nombre'] }} ({{ serie['ultimo'] }})
+                </span>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <p>No hay mediciones para los filtros seleccionados.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Datos del grafico</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    <th>Puntaje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in resultados %}
+                <tr>
+                    <td>{{ item['fecha'] }}</td>
+                    <td>{{ item['apellido'] }}, {{ item['nombre'] }}</td>
+                    <td>{{ item['categoria'] or '-' }}</td>
+                    <td>{{ item['puntaje'] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay datos para mostrar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

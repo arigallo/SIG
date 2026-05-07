@@ -14,6 +14,9 @@
             <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
             <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
         {% endif %}
+        {% if puede_ver_tests %}
+            <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Tests</a>
+        {% endif %}
         {% if puede_ver_salud %}
             <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha médica</a>
             <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
@@ -427,6 +430,44 @@
         </div>
     </div>
     {% endif %}
+</div>
+{% endif %}
+
+{% if puede_ver_tests %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Tests deportivos</h3>
+        <div class="actions">
+            <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Ver graficos</a>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Test</th>
+                    <th>Puntaje</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resultado in tests_recientes %}
+                <tr>
+                    <td>{{ resultado['fecha'] }}</td>
+                    <td>{{ resultado['test_nombre'] }}</td>
+                    <td>{{ resultado['puntaje'] }} {{ resultado['unidad'] or '' }}</td>
+                    <td>{{ resultado['observaciones'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay tests cargados para este jugador.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endif %}
 

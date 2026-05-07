@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Importar tests{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Importar mediciones</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_tests') }}">Volver</a>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+        <label>
+            Test fijo
+            <select name="test_id">
+                <option value="">Usar columna test del Excel</option>
+                {% for test in tests %}
+                    <option value="{{ test['id'] }}">{{ test['nombre'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Archivo Excel
+            <input type="file" name="archivo" accept=".xlsx" required>
+        </label>
+    </div>
+    <p class="report-note">Columnas reconocidas: jugador/nombre_completo o nombre + apellido, fecha, puntaje/score/valor/resultado, observaciones y test si no elegis un test fijo.</p>
+    <div class="actions">
+        <button class="button" type="submit">Importar</button>
+    </div>
+</form>
+
+{% if batches_recientes %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Importaciones recientes</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Total</th>
+                    <th>Pendientes</th>
+                    <th>Procesadas</th>
+                    <th>Usuario</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for batch in batches_recientes %}
+                <tr>
+                    <td>{{ batch['creado_en'] }}</td>
+                    <td>{{ batch['total'] }}</td>
+                    <td>{{ batch['pendientes'] or 0 }}</td>
+                    <td>{{ batch['procesadas'] or 0 }}</td>
+                    <td>{{ batch['creado_por'] or '-' }}</td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('revisar_test_importacion', batch_id=batch['batch_id']) }}">Revisar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

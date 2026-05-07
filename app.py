@@ -345,6 +345,16 @@ PERMISOS = {
         "nombre": "Tomar asistencia",
         "descripcion": "Crear eventos y registrar asistencia.",
     },
+    "tests_ver": {
+        "grupo": "Deportivo",
+        "nombre": "Ver tests deportivos",
+        "descripcion": "Consulta de mediciones, rankings y graficos deportivos.",
+    },
+    "tests_gestionar": {
+        "grupo": "Deportivo",
+        "nombre": "Gestionar tests deportivos",
+        "descripcion": "Crear tests, cargar puntajes e importar mediciones.",
+    },
     "alertas_finanzas": {
         "grupo": "Alertas",
         "nombre": "Alertas financieras",
@@ -412,6 +422,8 @@ ROLE_PRESETS = {
         "calendario_gestionar",
         "asistencia_ver",
         "asistencia_gestionar",
+        "tests_ver",
+        "tests_gestionar",
     ],
 }
 
@@ -2916,6 +2928,192 @@ def mapear_fila_jugador(headers, row):
     return data
 
 
+def parsear_puntaje_test(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    texto = re.sub(r"[^0-9,.-]", "", texto)
+    if not texto:
+        return None
+    if "," in texto and "." in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif "," in texto:
+        texto = texto.replace(",", ".")
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+
+
+def normalizar_fecha_test(valor):
+    if isinstance(valor, datetime):
+        return valor.strftime("%Y-%m-%d")
+    texto = str(valor or "").strip()
+    if not texto:
+        return datetime.now().strftime("%Y-%m-%d")
+    for formato in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(texto[:10], formato).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return validar_fecha_movimiento(texto) or datetime.now().strftime("%Y-%m-%d")
+
+
+def obtener_test_tipos(conn, solo_activos=True):
+    where = "WHERE activo = 1" if solo_activos else ""
+    return conn.execute(f"""
+        SELECT *
+        FROM test_tipos
+        {where}
+        ORDER BY nombre
+    """).fetchall()
+
+
+def sugerir_jugador_por_nombre_test(datos, jugadores):
+    nombre_completo = str(
+        datos.get("jugador") or
+        datos.get("nombre_completo") or
+        datos.get("jugador_nombre") or
+        ""
+    ).strip()
+    nombre = str(datos.get("nombre") or "").strip()
+    apellido = str(datos.get("apellido") or "").strip()
+    texto = " ".join(parte for parte in (nombre_completo, apellido, nombre) if parte).strip()
+
+    if not texto:
+        return None, "sin_coincidencia", "Sin nombre"
+
+    texto_norm = normalizar_texto_match(texto)
+    candidatos = []
+    for jugador in jugadores:
+        nombre_tokens = normalizar_texto_match(jugador.get("nombre")).split()
+        apellido_tokens = normalizar_texto_match(jugador.get("apellido")).split()
+        tokens = [token for token in apellido_tokens + nombre_tokens if len(token) >= 3]
+        if not tokens:
+            continue
+
+        coincidencias = sum(1 for token in tokens if token in texto_norm)
+        jugador_nombre_completo = normalizar_texto_match(f"{jugador.get('apellido')} {jugador.get('nombre')}")
+        jugador_nombre_inverso = normalizar_texto_match(f"{jugador.get('nombre')} {jugador.get('apellido')}")
+
+        if texto_norm in {jugador_nombre_completo, jugador_nombre_inverso}:
+            candidatos.append((100, jugador, "alta", "Nombre completo exacto"))
+        elif coincidencias == len(tokens):
+            candidatos.append((90, jugador, "media", "Nombre y apellido detectados"))
+        elif apellido_tokens and all(token in texto_norm for token in apellido_tokens):
+            candidatos.append((70, jugador, "baja", "Apellido detectado"))
+
+    if not candidatos:
+        return None, "sin_coincidencia", "Sin coincidencia"
+
+    candidatos.sort(key=lambda item: item[0], reverse=True)
+    mejor = candidatos[0]
+    if len(candidatos) > 1 and candidatos[1][0] == mejor[0]:
+        return None, "baja", "Coincidencia ambigua"
+    return mejor[1], mejor[2], mejor[3]
+
+
+def obtener_test_importaciones_batch_recientes(conn):
+    return conn.execute("""
+        SELECT
+            batch_id,
+            MIN(creado_en) AS creado_en,
+            MAX(creado_por) AS creado_por,
+            COUNT(*) AS total,
+            SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) AS pendientes,
+            SUM(CASE WHEN estado = 'procesado' THEN 1 ELSE 0 END) AS procesadas,
+            MAX(id) AS ultimo_id
+        FROM test_importaciones_batch
+        GROUP BY batch_id
+        ORDER BY ultimo_id DESC
+        LIMIT 10
+    """).fetchall()
+
+
+def construir_grafico_tests(resultados):
+    if not resultados:
+        return {
+            "series": [],
+            "fechas": [],
+            "minimo": 0,
+            "maximo": 0,
+            "svg_width": 920,
+            "svg_height": 320,
+            "eje_y": [],
+        }
+
+    fechas = sorted({fila["fecha"] for fila in resultados if fila["fecha"]})
+    valores = [float(fila["puntaje"] or 0) for fila in resultados]
+    minimo = min(valores)
+    maximo = max(valores)
+    if minimo == maximo:
+        minimo -= 1
+        maximo += 1
+
+    width = 920
+    height = 320
+    pad_left = 54
+    pad_right = 24
+    pad_top = 22
+    pad_bottom = 42
+    inner_w = width - pad_left - pad_right
+    inner_h = height - pad_top - pad_bottom
+    palette = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c", "#0891b2", "#be123c", "#4f46e5"]
+
+    fecha_x = {}
+    total_fechas = max(1, len(fechas) - 1)
+    for index, fecha in enumerate(fechas):
+        fecha_x[fecha] = pad_left + (inner_w * index / total_fechas if len(fechas) > 1 else inner_w / 2)
+
+    agrupado = {}
+    for fila in resultados:
+        clave = fila["jugador_id"]
+        agrupado.setdefault(clave, {
+            "jugador_id": clave,
+            "nombre": f"{fila['apellido']}, {fila['nombre']}",
+            "categoria": fila["categoria"] or "-",
+            "puntos": [],
+        })
+        valor = float(fila["puntaje"] or 0)
+        y = pad_top + inner_h - ((valor - minimo) / (maximo - minimo) * inner_h)
+        agrupado[clave]["puntos"].append({
+            "fecha": fila["fecha"],
+            "valor": valor,
+            "x": round(fecha_x[fila["fecha"]], 2),
+            "y": round(y, 2),
+        })
+
+    series = []
+    for index, serie in enumerate(agrupado.values()):
+        serie["puntos"].sort(key=lambda item: item["fecha"])
+        serie["polyline"] = " ".join(f"{p['x']},{p['y']}" for p in serie["puntos"])
+        serie["color"] = palette[index % len(palette)]
+        serie["ultimo"] = serie["puntos"][-1]["valor"] if serie["puntos"] else None
+        series.append(serie)
+
+    eje_y = []
+    for index in range(5):
+        valor = maximo - ((maximo - minimo) * index / 4)
+        y = pad_top + inner_h * index / 4
+        eje_y.append({"valor": round(valor, 2), "y": round(y, 2)})
+
+    return {
+        "series": series,
+        "fechas": fechas,
+        "minimo": round(minimo, 2),
+        "maximo": round(maximo, 2),
+        "svg_width": width,
+        "svg_height": height,
+        "pad_left": pad_left,
+        "pad_right": pad_right,
+        "pad_top": pad_top,
+        "pad_bottom": pad_bottom,
+        "inner_w": inner_w,
+        "inner_h": inner_h,
+        "eje_y": eje_y,
+    }
+
+
 AUDIT_ENDPOINTS = {
     "nuevo_movimiento": ("crear", "movimiento_caja"),
     "editar_movimiento": ("editar", "movimiento_caja"),
@@ -2941,6 +3139,10 @@ AUDIT_ENDPOINTS = {
     "nuevo_plan_pago": ("crear", "plan_pago"),
     "actualizar_plan_pago": ("actualizar", "plan_pago"),
     "conciliar_pagos": ("conciliar", "cuotas"),
+    "nuevo_test_tipo": ("crear", "test_deportivo"),
+    "cargar_test_resultados": ("cargar", "test_deportivo"),
+    "importar_test_resultados": ("importar", "test_deportivo"),
+    "revisar_test_importacion": ("confirmar_importacion", "test_deportivo"),
     "editar_ficha_medica": ("editar", "ficha_medica"),
     "cargar_fichas_medicas_batch": ("cargar_batch", "ficha_medica"),
     "revisar_fichas_medicas_batch": ("confirmar_batch", "ficha_medica"),
@@ -3745,6 +3947,85 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS test_tipos (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT UNIQUE NOT NULL,
+            descripcion TEXT,
+            unidad TEXT,
+            puntaje_min REAL,
+            puntaje_max REAL,
+            mayor_es_mejor INTEGER DEFAULT 1,
+            activo INTEGER DEFAULT 1,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS test_resultados (
+            id SERIAL PRIMARY KEY,
+            test_id INTEGER NOT NULL,
+            jugador_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            puntaje REAL NOT NULL,
+            observaciones TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            FOREIGN KEY (test_id) REFERENCES test_tipos(id),
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_test_resultados_test_fecha
+        ON test_resultados (test_id, fecha DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_test_resultados_jugador
+        ON test_resultados (jugador_id, fecha DESC)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS test_importaciones_batch (
+            id SERIAL PRIMARY KEY,
+            batch_id TEXT NOT NULL,
+            estado TEXT DEFAULT 'pendiente',
+            fila INTEGER,
+            test_id INTEGER,
+            test_nombre TEXT,
+            jugador_sugerido_id INTEGER,
+            jugador_id INTEGER,
+            confianza TEXT,
+            motivo TEXT,
+            nombre_excel TEXT,
+            apellido_excel TEXT,
+            nombre_completo_excel TEXT,
+            fecha TEXT,
+            puntaje REAL,
+            observaciones TEXT,
+            error TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            procesado_en TIMESTAMPTZ,
+            procesado_por TEXT,
+            FOREIGN KEY (test_id) REFERENCES test_tipos(id),
+            FOREIGN KEY (jugador_sugerido_id) REFERENCES jugadores(id),
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_test_importaciones_batch_id
+        ON test_importaciones_batch (batch_id)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_test_importaciones_estado
+        ON test_importaciones_batch (estado)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS auditoria (
             id SERIAL PRIMARY KEY,
             fecha TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -4032,7 +4313,7 @@ def puede_ver_bitacora_tipo(tipo):
     if tipo == "salud":
         return tiene_permiso("salud_ver")
     if tipo == "deportivo":
-        return tiene_permiso("asistencia_ver", "calendario_ver")
+        return tiene_permiso("asistencia_ver", "calendario_ver", "tests_ver")
     return False
 
 
@@ -4044,7 +4325,7 @@ def puede_crear_bitacora_tipo(tipo):
     if tipo == "salud":
         return tiene_permiso("salud_gestionar")
     if tipo == "deportivo":
-        return tiene_permiso("asistencia_gestionar", "calendario_gestionar")
+        return tiene_permiso("asistencia_gestionar", "calendario_gestionar", "tests_gestionar")
     return False
 
 
@@ -5924,7 +6205,7 @@ def importar_jugadores():
     if check:
         return check
 
-    resultado = None
+    batches_recientes = obtener_test_importaciones_batch_recientes(conn)
 
     if request.method == "POST":
         archivo = request.files.get("archivo")
@@ -7004,7 +7285,7 @@ def conciliar_pagos():
     if check:
         return check
 
-    resultado = None
+    batches_recientes = obtener_test_importaciones_batch_recientes(conn)
     matches = []
     matches_json = ""
 
@@ -7472,6 +7753,7 @@ def detalle_jugador(jugador_id):
     puede_ver_finanzas = tiene_permiso("cuotas_ver")
     puede_ver_salud = tiene_permiso("salud_ver")
     puede_ver_asistencia = tiene_permiso("asistencia_ver")
+    puede_ver_tests = tiene_permiso("tests_ver")
     puede_gestionar_portal = tiene_permiso("portal_jugador_gestionar")
 
     conn = get_connection()
@@ -7610,6 +7892,20 @@ def detalle_jugador(jugador_id):
         LIMIT 40
     """, (jugador_id,)).fetchall()
 
+    tests_recientes = []
+    if puede_ver_tests:
+        tests_recientes = conn.execute("""
+            SELECT
+                r.*,
+                t.nombre AS test_nombre,
+                t.unidad
+            FROM test_resultados r
+            JOIN test_tipos t ON t.id = r.test_id
+            WHERE r.jugador_id = %s
+            ORDER BY r.fecha DESC, r.id DESC
+            LIMIT 8
+        """, (jugador_id,)).fetchall()
+
     conn.close()
 
     asistencia_total = asistencia_resumen["total"] or 0
@@ -7657,6 +7953,8 @@ def detalle_jugador(jugador_id):
         puede_ver_finanzas=puede_ver_finanzas,
         puede_ver_salud=puede_ver_salud,
         puede_ver_asistencia=puede_ver_asistencia,
+        puede_ver_tests=puede_ver_tests,
+        tests_recientes=tests_recientes,
         puede_gestionar_portal=puede_gestionar_portal
         )
 
@@ -10102,6 +10400,524 @@ def cerrar_mes():
 
     flash(f"Mes {mes} cerrado correctamente.", "ok")
     return redirect(url_for("ver_caja", mes=mes))
+
+
+@app.route("/tests")
+def listar_tests():
+    check = permiso_requerido("tests_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+
+    tests = conn.execute("""
+        SELECT
+            t.*,
+            COUNT(r.id) AS mediciones,
+            COUNT(DISTINCT r.jugador_id) AS jugadores_medidos,
+            MAX(r.fecha) AS ultima_fecha
+        FROM test_tipos t
+        LEFT JOIN test_resultados r ON r.test_id = t.id
+        GROUP BY t.id
+        ORDER BY t.activo DESC, t.nombre
+    """).fetchall()
+
+    recientes = conn.execute("""
+        SELECT
+            r.*,
+            t.nombre AS test_nombre,
+            t.unidad,
+            j.apellido,
+            j.nombre,
+            j.categoria
+        FROM test_resultados r
+        JOIN test_tipos t ON t.id = r.test_id
+        JOIN jugadores j ON j.id = r.jugador_id
+        ORDER BY r.fecha DESC, r.id DESC
+        LIMIT 20
+    """).fetchall()
+
+    conn.close()
+
+    return render_template("tests.html", tests=tests, recientes=recientes)
+
+
+@app.route("/tests/nuevo", methods=["GET", "POST"])
+def nuevo_test_tipo():
+    check = permiso_requerido("tests_gestionar")
+    if check:
+        return check
+
+    if request.method == "POST":
+        nombre = request.form.get("nombre", "").strip()
+        descripcion = request.form.get("descripcion", "").strip()
+        unidad = request.form.get("unidad", "").strip()
+        puntaje_min = parsear_puntaje_test(request.form.get("puntaje_min"))
+        puntaje_max = parsear_puntaje_test(request.form.get("puntaje_max"))
+        mayor_es_mejor = 1 if request.form.get("mayor_es_mejor") else 0
+        activo = 1 if request.form.get("activo") else 0
+
+        if not nombre:
+            flash("El nombre del test es obligatorio.", "error")
+            return render_template("test_form.html", test=request.form)
+
+        if puntaje_min is not None and puntaje_max is not None and puntaje_min > puntaje_max:
+            flash("El puntaje minimo no puede ser mayor al maximo.", "error")
+            return render_template("test_form.html", test=request.form)
+
+        conn = get_connection()
+        try:
+            conn.execute("""
+                INSERT INTO test_tipos (
+                    nombre, descripcion, unidad, puntaje_min, puntaje_max,
+                    mayor_es_mejor, activo, creado_por
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                nombre,
+                descripcion,
+                unidad,
+                puntaje_min,
+                puntaje_max,
+                mayor_es_mejor,
+                activo,
+                session.get("username"),
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            conn.close()
+            flash("No se pudo crear el test. Revisá que el nombre no esté repetido.", "error")
+            return render_template("test_form.html", test=request.form)
+
+        conn.close()
+        flash("Test creado correctamente.", "ok")
+        return redirect(url_for("listar_tests"))
+
+    return render_template("test_form.html", test={"mayor_es_mejor": 1, "activo": 1})
+
+
+@app.route("/tests/<int:test_id>/cargar", methods=["GET", "POST"])
+def cargar_test_resultados(test_id):
+    check = permiso_requerido("tests_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+
+    test = conn.execute("""
+        SELECT *
+        FROM test_tipos
+        WHERE id = %s
+    """, (test_id,)).fetchone()
+
+    if test is None:
+        conn.close()
+        flash("Test no encontrado.", "error")
+        return redirect(url_for("listar_tests"))
+
+    jugadores = conn.execute("""
+        SELECT id, apellido, nombre, dni, categoria, estado
+        FROM jugadores
+        WHERE COALESCE(estado, 'Activo') <> 'Baja'
+        ORDER BY categoria, apellido, nombre
+    """).fetchall()
+
+    if request.method == "POST":
+        fecha = normalizar_fecha_test(request.form.get("fecha"))
+        cargados = 0
+        omitidos = 0
+
+        for jugador in jugadores:
+            puntaje = parsear_puntaje_test(request.form.get(f"puntaje_{jugador['id']}"))
+            observaciones = request.form.get(f"obs_{jugador['id']}", "").strip()
+
+            if puntaje is None:
+                omitidos += 1
+                continue
+
+            conn.execute("""
+                INSERT INTO test_resultados (
+                    test_id, jugador_id, fecha, puntaje, observaciones, creado_por
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                test_id,
+                jugador["id"],
+                fecha,
+                puntaje,
+                observaciones,
+                session.get("username"),
+            ))
+            cargados += 1
+
+        conn.commit()
+        conn.close()
+
+        if cargados:
+            flash(f"Se cargaron {cargados} mediciones.", "ok")
+            if omitidos:
+                flash(f"{omitidos} jugadores quedaron sin puntaje en esta carga.", "info")
+            return redirect(url_for("graficos_tests", test_id=test_id))
+
+        flash("No se cargaron puntajes. Completá al menos una medición.", "error")
+        return redirect(url_for("cargar_test_resultados", test_id=test_id))
+
+    conn.close()
+    return render_template(
+        "test_carga.html",
+        test=test,
+        jugadores=jugadores,
+        fecha_hoy=datetime.now().strftime("%Y-%m-%d"),
+    )
+
+
+@app.route("/tests/importar", methods=["GET", "POST"])
+def importar_test_resultados():
+    check = permiso_requerido("tests_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    tests = obtener_test_tipos(conn, solo_activos=True)
+    resultado = None
+
+    if request.method == "POST":
+        archivo = request.files.get("archivo")
+        test_id_form = request.form.get("test_id", "").strip()
+        test_id_fijo = int(test_id_form) if test_id_form.isdigit() else None
+
+        if not archivo or not archivo.filename:
+            flash("Seleccioná un archivo Excel para importar.", "error")
+            conn.close()
+            return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
+
+        try:
+            wb = load_workbook(archivo, read_only=True, data_only=True)
+            ws = wb.active
+            filas = list(ws.iter_rows(values_only=True))
+        except Exception:
+            conn.close()
+            flash("No se pudo leer el Excel. Verificá el archivo.", "error")
+            return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
+
+        if not filas:
+            conn.close()
+            flash("El archivo no tiene filas para importar.", "error")
+            return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
+
+        headers = [normalizar_header_excel(valor) for valor in filas[0]]
+        tests_por_nombre = {
+            normalizar_header_excel(test["nombre"]): test["id"]
+            for test in tests
+        }
+
+        jugadores = obtener_jugadores_selector(conn)
+        batch_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_urlsafe(6)}"
+        pendientes = 0
+
+        for numero_fila, row in enumerate(filas[1:], start=2):
+            datos = {
+                headers[index]: row[index] if index < len(row) else None
+                for index in range(len(headers))
+            }
+            nombre_completo = str(
+                datos.get("jugador") or
+                datos.get("nombre_completo") or
+                datos.get("jugador_nombre") or
+                ""
+            ).strip()
+            nombre = str(datos.get("nombre") or "").strip()
+            apellido = str(datos.get("apellido") or "").strip()
+            jugador_sugerido, confianza, motivo = sugerir_jugador_por_nombre_test(datos, jugadores)
+            puntaje = parsear_puntaje_test(
+                datos.get("puntaje") or datos.get("score") or datos.get("valor") or datos.get("resultado")
+            )
+            fecha = normalizar_fecha_test(datos.get("fecha"))
+            observaciones = str(datos.get("observaciones") or datos.get("obs") or "").strip()
+
+            test_id = test_id_fijo
+            nombre_test = datos.get("test") or datos.get("test_nombre") or datos.get("nombre_test")
+            if not test_id:
+                test_id = tests_por_nombre.get(normalizar_header_excel(nombre_test))
+
+            errores_fila = []
+            if not jugador_sugerido:
+                errores_fila.append("Revisar jugador")
+            if not test_id:
+                errores_fila.append("Revisar test")
+            if puntaje is None:
+                errores_fila.append("Revisar puntaje")
+
+            error = ", ".join(errores_fila) if errores_fila else None
+            conn.execute("""
+                INSERT INTO test_importaciones_batch (
+                    batch_id, estado, fila, test_id, test_nombre,
+                    jugador_sugerido_id, confianza, motivo,
+                    nombre_excel, apellido_excel, nombre_completo_excel,
+                    fecha, puntaje, observaciones, error, creado_por
+                )
+                VALUES (%s, 'pendiente', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                batch_id,
+                numero_fila,
+                test_id,
+                str(nombre_test or "").strip() or None,
+                jugador_sugerido["id"] if jugador_sugerido else None,
+                confianza,
+                motivo,
+                nombre or None,
+                apellido or None,
+                nombre_completo or None,
+                fecha,
+                puntaje,
+                observaciones or None,
+                error,
+                session.get("username"),
+            ))
+            pendientes += 1
+
+        conn.commit()
+        conn.close()
+
+        if pendientes:
+            flash(f"Se prepararon {pendientes} mediciones para revisar antes de confirmar.", "ok")
+            return redirect(url_for("revisar_test_importacion", batch_id=batch_id))
+
+        flash("El Excel no tenia filas para revisar.", "error")
+        return redirect(url_for("importar_test_resultados"))
+    conn.close()
+    return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
+
+
+@app.route("/tests/importar/<batch_id>/revisar", methods=["GET", "POST"])
+def revisar_test_importacion(batch_id):
+    check = permiso_requerido("tests_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    tests = obtener_test_tipos(conn, solo_activos=True)
+    jugadores = obtener_jugadores_selector(conn)
+
+    if request.method == "POST":
+        item_ids = request.form.getlist("item_ids")
+        procesadas = 0
+        omitidas = 0
+        errores = 0
+
+        for item_id in item_ids:
+            if request.form.get(f"procesar_{item_id}") != "on":
+                omitidas += 1
+                continue
+
+            jugador_id = request.form.get(f"jugador_id_{item_id}", "").strip()
+            test_id = request.form.get(f"test_id_{item_id}", "").strip()
+            fecha = normalizar_fecha_test(request.form.get(f"fecha_{item_id}"))
+            puntaje = parsear_puntaje_test(request.form.get(f"puntaje_{item_id}"))
+            observaciones = request.form.get(f"observaciones_{item_id}", "").strip()
+
+            if not jugador_id or not jugador_id.isdigit():
+                errores += 1
+                flash(f"La fila #{item_id} no tiene jugador asignado.", "error")
+                continue
+            if not test_id or not test_id.isdigit():
+                errores += 1
+                flash(f"La fila #{item_id} no tiene test asignado.", "error")
+                continue
+            if puntaje is None:
+                errores += 1
+                flash(f"La fila #{item_id} no tiene puntaje valido.", "error")
+                continue
+
+            item = conn.execute("""
+                SELECT *
+                FROM test_importaciones_batch
+                WHERE id = %s AND batch_id = %s AND estado = 'pendiente'
+            """, (item_id, batch_id)).fetchone()
+
+            jugador = conn.execute("""
+                SELECT id
+                FROM jugadores
+                WHERE id = %s
+            """, (jugador_id,)).fetchone()
+
+            test = conn.execute("""
+                SELECT id
+                FROM test_tipos
+                WHERE id = %s
+            """, (test_id,)).fetchone()
+
+            if not item or not jugador or not test:
+                errores += 1
+                flash(f"No se encontro la fila pendiente #{item_id}, el jugador o el test.", "error")
+                continue
+
+            conn.execute("""
+                INSERT INTO test_resultados (
+                    test_id, jugador_id, fecha, puntaje, observaciones, creado_por
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                int(test_id),
+                int(jugador_id),
+                fecha,
+                puntaje,
+                observaciones or item["observaciones"],
+                session.get("username"),
+            ))
+
+            conn.execute("""
+                UPDATE test_importaciones_batch
+                SET estado = 'procesado',
+                    test_id = %s,
+                    jugador_id = %s,
+                    fecha = %s,
+                    puntaje = %s,
+                    observaciones = %s,
+                    procesado_en = CURRENT_TIMESTAMP,
+                    procesado_por = %s,
+                    error = NULL
+                WHERE id = %s
+            """, (
+                int(test_id),
+                int(jugador_id),
+                fecha,
+                puntaje,
+                observaciones or item["observaciones"],
+                session.get("username"),
+                item["id"],
+            ))
+            procesadas += 1
+
+        conn.commit()
+        conn.close()
+
+        if procesadas:
+            flash(f"Se confirmaron {procesadas} mediciones.", "ok")
+        if omitidas:
+            flash(f"{omitidas} mediciones quedaron pendientes.", "warning")
+        if errores:
+            flash(f"{errores} mediciones requieren revision.", "error")
+        return redirect(url_for("revisar_test_importacion", batch_id=batch_id))
+
+    items = conn.execute("""
+        SELECT
+            b.*,
+            js.apellido AS sugerido_apellido,
+            js.nombre AS sugerido_nombre,
+            js.dni AS sugerido_dni,
+            ja.apellido AS asignado_apellido,
+            ja.nombre AS asignado_nombre,
+            t.nombre AS test_nombre_actual
+        FROM test_importaciones_batch b
+        LEFT JOIN jugadores js ON js.id = b.jugador_sugerido_id
+        LEFT JOIN jugadores ja ON ja.id = b.jugador_id
+        LEFT JOIN test_tipos t ON t.id = b.test_id
+        WHERE b.batch_id = %s
+        ORDER BY b.id
+    """, (batch_id,)).fetchall()
+
+    conn.close()
+
+    if not items:
+        flash("No se encontro la tanda de importacion.", "error")
+        return redirect(url_for("importar_test_resultados"))
+
+    return render_template(
+        "test_importar_revision.html",
+        batch_id=batch_id,
+        items=items,
+        tests=tests,
+        jugadores=jugadores,
+    )
+
+
+@app.route("/tests/graficos")
+def graficos_tests():
+    check = permiso_requerido("tests_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+
+    tests = obtener_test_tipos(conn, solo_activos=True)
+    categorias = conn.execute("""
+        SELECT DISTINCT categoria
+        FROM jugadores
+        WHERE categoria IS NOT NULL AND TRIM(categoria) <> ''
+        ORDER BY categoria
+    """).fetchall()
+    jugadores = conn.execute("""
+        SELECT id, apellido, nombre, categoria
+        FROM jugadores
+        WHERE COALESCE(estado, 'Activo') <> 'Baja'
+        ORDER BY categoria, apellido, nombre
+    """).fetchall()
+
+    test_id_raw = request.args.get("test_id", "").strip()
+    test_id = int(test_id_raw) if test_id_raw.isdigit() else None
+    if not test_id and tests:
+        test_id = tests[0]["id"]
+
+    categoria = request.args.get("categoria", "").strip()
+    desde = validar_fecha_movimiento(request.args.get("desde", "").strip())
+    hasta = validar_fecha_movimiento(request.args.get("hasta", "").strip())
+    jugadores_seleccionados = [
+        int(valor)
+        for valor in request.args.getlist("jugadores")
+        if str(valor).isdigit()
+    ]
+
+    resultados = []
+    if test_id:
+        filtros = ["r.test_id = %s"]
+        params = [test_id]
+
+        if categoria:
+            filtros.append("j.categoria = %s")
+            params.append(categoria)
+        if desde:
+            filtros.append("r.fecha >= %s")
+            params.append(desde)
+        if hasta:
+            filtros.append("r.fecha <= %s")
+            params.append(hasta)
+        if jugadores_seleccionados:
+            filtros.append("j.id = ANY(%s)")
+            params.append(jugadores_seleccionados)
+
+        where = " AND ".join(filtros)
+        resultados = conn.execute(f"""
+            SELECT
+                r.*,
+                j.apellido,
+                j.nombre,
+                j.categoria
+            FROM test_resultados r
+            JOIN jugadores j ON j.id = r.jugador_id
+            WHERE {where}
+            ORDER BY j.apellido, j.nombre, r.fecha
+        """, params).fetchall()
+
+    grafico = construir_grafico_tests(resultados)
+    test_actual = next((test for test in tests if test["id"] == test_id), None)
+
+    conn.close()
+    return render_template(
+        "tests_graficos.html",
+        tests=tests,
+        test_actual=test_actual,
+        categorias=categorias,
+        jugadores=jugadores,
+        jugadores_seleccionados=jugadores_seleccionados,
+        categoria=categoria,
+        desde=desde or "",
+        hasta=hasta or "",
+        grafico=grafico,
+        resultados=resultados,
+        test_id=test_id,
+    )
 
 
 @app.route("/asistencia")

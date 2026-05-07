@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Cargar test{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Cargar {{ test['nombre'] }}</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_tests') }}">Volver</a>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="card">
+        <label>
+            Fecha de medicion
+            <input type="date" name="fecha" value="{{ fecha_hoy }}">
+        </label>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Jugador</th>
+                    <th>DNI</th>
+                    <th>Puntaje{% if test['unidad'] %} ({{ test['unidad'] }}){% endif %}</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jugador in jugadores %}
+                <tr>
+                    <td>{{ jugador['categoria'] or '-' }}</td>
+                    <td>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</td>
+                    <td>{{ jugador['dni'] or '-' }}</td>
+                    <td>
+                        <input class="compact-input" type="text" name="puntaje_{{ jugador['id'] }}" inputmode="decimal">
+                    </td>
+                    <td>
+                        <input type="text" name="obs_{{ jugador['id'] }}">
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay jugadores activos para cargar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="actions">
+        <button class="button" type="submit">Guardar mediciones</button>
+    </div>
+</form>
+{% endblock %}

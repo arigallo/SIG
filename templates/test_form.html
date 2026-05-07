@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo test{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Nuevo test deportivo</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_tests') }}">Volver</a>
+    </div>
+</div>
+
+<form method="post" class="card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+        <label>
+            Nombre
+            <input type="text" name="nombre" value="{{ test.get('nombre', '') }}" required>
+        </label>
+        <label>
+            Unidad
+            <input type="text" name="unidad" value="{{ test.get('unidad', '') }}" placeholder="seg, kg, reps, puntos">
+        </label>
+        <label>
+            Puntaje minimo
+            <input type="text" name="puntaje_min" value="{{ test.get('puntaje_min', '') }}">
+        </label>
+        <label>
+            Puntaje maximo
+            <input type="text" name="puntaje_max" value="{{ test.get('puntaje_max', '') }}">
+        </label>
+        <label class="full">
+            Descripcion
+            <textarea name="descripcion" rows="3">{{ test.get('descripcion', '') }}</textarea>
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" name="mayor_es_mejor" value="1" {% if test.get('mayor_es_mejor', 1) %}checked{% endif %}>
+            Mayor puntaje es mejor
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" name="activo" value="1" {% if test.get('activo', 1) %}checked{% endif %}>
+            Activo
+        </label>
+    </div>
+    <div class="actions">
+        <button class="button" type="submit">Guardar test</button>
+    </div>
+</form>
+{% endblock %}

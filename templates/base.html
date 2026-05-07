@@ -27,7 +27,7 @@
             <nav class="main-nav" aria-label="Navegacion principal">
                 <a class="nav-link" href="{{ url_for('index') }}">Panel</a>
 
-                {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
+                {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
                 {% if mostrar_club %}
                 <details class="nav-group">
                     <summary>Club</summary>
@@ -40,6 +40,9 @@
                         {% endif %}
                         {% if puede('asistencia_ver') %}
                             <a href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+                        {% endif %}
+                        {% if puede('tests_ver') %}
+                            <a href="{{ url_for('listar_tests') }}">Tests</a>
                         {% endif %}
                         {% if puede('calendario_ver') %}
                             <a href="{{ url_for('ver_calendario') }}">Calendario</a>
@@ -194,6 +197,9 @@
                     {% endif %}
                     {% if puede('asistencia_ver') %}
                         <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+                    {% endif %}
+                    {% if puede('tests_ver') %}
+                        <a class="button secondary" href="{{ url_for('listar_tests') }}">Tests</a>
                     {% endif %}
                     <form method="post" action="{{ url_for('descartar_onboarding') }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

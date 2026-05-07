@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Revisar importacion de tests{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Revisar importacion de tests</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('importar_test_resultados') }}">Nueva importacion</a>
+    </div>
+</div>
+
+<form method="post" class="card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="table-wrapper batch-review-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Confirmar</th>
+                    <th>Fila</th>
+                    <th>Nombre Excel</th>
+                    <th>Jugador</th>
+                    <th>Confianza</th>
+                    <th>Test</th>
+                    <th>Fecha</th>
+                    <th>Puntaje</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="{% if item['estado'] == 'procesado' %}row-muted{% endif %}">
+                    <td>
+                        <input type="hidden" name="item_ids" value="{{ item['id'] }}">
+                        {% if item['estado'] == 'pendiente' %}
+                            <input type="checkbox" name="procesar_{{ item['id'] }}" {% if not item['error'] %}checked{% endif %}>
+                        {% else %}
+                            <span class="status-paid">Procesada</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item['fila'] }}</td>
+                    <td>
+                        <strong>
+                            {{ item['nombre_completo_excel'] or ((item['apellido_excel'] or '') ~ ', ' ~ (item['nombre_excel'] or '')) }}
+                        </strong>
+                        {% if item['error'] %}
+                            <div class="strong-warning">{{ item['error'] }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item['estado'] == 'pendiente' %}
+                            <select name="jugador_id_{{ item['id'] }}">
+                                <option value="">Sin asignar</option>
+                                {% for jugador in jugadores %}
+                                    <option value="{{ jugador['id'] }}"
+                                            {% if item['jugador_sugerido_id'] == jugador['id'] %}selected{% endif %}>
+                                        {{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['dni'] %} - DNI {{ jugador['dni'] }}{% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            {{ item['asignado_apellido'] }}, {{ item['asignado_nombre'] }}
+                        {% endif %}
+                        {% if item['sugerido_apellido'] %}
+                            <div class="muted-line">Sugerido: {{ item['sugerido_apellido'] }}, {{ item['sugerido_nombre'] }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="confidence-badge confidence-{{ item['confianza'] or 'sin_coincidencia' }}">
+                            {{ item['confianza'] or 'sin coincidencia' }}
+                        </span>
+                        <div class="muted-line">{{ item['motivo'] or '-' }}</div>
+                    </td>
+                    <td>
+                        {% if item['estado'] == 'pendiente' %}
+                            <select name="test_id_{{ item['id'] }}">
+                                <option value="">Sin test</option>
+                                {% for test in tests %}
+                                    <option value="{{ test['id'] }}" {% if item['test_id'] == test['id'] %}selected{% endif %}>
+                                        {{ test['nombre'] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            {{ item['test_nombre_actual'] or item['test_nombre'] or '-' }}
+                        {% endif %}
+                        {% if item['test_nombre'] and not item['test_nombre_actual'] %}
+                            <div class="muted-line">Excel: {{ item['test_nombre'] }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item['estado'] == 'pendiente' %}
+                            <input type="date" name="fecha_{{ item['id'] }}" value="{{ item['fecha'] or '' }}">
+                        {% else %}
+                            {{ item['fecha'] or '-' }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item['estado'] == 'pendiente' %}
+                            <input class="compact-input" type="text" name="puntaje_{{ item['id'] }}" value="{{ item['puntaje'] if item['puntaje'] is not none else '' }}">
+                        {% else %}
+                            {{ item['puntaje'] }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item['estado'] == 'pendiente' %}
+                            <input type="text" name="observaciones_{{ item['id'] }}" value="{{ item['observaciones'] or '' }}">
+                        {% else %}
+                            {{ item['observaciones'] or '-' }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Confirmar mediciones</button>
+        <a class="button secondary" href="{{ url_for('importar_test_resultados') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
