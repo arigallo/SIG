@@ -44,6 +44,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambiar-esto-por-una-clave-segura")
 
 app.config["SESSION_PERMANENT"] = False
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = timedelta(hours=6)
 app.config["SESSION_COOKIE_NAME"] = "sig_session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get(
