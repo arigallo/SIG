@@ -2064,7 +2064,7 @@ def obtener_panel_salud():
         ORDER BY
             CASE estado
                 WHEN 'Activa' THEN 0
-                ELSE CASE WHEN estado ILIKE 'En recuperaci%' THEN 1 WHEN estado ILIKE 'Alta%' THEN 2 ELSE 3 END
+                ELSE CASE WHEN estado ILIKE 'En recuperaci%%' THEN 1 WHEN estado ILIKE 'Alta%%' THEN 2 ELSE 3 END
             END,
             estado
     """).fetchall()
@@ -2084,10 +2084,14 @@ def obtener_panel_salud():
         FROM lesiones l
         JOIN jugadores j ON j.id = l.jugador_id
         WHERE l.estado = 'Activa'
-           OR l.estado ILIKE 'En recuperaci%'
+           OR l.estado ILIKE 'En recuperaci%%'
         ORDER BY
-            CASE WHEN l.fecha_alta IS NULL OR l.fecha_alta = '' THEN 1 ELSE 0 END,
-            l.fecha_alta ASC NULLS LAST,
+            CASE WHEN NULLIF(l.fecha_alta::text, '') IS NULL THEN 1 ELSE 0 END,
+            CASE
+                WHEN l.fecha_alta::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                THEN l.fecha_alta::date
+                ELSE NULL
+            END ASC NULLS LAST,
             l.fecha_lesion DESC
         LIMIT 40
     """).fetchall()
