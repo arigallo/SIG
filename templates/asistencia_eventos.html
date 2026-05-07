@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Asistencia{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Control de asistencia</h2>
+    {% if puede('asistencia_gestionar') %}
+        <a class="button" href="{{ url_for('nuevo_evento_asistencia') }}">+ Nuevo evento</a>
+    {% endif %}
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Descripción</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evento in eventos %}
+            <tr>
+                <td>{{ evento['fecha'] }}</td>
+                <td>{{ evento['tipo'] }}</td>
+                <td>{{ evento['descripcion'] or '-' }}</td>
+                <td>
+                    <a class="button secondary" href="{{ url_for('tomar_asistencia', evento_id=evento['id']) }}">
+                        Ver / tomar asistencia
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="empty">No hay eventos de asistencia cargados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

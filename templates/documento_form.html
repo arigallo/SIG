@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo documento{% endblock %}
+
+{% block content %}
+<h2>Nuevo documento</h2>
+
+<form method="post" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p><strong>Jugador:</strong> {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</p>
+
+    <div class="field">
+        <label>Tipo *</label>
+        <input type="text" name="tipo" value="{{ documento['tipo'] or '' }}" placeholder="DNI, autorizacion, seguro..." required>
+    </div>
+
+    <div class="field">
+        <label>Nombre</label>
+        <input type="text" name="nombre" value="{{ documento['nombre'] or '' }}">
+    </div>
+
+    <div class="field">
+        <label>Fecha de presentacion</label>
+        <input type="date" name="fecha_presentacion" value="{{ documento['fecha_presentacion'] or '' }}">
+    </div>
+
+    <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fecha_vencimiento" value="{{ documento['fecha_vencimiento'] or '' }}">
+    </div>
+
+    <div class="field">
+        <label>URL</label>
+        <input type="url" name="url" value="{{ documento['url'] or '' }}" placeholder="https://...">
+    </div>
+
+    <div class="field">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4">{{ documento['observaciones'] or '' }}</textarea>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=jugador['id']) }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

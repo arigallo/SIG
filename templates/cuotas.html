@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Cuotas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Cuotas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <div class="actions">
+        <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">+ Nueva cuota</a>
+        {% if puede('planes_pago_gestionar') %}
+            <a class="button secondary" href="{{ url_for('nuevo_plan_pago', jugador_id=jugador['id']) }}">Plan de pago</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card spaced-small">
+    <p><strong>Deuda total:</strong> ${{ deuda }}</p>
+    {% if jugador['beca_activa'] %}
+        <p>
+            <strong>Beca activa:</strong>
+            {{ jugador['beca_porcentaje'] or 0 }}%
+            {% if jugador['beca_desde'] or jugador['beca_hasta'] %}
+                ({{ jugador['beca_desde'] or 'sin inicio' }} a {{ jugador['beca_hasta'] or 'sin fin' }})
+            {% endif %}
+        </p>
+    {% endif %}
+</div>
+
+{% if puede('cuotas_gestionar') %}
+<form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <h3>Recalcular becas en cuotas pendientes</h3>
+    <div class="report-filter-grid">
+        <div>
+            <label>Desde</label>
+            <input type="month" name="periodo_desde">
+        </div>
+        <div>
+            <label>Hasta</label>
+            <input type="month" name="periodo_hasta">
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button secondary" type="submit">Recalcular pendientes</button>
+    </div>
+</form>
+{% endif %}
+
+{% if planes_pago %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Planes de pago</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Inicio</th>
+                    <th>Monto</th>
+                    <th>Cuotas</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plan in planes_pago %}
+                <tr>
+                    <td>{{ plan['fecha_inicio'] or '-' }}</td>
+                    <td>{{ plan['monto_total'] | moneda }}</td>
+                    <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                    <td>{{ plan['estado'] }}</td>
+                    <td>
+                        {{ plan['descripcion'] or '-' }}
+                        {% if plan['observaciones'] %}
+                            <span class="muted-line">{{ plan['observaciones'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Cumplido">
+                                <button class="button secondary" type="submit">Cumplido</button>
+                            </form>
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Caido">
+                                <button class="button danger" type="submit">Caido</button>
+                            </form>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Periodo</th>
+                <th>Importe</th>
+                <th>Beca</th>
+                <th>Estado</th>
+                <th>Vencimiento</th>
+                <th>Fecha de pago</th>
+                <th>Método</th>
+                <th>Referencia</th>
+                <th>Comprobante</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuota in cuotas %}
+            <tr>
+                <td>{{ cuota['periodo'] }}</td>
+                <td>
+                    {{ cuota['importe'] | moneda }}
+                    {% if cuota['becada'] and cuota['importe_original'] %}
+                        <span class="muted-line">Original: {{ cuota['importe_original'] | moneda }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if cuota['becada'] %}
+                        <span class="status-paid">{{ cuota['beca_porcentaje'] or 0 }}%</span>
+                        <span class="muted-line">Descuento: {{ cuota['descuento_beca'] | moneda }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if cuota['becada'] and cuota['importe'] == 0 %}
+                        <span class="status-paid">Becada</span>
+                    {% elif cuota['pagado'] %}
+                        <span class="status-paid">Pagado</span>
+                    {% else %}
+                        <span class="status-pending">Pendiente</span>
+                    {% endif %}
+                </td>
+                <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                <td>{{ cuota['fecha_pago'] or '-' }}</td>
+                <td>{{ cuota['metodo_pago'] or '-' }}</td>
+                <td>{{ cuota['referencia_pago'] or '-' }}</td>
+                <td class="actions">
+                    {% set comprobante_estado = cuota['comprobante_estado'] or ('aceptado' if cuota['comprobante_drive_file_id'] and cuota['pagado'] else 'pendiente' if cuota['comprobante_drive_file_id'] else 'sin_comprobante') %}
+                    {% if cuota['comprobante_drive_file_id'] %}
+                        {% if comprobante_estado == 'aceptado' %}
+                            <span class="badge badge-success">Aceptado</span>
+                        {% elif comprobante_estado == 'rechazado' %}
+                            <span class="badge badge-danger">Rechazado</span>
+                        {% else %}
+                            <span class="badge badge-warning">Pendiente</span>
+                        {% endif %}
+                        <a class="button secondary" href="{{ url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) }}">Ver</a>
+                        {% if puede('cuotas_gestionar') and comprobante_estado in ['pendiente', 'rechazado'] %}
+                            <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado=comprobante_estado) }}">Revisar</a>
+                        {% endif %}
+                        {% if cuota['pagado'] %}
+                            <a class="button secondary" href="{{ url_for('subir_comprobante_cuota', cuota_id=cuota['id']) }}">Reemplazar</a>
+                        {% endif %}
+                    {% elif cuota['pagado'] %}
+                        <span class="badge badge-muted">Sin archivo</span>
+                        <a class="button secondary" href="{{ url_for('subir_comprobante_cuota', cuota_id=cuota['id']) }}">Adjuntar</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    {% if not cuota['pagado'] %}
+                        <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Marcar pago</a>
+                    {% else %}
+                        <a class="button secondary" href="{{ url_for('descargar_recibo', cuota_id=cuota['id']) }}">Recibo</a>
+                    {% endif %}
+
+                    <form method="post" action="{{ url_for('eliminar_cuota', cuota_id=cuota['id']) }}" onsubmit="return confirm('¿Eliminar esta cuota?');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="button danger" type="submit">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="10" class="empty">No hay cuotas cargadas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if becas_historial %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Historial de becas</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Accion</th>
+                    <th>Beca</th>
+                    <th>Vigencia</th>
+                    <th>Motivo</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in becas_historial %}
+                <tr>
+                    <td>{{ item['creado_en'] }}</td>
+                    <td>{{ item['accion'] }}</td>
+                    <td>
+                        {% if item['beca_activa'] %}
+                            {{ item['beca_porcentaje'] or 0 }}%
+                        {% else %}
+                            Inactiva
+                        {% endif %}
+                    </td>
+                    <td>{{ item['beca_desde'] or 'sin inicio' }} a {{ item['beca_hasta'] or 'sin fin' }}</td>
+                    <td>{{ item['beca_motivo'] or '-' }}</td>
+                    <td>{{ item['creado_por'] or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

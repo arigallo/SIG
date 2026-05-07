@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Roles{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Roles y permisos</h2>
+    <a class="button" href="{{ url_for('nuevo_rol') }}">+ Nuevo rol</a>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Rol</th>
+                <th>Descripción</th>
+                <th>Permisos</th>
+                <th>Usuarios</th>
+                <th>Tipo</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rol in roles %}
+            <tr>
+                <td>{{ rol['nombre'] }}</td>
+                <td>{{ rol['descripcion'] or '-' }}</td>
+                <td>{{ rol['cantidad_permisos'] }}</td>
+                <td>{{ rol['usuarios'] }}</td>
+                <td>{% if rol['sistema'] %}Base{% else %}Personalizado{% endif %}</td>
+                <td class="actions">
+                    {% if not rol['sistema'] %}
+                        <a class="button secondary" href="{{ url_for('editar_rol', rol_id=rol['id']) }}">Editar</a>
+                        <form method="post"
+                              action="{{ url_for('eliminar_rol', rol_id=rol['id']) }}"
+                              onsubmit="return confirm('¿Eliminar este rol?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button danger" type="submit">Eliminar</button>
+                        </form>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay roles cargados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

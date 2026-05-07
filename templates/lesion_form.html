@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if lesion %}Editar lesión{% else %}Nueva lesión{% endif %}
+{% endblock %}
+
+{% block content %}
+<h2>
+    {% if lesion %}Editar lesión{% else %}Nueva lesión{% endif %}
+</h2>
+
+<form method="post" class="card form-grid">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label>Fecha de lesión</label>
+        <input type="date" name="fecha_lesion" value="{{ lesion['fecha_lesion'] if lesion else '' }}">
+    </div>
+
+    <div>
+        <label>Tipo de lesión</label>
+        <input type="text" name="tipo_lesion" value="{{ lesion['tipo_lesion'] if lesion else '' }}" placeholder="Desgarro, esguince, etc.">
+    </div>
+
+    <div>
+        <label>Zona del cuerpo</label>
+        <input type="text" name="zona_cuerpo" value="{{ lesion['zona_cuerpo'] if lesion else '' }}" placeholder="Rodilla, hombro, tobillo...">
+    </div>
+
+    <div>
+        <label>Estado</label>
+        {% set estado_actual = lesion['estado'] if lesion else 'Activa' %}
+        <select name="estado">
+            <option value="Activa" {% if estado_actual == 'Activa' %}selected{% endif %}>Activa</option>
+            <option value="En recuperación" {% if estado_actual == 'En recuperación' %}selected{% endif %}>En recuperación</option>
+            <option value="Alta médica" {% if estado_actual == 'Alta médica' %}selected{% endif %}>Alta médica</option>
+        </select>
+    </div>
+
+    <div class="full">
+        <label>Diagnóstico</label>
+        <textarea name="diagnostico" rows="3">{{ lesion['diagnostico'] if lesion else '' }}</textarea>
+    </div>
+
+    <div class="full">
+        <label>Tratamiento</label>
+        <textarea name="tratamiento" rows="3">{{ lesion['tratamiento'] if lesion else '' }}</textarea>
+    </div>
+
+    <div>
+        <label>Fecha de alta</label>
+        <input type="date" name="fecha_alta" value="{{ lesion['fecha_alta'] if lesion else '' }}">
+    </div>
+
+    <div class="full">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4">{{ lesion['observaciones'] if lesion else '' }}</textarea>
+    </div>
+
+    <div class="full actions-row">
+        <button class="button" type="submit">Guardar</button>
+        {% if lesion %}
+            <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Cancelar</a>
+        {% else %}
+            <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Cancelar</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

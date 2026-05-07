@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Notificaciones{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Notificaciones</h2>
+</div>
+
+{% macro tabla_notificaciones(titulo, items, tipo) %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>{{ titulo }}</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Detalle</th>
+                    <th>Mensaje</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                {% set fila = item['item'] %}
+                <tr>
+                    <td>{{ fila['apellido'] }}, {{ fila['nombre'] }}</td>
+                    <td>
+                        {% if tipo == 'cuota' %}
+                            {{ fila['periodo'] }} - {{ fila['importe'] | moneda }}
+                            <span class="muted-line">Vence: {{ fila['fecha_vencimiento'] }}</span>
+                        {% elif tipo == 'ficha' %}
+                            {{ fila['estado_documento'] }}
+                            <span class="muted-line">Vence: {{ fila['fecha_vencimiento'] or '-' }}</span>
+                        {% else %}
+                            Asistencia {{ item['porcentaje'] }}%
+                            <span class="muted-line">{{ fila['presentes'] or 0 }} presentes de {{ fila['registros'] or 0 }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="communication-message">{{ item['mensaje'] }}</td>
+                    <td class="actions">
+                        <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=fila['jugador_id']) }}">Jugador</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay notificaciones en esta categoria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endmacro %}
+
+{{ tabla_notificaciones('Cuotas vencidas', cuotas_vencidas, 'cuota') }}
+{{ tabla_notificaciones('Cuotas por vencer', cuotas_por_vencer, 'cuota') }}
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Comprobantes pendientes</h3>
+        {% if puede('cuotas_gestionar') %}
+            <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar todos</a>
+        {% endif %}
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Periodo</th>
+                    <th>Importe</th>
+                    <th>Carga</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in comprobantes_pendientes %}
+                <tr>
+                    <td>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</td>
+                    <td>{{ cuota['periodo'] }}</td>
+                    <td>{{ cuota['importe'] | moneda }}</td>
+                    <td>
+                        {{ cuota['comprobante_fecha'] or '-' }}
+                        <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
+                        <span class="muted-line">{{ cuota['comprobante_nombre'] or '-' }}</span>
+                    </td>
+                    <td class="actions">
+                        {% if puede('cuotas_gestionar') %}
+                            <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar</a>
+                        {% endif %}
+                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cuota['jugador_id']) }}">Jugador</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay comprobantes pendientes.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Ahijadxs listos para ingresar</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ahijadx</th>
+                    <th>Categoria</th>
+                    <th>Entrenamientos</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aspirante in ahijadxs_objetivo %}
+                <tr>
+                    <td>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</td>
+                    <td>{{ aspirante['categoria'] or '-' }}</td>
+                    <td>
+                        <span class="badge badge-success">
+                            {{ aspirante['entrenamientos_presentes'] }}/{{ aspirante['entrenamientos_objetivo'] }}
+                        </span>
+                    </td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['aspirante_id']) }}">Ver seguimiento</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay ahijadxs listos para ingresar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ tabla_notificaciones('Fichas medicas', fichas, 'ficha') }}
+{{ tabla_notificaciones('Asistencia baja', asistencia_baja, 'asistencia') }}
+{% endblock %}

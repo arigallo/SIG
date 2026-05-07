@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}{% if modo == 'editar' %}Editar rol{% else %}Nuevo rol{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if modo == 'editar' %}Editar rol{% else %}Nuevo rol{% endif %}</h2>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-grid">
+        <div class="field">
+            <label>Nombre del rol</label>
+            <input type="text"
+                   name="nombre"
+                   value="{{ rol['nombre'] if rol else '' }}"
+                   placeholder="Ej: coordinador deportivo"
+                   {% if modo == 'editar' %}readonly{% endif %}
+                   required>
+        </div>
+
+        <div class="field">
+            <label>Descripción</label>
+            <input type="text"
+                   name="descripcion"
+                   value="{{ rol['descripcion'] if rol else '' }}"
+                   placeholder="Uso interno del rol">
+        </div>
+    </div>
+
+    <div class="page-section">
+        {% for grupo, permisos in grupos.items() %}
+            <div class="card spaced-small">
+                <h3>{{ grupo }}</h3>
+                <div class="permission-grid">
+                    {% for permiso in permisos %}
+                        <label class="permission-option">
+                            <input type="checkbox"
+                                   name="permisos"
+                                   value="{{ permiso['clave'] }}"
+                                   {% if permiso['clave'] in permisos_seleccionados %}checked{% endif %}>
+                            <span>
+                                <strong>{{ permiso['nombre'] }}</strong>
+                                <small>{{ permiso['descripcion'] }}</small>
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">{% if modo == 'editar' %}Guardar rol{% else %}Crear rol{% endif %}</button>
+        <a class="button secondary" href="{{ url_for('listar_roles') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

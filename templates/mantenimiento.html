@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIG - Mantenimiento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="maintenance-body">
+    <main class="maintenance-page">
+        <div class="maintenance-card">
+            <div class="login-logo">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+            </div>
+
+            <h1>Sistema en mantenimiento</h1>
+            <p>{{ mantenimiento.mensaje }}</p>
+
+            <div class="actions-row">
+                <a class="button secondary" href="{{ url_for('logout') }}">Cerrar sesion</a>
+                <a class="button" href="{{ url_for('login') }}">Ingresar como admin</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

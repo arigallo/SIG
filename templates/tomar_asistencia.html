@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Tomar asistencia{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Asistencia - {{ evento['fecha'] }}</h2>
+    <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
+</div>
+
+<div class="card spaced-small">
+    <p><strong>Tipo:</strong> {{ evento['tipo'] }}</p>
+    <p><strong>Descripcion:</strong> {{ evento['descripcion'] or '-' }}</p>
+</div>
+
+<form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Persona</th>
+                    <th>Tipo</th>
+                    <th>Categoria</th>
+                    <th>Asistencia</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for participante in participantes %}
+                    {% set asistencia = participante['asistencia'] %}
+                    <tr>
+                        <td>{{ participante['apellido'] }}, {{ participante['nombre'] }}</td>
+                        <td>{{ participante['tipo_label'] }}</td>
+                        <td>{{ participante['categoria'] or '-' }}</td>
+                        <td>
+                            {% set estado_actual = asistencia['estado_asistencia'] if asistencia and asistencia['estado_asistencia'] else ('a_tiempo' if asistencia and asistencia['presente'] else 'ausente') %}
+                            <select name="estado_{{ participante['form_key'] }}">
+                                <option value="ausente" {% if estado_actual == 'ausente' %}selected{% endif %}>Ausente</option>
+                                <option value="a_tiempo" {% if estado_actual == 'a_tiempo' %}selected{% endif %}>A tiempo</option>
+                                <option value="tarde" {% if estado_actual == 'tarde' %}selected{% endif %}>Tarde</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="obs_{{ participante['form_key'] }}"
+                                   value="{{ asistencia['observaciones'] if asistencia else '' }}">
+                        </td>
+                    </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay jugadores activos ni ahijadxs en seguimiento.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if puede('asistencia_gestionar') %}
+        <div class="actions-row stack-gap">
+            <button class="button" type="submit">Guardar asistencia</button>
+            <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Cancelar</a>
+        </div>
+    {% endif %}
+</form>
+{% endblock %}

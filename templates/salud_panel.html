@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Panel salud{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Panel de salud</h2>
+        <p class="page-intro">Resumen operativo de fichas medicas, aptos fisicos, vencimientos y lesiones.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
+        <a class="button secondary" href="{{ url_for('ver_alertas') }}">Alertas</a>
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card alert-card-info">
+        <h3>Jugadores activos</h3>
+        <p class="stat-number compact">{{ panel['resumen']['jugadores_activos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Aptos</h3>
+        <p class="stat-number compact status-paid">{{ panel['resumen']['aptos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>No aptos / sin apto</h3>
+        <p class="stat-number compact">{{ panel['resumen']['no_aptos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-critical">
+        <h3>Fichas vencidas</h3>
+        <p class="stat-number compact text-danger">{{ panel['resumen']['vencidas'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Por vencer</h3>
+        <p class="stat-number compact">{{ panel['resumen']['por_vencer'] or 0 }}</p>
+        <span class="muted-line">Proximos 30 dias</span>
+    </div>
+    <div class="card stat-card alert-card-critical">
+        <h3>Faltantes</h3>
+        <p class="stat-number compact text-danger">{{ panel['resumen']['fichas_faltantes'] or 0 }}</p>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Fichas por categoria</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Jugadores</th>
+                    <th>Aptos</th>
+                    <th>No aptos</th>
+                    <th>Faltantes</th>
+                    <th>Vencidas</th>
+                    <th>Por vencer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in panel['fichas_por_categoria'] %}
+                <tr>
+                    <td>{{ fila['categoria'] }}</td>
+                    <td>{{ fila['jugadores'] or 0 }}</td>
+                    <td><span class="badge badge-success">{{ fila['aptos'] or 0 }}</span></td>
+                    <td><span class="badge badge-warning">{{ fila['no_aptos'] or 0 }}</span></td>
+                    <td><span class="badge badge-danger">{{ fila['faltantes'] or 0 }}</span></td>
+                    <td><span class="badge badge-danger">{{ fila['vencidas'] or 0 }}</span></td>
+                    <td><span class="badge badge-warning">{{ fila['por_vencer'] or 0 }}</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay datos de salud por categoria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Lesiones por estado</h3>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for estado in panel['lesiones_por_estado'] %}
+                    <tr>
+                        <td>{{ estado['estado'] or '-' }}</td>
+                        <td><span class="badge badge-info">{{ estado['cantidad'] or 0 }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" class="empty">No hay lesiones cargadas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Documentos por vencer</h3>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Jugador</th>
+                        <th>Documento</th>
+                        <th>Vence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for documento in panel['documentos_por_vencer'] %}
+                    <tr>
+                        <td>{{ documento['apellido'] }}, {{ documento['nombre'] }}</td>
+                        <td>{{ documento['tipo'] }}{% if documento['nombre'] %} - {{ documento['nombre'] }}{% endif %}</td>
+                        <td><span class="badge badge-warning">{{ documento['fecha_vencimiento'] }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="empty">No hay documentos por vencer.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Seguimiento de retorno</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    <th>Lesion</th>
+                    <th>Estado</th>
+                    <th>Alta estimada</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lesion in panel['seguimiento_retorno'] %}
+                <tr>
+                    <td>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</td>
+                    <td>{{ lesion['categoria'] or '-' }}</td>
+                    <td>
+                        {{ lesion['tipo_lesion'] or 'Lesion' }}
+                        <span class="muted-line">{{ lesion['zona_cuerpo'] or '-' }} - {{ lesion['fecha_lesion'] or '-' }}</span>
+                    </td>
+                    <td><span class="badge badge-warning">{{ lesion['estado'] }}</span></td>
+                    <td>{{ lesion['fecha_alta'] or '-' }}</td>
+                    <td><a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay jugadores en seguimiento de retorno.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

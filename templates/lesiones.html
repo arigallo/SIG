@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Lesiones{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Lesiones de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <a class="button" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">+ Nueva lesión</a>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Zona</th>
+                <th>Estado</th>
+                <th>Fecha alta</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lesion in lesiones %}
+            <tr>
+                <td>{{ lesion['fecha_lesion'] or '-' }}</td>
+                <td>{{ lesion['tipo_lesion'] or '-' }}</td>
+                <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
+                <td>{{ lesion['estado'] }}</td>
+                <td>{{ lesion['fecha_alta'] or '-' }}</td>
+                <td class="actions">
+                    <a class="button secondary" href="{{ url_for('editar_lesion', lesion_id=lesion['id']) }}">Editar</a>
+                    <form method="post" action="{{ url_for('eliminar_lesion', lesion_id=lesion['id']) }}" onsubmit="return confirm('¿Eliminar esta lesión?');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="button danger" type="submit">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay lesiones cargadas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

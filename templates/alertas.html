@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Alertas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Alertas automáticas</h2>
+</div>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card alert-card-critical">
+        <h3>Críticas</h3>
+        <p class="stat-number text-danger">{{ alertas['resumen']['criticas'] }}</p>
+        <span class="report-note">Requieren revisión</span>
+    </div>
+
+    <div class="card stat-card alert-card-warning">
+        <h3>Próximas</h3>
+        <p class="stat-number">{{ alertas['resumen']['proximas'] }}</p>
+        <span class="report-note">Vencimientos cercanos</span>
+    </div>
+
+    <div class="card stat-card alert-card-info">
+        <h3>Seguimiento</h3>
+        <p class="stat-number compact">{{ alertas['resumen']['seguimiento'] }}</p>
+        <span class="report-note">Lesiones activas o recuperación</span>
+    </div>
+
+    {% if puede_ver_finanzas %}
+        <div class="card stat-card">
+            <h3>Deuda vencida</h3>
+            <p class="stat-number text-danger">{{ alertas['resumen']['deuda_vencida'] | moneda }}</p>
+            <span class="report-note">{{ alertas['cuotas_vencidas'] | length }} cuotas vencidas</span>
+        </div>
+    {% endif %}
+</div>
+
+{% if puede_ver_finanzas %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Cuotas vencidas</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoría</th>
+                    <th>Período</th>
+                    <th>Vencimiento</th>
+                    <th>Días</th>
+                    <th>Importe</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in alertas['cuotas_vencidas'] %}
+                <tr>
+                    <td>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</td>
+                    <td>{{ cuota['categoria'] or '-' }}</td>
+                    <td>{{ cuota['periodo'] }}</td>
+                    <td>{{ cuota['fecha_vencimiento'] }}</td>
+                    <td class="strong-danger">{{ cuota['dias_vencida'] }}</td>
+                    <td class="strong-danger">{{ cuota['importe'] | moneda }}</td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay cuotas vencidas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Cuotas por vencer</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoría</th>
+                    <th>Período</th>
+                    <th>Vencimiento</th>
+                    <th>Días restantes</th>
+                    <th>Importe</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in alertas['cuotas_por_vencer'] %}
+                <tr>
+                    <td>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</td>
+                    <td>{{ cuota['categoria'] or '-' }}</td>
+                    <td>{{ cuota['periodo'] }}</td>
+                    <td>{{ cuota['fecha_vencimiento'] }}</td>
+                    <td class="strong-warning">{{ cuota['dias_restantes'] }}</td>
+                    <td>{{ cuota['importe'] | moneda }}</td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay cuotas por vencer en los próximos 7 días.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if puede_ver_salud %}
+<div class="detail-grid page-section">
+    <div class="card {% if alertas['fichas_vencidas'] %}card-alert{% endif %}">
+        <div class="section-header compact">
+            <h3>Fichas médicas vencidas</h3>
+            <span class="alert-badge critical">{{ alertas['fichas_vencidas'] | length }}</span>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Jugador</th>
+                        <th>Vencimiento</th>
+                        <th>Días</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ficha in alertas['fichas_vencidas'] %}
+                    <tr>
+                        <td>{{ ficha['apellido'] }}, {{ ficha['nombre'] }}</td>
+                        <td>{{ ficha['fecha_vencimiento'] }}</td>
+                        <td class="strong-danger">{{ ficha['dias_vencida'] }}</td>
+                        <td>
+                            <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=ficha['jugador_id']) }}">Ver ficha</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay fichas médicas vencidas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Fichas por vencer</h3>
+            <span class="alert-badge warning">{{ alertas['fichas_por_vencer'] | length }}</span>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Jugador</th>
+                        <th>Vencimiento</th>
+                        <th>Días restantes</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ficha in alertas['fichas_por_vencer'] %}
+                    <tr>
+                        <td>{{ ficha['apellido'] }}, {{ ficha['nombre'] }}</td>
+                        <td>{{ ficha['fecha_vencimiento'] }}</td>
+                        <td class="strong-warning">{{ ficha['dias_restantes'] }}</td>
+                        <td>
+                            <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=ficha['jugador_id']) }}">Ver ficha</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay fichas por vencer en los próximos 30 días.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Lesiones activas o en recuperación</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoría</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Zona</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lesion in alertas['lesiones_activas'] %}
+                <tr>
+                    <td>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</td>
+                    <td>{{ lesion['categoria'] or '-' }}</td>
+                    <td>{{ lesion['fecha_lesion'] or '-' }}</td>
+                    <td>{{ lesion['tipo_lesion'] or '-' }}</td>
+                    <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
+                    <td><span class="status-pending">{{ lesion['estado'] }}</span></td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay lesiones activas o en recuperación.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if puede_ver_finanzas %}
+<div class="detail-grid page-section">
+    <div class="card {% if alertas['meses_sin_cerrar'] %}card-alert{% endif %}">
+        <div class="section-header compact">
+            <h3>Meses de caja sin cerrar</h3>
+            <span class="alert-badge critical">{{ alertas['meses_sin_cerrar'] | length }}</span>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Movimientos</th>
+                        <th>Resultado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mes in alertas['meses_sin_cerrar'] %}
+                    <tr>
+                        <td>{{ mes['mes'] }}</td>
+                        <td>{{ mes['movimientos'] }}</td>
+                        <td class="{% if mes['resultado'] < 0 %}strong-danger{% else %}status-paid{% endif %}">
+                            {{ mes['resultado'] | moneda }}
+                        </td>
+                        <td>
+                            <a class="button secondary" href="{{ url_for('ver_caja', mes=mes['mes']) }}">Ver caja</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay meses anteriores pendientes de cierre.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Movimientos inusuales</h3>
+            <span class="alert-badge warning">{{ alertas['movimientos_altos'] | length }}</span>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimiento in alertas['movimientos_altos'] %}
+                    <tr>
+                        <td>{{ movimiento['fecha'] }}</td>
+                        <td>
+                            {% if movimiento['tipo'] == 'ingreso' %}
+                                <span class="status-paid">Ingreso</span>
+                            {% else %}
+                                <span class="strong-danger">Egreso</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ movimiento['concepto'] or '-' }}</td>
+                        <td>{{ movimiento['monto'] | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay movimientos inusuales en los últimos 90 días.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

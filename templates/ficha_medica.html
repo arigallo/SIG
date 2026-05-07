@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Ficha médica{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Ficha médica de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <a class="button" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha</a>
+</div>
+
+<div class="card">
+    {% if ficha %}
+        <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
+        <p><strong>Fecha de vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
+        <p><strong>Apto físico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
+        <p><strong>Contacto de emergencia:</strong> {{ ficha['contacto_emergencia'] or '-' }}</p>
+        <p><strong>Teléfono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
+        <p><strong>Observaciones:</strong> {{ ficha['observaciones'] or '-' }}</p>
+
+        {% if ficha['documento_drive_file_id'] %}
+            <p>
+                <strong>Documento adjunto:</strong>
+                <a href="{{ url_for('descargar_ficha_medica_documento', jugador_id=jugador['id']) }}">
+                    {{ ficha['documento_nombre'] or 'Ver ficha adjunta' }}
+                </a>
+            </p>
+            {% if ficha['documento_fecha'] %}
+                <p><strong>Última carga:</strong> {{ ficha['documento_fecha'] }}{% if ficha['documento_usuario'] %} por {{ ficha['documento_usuario'] }}{% endif %}</p>
+            {% endif %}
+        {% endif %}
+
+        {% if ficha['ocr_fecha'] %}
+            <p><strong>OCR:</strong> Procesado el {{ ficha['ocr_fecha'] }}{% if ficha['ocr_usuario'] %} por {{ ficha['ocr_usuario'] }}{% endif %}</p>
+        {% endif %}
+
+        {% if ficha['ocr_texto'] %}
+            <div class="ocr-detail">
+                <details>
+                    <summary>Ver texto OCR</summary>
+                    <pre>{{ ficha['ocr_texto'] }}</pre>
+                </details>
+            </div>
+        {% endif %}
+    {% else %}
+        <p>No hay ficha médica cargada para este jugador.</p>
+    {% endif %}
+</div>
+{% endblock %}

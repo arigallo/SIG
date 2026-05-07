@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo plan de pago{% endblock %}
+
+{% block content %}
+<h2>Nuevo plan de pago</h2>
+
+<form method="post" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p><strong>Jugador:</strong> {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</p>
+    <p><strong>Deuda actual:</strong> {{ deuda | moneda }}</p>
+
+    <div class="field">
+        <label>Fecha de inicio</label>
+        <input type="date" name="fecha_inicio" value="{{ now().strftime('%Y-%m-%d') }}">
+    </div>
+
+    <div class="field">
+        <label>Monto total</label>
+        <input type="number" name="monto_total" min="0" step="0.01" value="{{ deuda }}" required>
+    </div>
+
+    <div class="field">
+        <label>Cantidad de cuotas</label>
+        <input type="number" name="cantidad_cuotas" min="1" step="1" value="1" required>
+    </div>
+
+    <div class="field">
+        <label>Descripcion</label>
+        <input type="text" name="descripcion" placeholder="Ej: acuerdo de regularizacion">
+    </div>
+
+    <div class="field">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4"></textarea>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Crear plan</button>
+        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

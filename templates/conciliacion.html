@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Conciliaci&oacute;n de pagos{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Conciliaci&oacute;n de pagos</h2>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Archivo CSV o Excel</label>
+        <input type="file" name="archivo" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        <span class="report-note">Columnas sugeridas: dni, periodo, importe, fecha_pago, referencia.</span>
+    </div>
+    <div class="actions-row">
+        <button class="button" type="submit">Previsualizar</button>
+    </div>
+</form>
+
+{% if resultado %}
+<div class="dashboard-cards report-cards spaced-small">
+    <div class="card stat-card"><h3>Filas</h3><p class="stat-number compact">{{ resultado['filas'] }}</p></div>
+    <div class="card stat-card"><h3>Coincidencias</h3><p class="stat-number compact status-paid">{{ resultado['matches'] }}</p></div>
+    <div class="card stat-card"><h3>Sin match</h3><p class="stat-number compact text-danger">{{ resultado['sin_match'] + resultado['multiples'] + resultado['errores'] }}</p></div>
+</div>
+{% endif %}
+
+{% if matches %}
+<form method="post" class="card spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="accion" value="aplicar">
+    <input type="hidden" name="matches_json" value="{{ matches_json | e }}">
+    <button class="button" type="submit" {% if resultado['matches'] == 0 %}disabled{% endif %}>Aplicar coincidencias</button>
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Estado</th>
+                <th>DNI</th>
+                <th>Periodo CSV</th>
+                <th>Importe CSV</th>
+                <th>Jugador</th>
+                <th>Cuota</th>
+                <th>Referencia</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in matches %}
+            <tr>
+                <td>
+                    {% if item['estado'] == 'match' %}
+                        <span class="status-paid">Match</span>
+                    {% else %}
+                        <span class="status-pending">{{ item['estado'] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ item['dni'] or '-' }}</td>
+                <td>{{ item['periodo'] or '-' }}</td>
+                <td>{{ item['importe'] | moneda if item['importe'] is not none else '-' }}</td>
+                <td>{{ item['jugador'] or '-' }}</td>
+                <td>{{ item['cuota_periodo'] or item['motivo'] or '-' }}</td>
+                <td>{{ item['referencia'] or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

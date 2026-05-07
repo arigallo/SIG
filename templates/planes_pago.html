@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Planes de pago{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Planes de pago</h2>
+</div>
+
+<form method="get" class="card spaced-small">
+    <div class="report-filter-grid">
+        <div>
+            <label>Estado</label>
+            <select name="estado">
+                <option value="Activo" {% if estado == 'Activo' %}selected{% endif %}>Activos</option>
+                <option value="Cumplido" {% if estado == 'Cumplido' %}selected{% endif %}>Cumplidos</option>
+                <option value="Caido" {% if estado == 'Caido' %}selected{% endif %}>Caidos</option>
+                <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
+            </select>
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Filtrar</button>
+    </div>
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Jugador</th>
+                <th>Inicio</th>
+                <th>Monto</th>
+                <th>Cuotas</th>
+                <th>Deuda actual</th>
+                <th>Estado</th>
+                <th>Detalle</th>
+                <th>Accion</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plan in planes %}
+            <tr>
+                <td>
+                    {{ plan['apellido'] }}, {{ plan['nombre'] }}
+                    <span class="muted-line">{{ plan['categoria'] or '-' }}</span>
+                </td>
+                <td>{{ plan['fecha_inicio'] or '-' }}</td>
+                <td>{{ plan['monto_total'] | moneda }}</td>
+                <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                <td>{{ plan['deuda_actual'] | moneda }}</td>
+                <td>{{ plan['estado'] }}</td>
+                <td>
+                    {{ plan['descripcion'] or '-' }}
+                    {% if plan['observaciones'] %}
+                        <span class="muted-line">{{ plan['observaciones'] }}</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=plan['jugador_id']) }}">Cuotas</a>
+                    {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
+                        <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="estado" value="Cumplido">
+                            <button class="button secondary" type="submit">Cumplido</button>
+                        </form>
+                        <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="estado" value="Caido">
+                            <button class="button danger" type="submit">Caido</button>
+                        </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="empty">No hay planes de pago para este filtro.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

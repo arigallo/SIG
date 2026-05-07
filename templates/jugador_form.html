@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{% if modo == 'editar' %}Editar jugador{% else %}Nuevo jugador{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if modo == 'editar' %}Editar jugador{% else %}Nuevo jugador{% endif %}</h2>
+
+<form method="post" class="card form-grid">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label>Nombre *</label>
+        <input type="text" name="nombre" value="{{ jugador['nombre'] if jugador else '' }}" required>
+    </div>
+
+    <div>
+        <label>Apellido *</label>
+        <input type="text" name="apellido" value="{{ jugador['apellido'] if jugador else '' }}" required>
+    </div>
+
+    <div>
+        <label>DNI</label>
+        <input type="text" name="dni" value="{{ jugador['dni'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Fecha de nacimiento</label>
+        <input type="date" name="fecha_nacimiento" value="{{ jugador['fecha_nacimiento'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Teléfono</label>
+        <input type="text" name="telefono" value="{{ jugador['telefono'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Email</label>
+        <input type="email" name="email" value="{{ jugador['email'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Dirección</label>
+        <input type="text" name="direccion" value="{{ jugador['direccion'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Categoría</label>
+        <input type="text" name="categoria" value="{{ jugador['categoria'] if jugador else '' }}" placeholder="Primera, Juveniles, etc.">
+    </div>
+
+    <div>
+        <label>Fecha de ingreso</label>
+        <input type="date" name="fecha_ingreso" value="{{ jugador['fecha_ingreso'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Estado</label>
+        <select name="estado">
+            {% set estado_actual = jugador['estado'] if jugador else 'Activo' %}
+            <option value="Activo" {% if estado_actual == 'Activo' %}selected{% endif %}>Activo</option>
+            <option value="Inactivo" {% if estado_actual == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+            <option value="Suspendido" {% if estado_actual == 'Suspendido' %}selected{% endif %}>Suspendido</option>
+            <option value="Baja" {% if estado_actual == 'Baja' %}selected{% endif %}>Baja</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Número de socio</label>
+        <input type="text" name="numero_socio" value="{{ jugador['numero_socio'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Obra social</label>
+        <input type="text" name="obra_social" value="{{ jugador['obra_social'] if jugador else '' }}">
+    </div>
+
+    <div class="full form-subtitle">
+        <h3>Beca de cuotas</h3>
+    </div>
+
+    <div>
+        <label class="checkbox-row">
+            <input type="checkbox" name="beca_activa"
+                   {% if jugador and jugador['beca_activa'] %}checked{% endif %}>
+            <span>Beca activa</span>
+        </label>
+    </div>
+
+    <div>
+        <label>Porcentaje de beca</label>
+        <input type="number"
+               name="beca_porcentaje"
+               min="0"
+               max="100"
+               step="0.01"
+               value="{{ jugador['beca_porcentaje'] if jugador else '' }}"
+               placeholder="Ej: 50 o 100">
+    </div>
+
+    <div>
+        <label>Desde</label>
+        <input type="month" name="beca_desde" value="{{ jugador['beca_desde'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Hasta</label>
+        <input type="month" name="beca_hasta" value="{{ jugador['beca_hasta'] if jugador else '' }}">
+    </div>
+
+    <div class="full">
+        <label>Motivo de la beca</label>
+        <input type="text" name="beca_motivo" value="{{ jugador['beca_motivo'] if jugador else '' }}">
+    </div>
+
+    <div class="full form-subtitle">
+        <h3>Contacto familiar / tutor</h3>
+    </div>
+
+    <div>
+        <label>Nombre del contacto</label>
+        <input type="text" name="contacto_tutor" value="{{ jugador['contacto_tutor'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Parentesco</label>
+        <input type="text" name="parentesco_tutor" value="{{ jugador['parentesco_tutor'] if jugador else '' }}" placeholder="Madre, padre, tutor...">
+    </div>
+
+    <div>
+        <label>Teléfono del contacto</label>
+        <input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Email del contacto</label>
+        <input type="email" name="email_tutor" value="{{ jugador['email_tutor'] if jugador else '' }}">
+    </div>
+
+    <div class="full">
+        <label>Documentos / enlaces</label>
+        <textarea name="documentos" rows="3" placeholder="Un documento o enlace por línea">{{ jugador['documentos'] if jugador else '' }}</textarea>
+    </div>
+
+    <div class="full">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4">{{ jugador['observaciones'] if jugador else '' }}</textarea>
+    </div>
+
+    <div class="full actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

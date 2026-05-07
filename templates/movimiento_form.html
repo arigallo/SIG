@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo movimiento{% endblock %}
+
+{% block content %}
+<h2>Nuevo movimiento de caja</h2>
+
+<form method="post" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Fecha</label>
+        <input type="date" name="fecha" value="{{ movimiento['fecha'] if movimiento else '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Tipo</label>
+        <select name="tipo" required>
+            <option value="egreso" {% if not movimiento or movimiento['tipo'] == 'egreso' %}selected{% endif %}>Egreso</option>
+            <option value="ingreso" {% if movimiento and movimiento['tipo'] == 'ingreso' %}selected{% endif %}>Ingreso manual</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Concepto</label>
+        <input type="text" name="concepto" value="{{ movimiento['concepto'] if movimiento and movimiento.get('concepto') else '' }}" placeholder="Ej: Compra de botiquín, alquiler de cancha..." required>
+    </div>
+
+    <div class="field">
+        <label>Monto</label>
+        <input type="number" step="0.01" name="monto" value="{{ movimiento['monto'] if movimiento and movimiento.get('monto') else '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Referencia</label>
+        <input type="text" name="referencia" value="{{ movimiento['referencia'] if movimiento and movimiento.get('referencia') else '' }}" placeholder="Ej: comprobante, transferencia, observación">
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('ver_caja') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

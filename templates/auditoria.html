@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Auditoria{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Auditoria</h2>
+    <a class="button secondary" href="{{ url_for('exportar_auditoria', q=filtros['q'], usuario=filtros['usuario'], accion=filtros['accion'], entidad=filtros['entidad'], desde=filtros['desde'], hasta=filtros['hasta']) }}">Exportar CSV</a>
+</div>
+
+<form method="get" class="card spaced-small">
+    <div class="audit-filter-grid">
+        <div>
+            <label>Buscar</label>
+            <input type="text" name="q" value="{{ filtros['q'] }}" placeholder="Accion, detalle, IP...">
+        </div>
+
+        <div>
+            <label>Usuario</label>
+            <input type="text" name="usuario" value="{{ filtros['usuario'] }}" placeholder="admin">
+        </div>
+
+        <div>
+            <label>Accion</label>
+            <select name="accion">
+                <option value="">Todas</option>
+                {% for accion in acciones %}
+                    <option value="{{ accion }}" {% if filtros['accion'] == accion %}selected{% endif %}>
+                        {{ accion }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Entidad</label>
+            <select name="entidad">
+                <option value="">Todas</option>
+                {% for entidad in entidades %}
+                    <option value="{{ entidad }}" {% if filtros['entidad'] == entidad %}selected{% endif %}>
+                        {{ entidad }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Desde</label>
+            <input type="date" name="desde" value="{{ filtros['desde'] }}">
+        </div>
+
+        <div>
+            <label>Hasta</label>
+            <input type="date" name="hasta" value="{{ filtros['hasta'] }}">
+        </div>
+    </div>
+
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Filtrar</button>
+        <a class="button secondary" href="{{ url_for('ver_auditoria') }}">Limpiar</a>
+    </div>
+</form>
+
+<div class="table-wrapper auditoria-wrapper">
+    <table class="auditoria-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Usuario</th>
+                <th>Accion</th>
+                <th>Entidad</th>
+                <th>IP</th>
+                <th>Detalle</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for registro in registros %}
+            <tr>
+                <td class="audit-date">{{ registro['fecha'] }}</td>
+                <td class="audit-user">{{ registro['username'] or '-' }}</td>
+                <td class="audit-action"><strong>{{ registro['accion'] }}</strong></td>
+                <td class="audit-entity">
+                    {{ registro['entidad'] or '-' }}
+                    {% if registro['entidad_id'] %}
+                        <span>#{{ registro['entidad_id'] }}</span>
+                    {% endif %}
+                </td>
+                <td class="audit-ip">{{ registro['ip'] or '-' }}</td>
+                <td class="audit-detail">
+                    <details>
+                        <summary>Ver detalle</summary>
+                        <pre>{{ registro['detalle'] or '{}' }}</pre>
+                    </details>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay registros de auditoria.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

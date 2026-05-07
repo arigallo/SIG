@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Caja{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Caja</h2>
+    <div class="actions">
+        <a class="button" href="{{ url_for('nuevo_movimiento', mes=mes_actual) }}">+ Nuevo movimiento</a>
+        <a class="button secondary" href="{{ url_for('exportar_caja', mes=mes_actual) }}">Exportar Excel</a>
+    </div>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Ingresos totales</h3>
+        <p class="stat-number status-paid">{{ total_ingresos | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Egresos totales</h3>
+        <p class="stat-number text-danger">{{ total_egresos | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Saldo actual</h3>
+        <p class="stat-number {% if saldo < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ saldo | moneda }}
+        </p>
+    </div>
+</div>
+
+<h3>Balance mensual</h3>
+
+<form method="get" class="card form-card form-card-narrow spaced-small">
+    <div class="field">
+        <label>Mes</label>
+        <input type="month" name="mes" value="{{ mes_actual }}">
+    </div>
+
+    <button class="button secondary" type="submit">Aplicar</button>
+</form>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Ingresos del mes</h3>
+        <p class="stat-number status-paid">{{ ingresos_mes | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Egresos del mes</h3>
+        <p class="stat-number text-danger">{{ egresos_mes | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Resultado del mes</h3>
+        <p class="stat-number {% if resultado_mes < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ resultado_mes | moneda }}
+        </p>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Movimientos del mes</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Concepto</th>
+                    <th>Referencia</th>
+                    <th>Monto</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimientos_mes %}
+                <tr class="{% if m['anulado'] %}movement-cancelled{% endif %}">
+                    <td>{{ m['fecha'] }}</td>
+                    <td>
+                        {% if m['anulado'] %}
+                            <span class="status-cancelled">Anulado</span>
+                        {% endif %}
+                        {% if m['tipo'] == 'ingreso' %}
+                            <span class="status-paid">Ingreso</span>
+                        {% else %}
+                            <span class="strong-danger">Egreso</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ m['concepto'] or '-' }}</td>
+                    <td>
+                        {{ m['referencia'] or '-' }}
+                        {% if m['anulado'] %}
+                            <div class="cancelled-note">
+                                Motivo: {{ m['motivo_anulacion'] or '-' }}
+                                <br>
+                                Por {{ m['usuario_anulacion'] or '-' }} el {{ m['fecha_anulacion'] or '-' }}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m['tipo'] == 'ingreso' %}
+                            <span class="status-paid">+{{ m['monto'] | moneda }}</span>
+                        {% else %}
+                            <span class="strong-danger">-{{ m['monto'] | moneda }}</span>
+                        {% endif %}
+                    </td>
+                    {% if m['anulado'] %}
+                    <td>-</td>
+                    {% elif not cierre_mes %}
+                    <td class="actions">
+                        <a class="button secondary" href="{{ url_for('editar_movimiento', movimiento_id=m['id']) }}">
+                            Editar
+                        </a>
+
+                        <form method="post"
+                              action="{{ url_for('eliminar_movimiento', movimiento_id=m['id']) }}"
+                              onsubmit="return confirm('¿Anular este movimiento? No se borrará del historial.');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="text"
+                                   name="motivo_anulacion"
+                                   placeholder="Motivo"
+                                   required
+                                   class="wide-action-input">
+                            <button class="button danger" type="submit">Anular</button>
+                        </form>
+                    </td>
+                    {% else %}
+                    <td>-</td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay movimientos para este mes.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Últimos movimientos</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Concepto</th>
+                    <th>Referencia</th>
+                    <th>Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimientos %}
+                <tr class="{% if m['anulado'] %}movement-cancelled{% endif %}">
+                    <td>{{ m['fecha'] }}</td>
+                    <td>
+                        {% if m['anulado'] %}
+                            <span class="status-cancelled">Anulado</span>
+                        {% endif %}
+                        {% if m['tipo'] == 'ingreso' %}
+                            <span class="status-paid">Ingreso</span>
+                        {% else %}
+                            <span class="strong-danger">Egreso</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ m['concepto'] or '-' }}</td>
+                    <td>
+                        {{ m['referencia'] or '-' }}
+                        {% if m['anulado'] %}
+                            <div class="cancelled-note">
+                                Motivo: {{ m['motivo_anulacion'] or '-' }}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m['tipo'] == 'ingreso' %}
+                            <span class="status-paid">+{{ m['monto'] | moneda }}</span>
+                        {% else %}
+                            <span class="strong-danger">-{{ m['monto'] | moneda }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay movimientos cargados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if cierre_mes %}
+    <div class="flash ok">
+        Mes cerrado el {{ cierre_mes['fecha_cierre'] }} por {{ cierre_mes['usuario'] or '-' }}.
+        Resultado cerrado: {{ cierre_mes['resultado'] | moneda }}
+    </div>
+{% else %}
+    <form class="close-month-form"
+          method="post"
+          action="{{ url_for('cerrar_mes') }}"
+          onsubmit="return confirm('¿Cerrar este mes? Luego no podrás editar ni anular movimientos de este período.');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mes" value="{{ mes_actual }}">
+        <button class="button danger" type="submit">Cerrar mes</button>
+    </form>
+{% endif %}
+{% endblock %}

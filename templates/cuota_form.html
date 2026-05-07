@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva cuota{% endblock %}
+
+{% block content %}
+<h2>Nueva cuota</h2>
+
+<form method="post" class="card form-card form-card-narrow">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Período</label>
+        <input type="text" name="periodo" placeholder="Ej: 2026-04" value="{{ periodo or '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Importe base</label>
+        <input type="number" step="0.01" name="importe" value="{{ importe or '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fecha_vencimiento" value="{{ fecha_vencimiento or '' }}">
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="javascript:history.back()">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

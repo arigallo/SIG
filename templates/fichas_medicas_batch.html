@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Carga batch de fichas médicas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Carga batch de fichas médicas</h2>
+    <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Volver a jugadores</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="field">
+        <label>Fichas BDUAR / fichas escaneadas</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="fichas_archivos"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                   multiple
+                   required>
+            <span class="upload-title">Arrastrá varias fichas o hacé clic para elegirlas</span>
+            <span class="upload-hint">La app intentará detectar el jugador por DNI o nombre y apellido.</span>
+            <span class="upload-file" data-upload-file-name>Ningún archivo seleccionado</span>
+        </label>
+        <span class="muted-line">PDF, JPG o PNG. Máximo 16 MB por archivo.</span>
+    </div>
+
+    <p class="muted-line">
+        La carga inicial guarda los archivos y abre la revisión. El OCR se procesa por archivo desde la revisión para evitar timeouts.
+    </p>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Cargar para revisión</button>
+        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Cancelar</a>
+    </div>
+</form>
+
+{% if batches_recientes %}
+    <div class="page-section">
+        <div class="section-header compact">
+            <h3>Cargas recientes</h3>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Archivos</th>
+                        <th>Pendientes</th>
+                        <th>Procesadas</th>
+                        <th>Usuario</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for batch in batches_recientes %}
+                        <tr>
+                            <td>{{ batch['creado_en'] or '-' }}</td>
+                            <td>{{ batch['total'] or 0 }}</td>
+                            <td>{{ batch['pendientes'] or 0 }}</td>
+                            <td>{{ batch['procesadas'] or 0 }}</td>
+                            <td>{{ batch['creado_por'] or '-' }}</td>
+                            <td>
+                                <a class="button secondary" href="{{ url_for('revisar_fichas_medicas_batch', batch_id=batch['batch_id']) }}">Revisar</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

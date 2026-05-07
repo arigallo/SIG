@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Historial del jugador{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Historial de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=jugador['id']) }}">Volver</a>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Evento</th>
+                <th>Detalle</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evento in eventos %}
+            <tr>
+                <td>{{ evento['fecha'] or '-' }}</td>
+                <td>{{ evento['tipo'] }}</td>
+                <td><strong>{{ evento['titulo'] }}</strong></td>
+                <td>{{ evento['detalle'] or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="empty">No hay eventos registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

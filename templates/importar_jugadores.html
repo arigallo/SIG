@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Importar jugadores{% endblock %}
+
+{% block content %}
+<h2>Importar jugadores desde Excel</h2>
+
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-wide spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Archivo .xlsx</label>
+        <input type="file" name="archivo" accept=".xlsx" required>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Importar</button>
+        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Cancelar</a>
+    </div>
+</form>
+
+<div class="card info-card spaced-small">
+    <h3>Columnas reconocidas</h3>
+    <p>
+        nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
+        fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
+        email_tutor, direccion, obra_social, numero_socio, documentos, observaciones.
+    </p>
+    <p>Nombre y apellido son obligatorios. Si el DNI ya existe, esa fila se omite.</p>
+</div>
+
+{% if resultado %}
+<div class="card">
+    <h3>Resultado</h3>
+    <p><strong>Creados:</strong> {{ resultado['creados'] }}</p>
+    <p><strong>Omitidos:</strong> {{ resultado['omitidos'] }}</p>
+
+    {% if resultado['errores'] %}
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in resultado['errores'] %}
+                    <tr>
+                        <td>{{ error }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

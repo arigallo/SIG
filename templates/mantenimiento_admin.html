@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Mantenimiento</h2>
+    <a class="button secondary" href="{{ url_for('index') }}">Volver</a>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card {% if mantenimiento.activo %}card-alert{% endif %}">
+        <h3>Estado</h3>
+        <p class="stat-number compact">
+            {% if mantenimiento.activo %}
+                Activo
+            {% else %}
+                Inactivo
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Ultima actualizacion</h3>
+        <p class="stat-number compact">{{ mantenimiento.actualizado_por or '-' }}</p>
+        <span class="muted-line">{{ mantenimiento.actualizado_en or '-' }}</span>
+    </div>
+</div>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="field">
+        <label class="checkbox-row">
+            <input type="checkbox" name="activo" {% if mantenimiento.activo %}checked{% endif %}>
+            <span>Activar modo mantenimiento</span>
+        </label>
+        <span class="muted-line">Mientras este activo, solo admin puede usar el sistema. Login, logout y archivos estaticos quedan disponibles.</span>
+    </div>
+
+    <div class="field">
+        <label>Mensaje para usuarios</label>
+        <textarea name="mensaje" rows="4" placeholder="{{ mensaje_default }}">{{ mantenimiento.mensaje or mensaje_default }}</textarea>
+    </div>
+
+    <div class="maintenance-preview">
+        <strong>Vista para usuarios:</strong>
+        <p>{{ mantenimiento.mensaje or mensaje_default }}</p>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar configuracion</button>
+        {% if mantenimiento.activo %}
+            <a class="button secondary" href="{{ url_for('index') }}">Seguir trabajando como admin</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

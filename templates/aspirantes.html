@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Ahijadxs{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Ahijadxs</h2>
+    {% if puede('aspirantes_gestionar') %}
+        <a class="button" href="{{ url_for('nuevo_aspirante') }}">+ Nuevx ahijadx</a>
+    {% endif %}
+</div>
+
+<form method="get" class="search-form">
+    <input type="text" name="q" placeholder="Buscar por nombre, DNI, categoria o madrina" value="{{ busqueda }}">
+    <select name="estado">
+        <option value="Aspirante" {% if estado == 'Aspirante' %}selected{% endif %}>En seguimiento</option>
+        <option value="Ingresado" {% if estado == 'Ingresado' %}selected{% endif %}>Ingresados</option>
+        <option value="Baja" {% if estado == 'Baja' %}selected{% endif %}>Baja</option>
+        <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
+    </select>
+    <button type="submit">Buscar</button>
+    {% if busqueda or estado != 'Aspirante' %}
+        <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Limpiar</a>
+    {% endif %}
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Ahijadx</th>
+                <th>Categoria</th>
+                <th>Madrina/Padrino</th>
+                <th>Seguimiento</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for aspirante in aspirantes %}
+            <tr>
+                <td>
+                    {{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}
+                    {% if aspirante['dni'] %}
+                        <span class="muted-line">DNI {{ aspirante['dni'] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ aspirante['categoria'] or '-' }}</td>
+                <td>
+                    {% if aspirante['madrina_apellido'] %}
+                        {{ aspirante['madrina_apellido'] }}, {{ aspirante['madrina_nombre'] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {{ aspirante['entrenamientos_realizados'] or 0 }} / {{ aspirante['entrenamientos_objetivo'] or 0 }}
+                    <progress class="report-progress" max="100" value="{{ aspirante['progreso'] }}"></progress>
+                </td>
+                <td>
+                    {% if aspirante['estado'] == 'Ingresado' %}
+                        <span class="status-paid">Ingresado</span>
+                    {% elif aspirante['estado'] == 'Baja' %}
+                        <span class="status-cancelled">Baja</span>
+                    {% elif aspirante['listo_para_ingresar'] %}
+                        <span class="status-paid">Listo</span>
+                    {% else %}
+                        <span class="status-pending">Seguimiento</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a class="button" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['id']) }}">Ver</a>
+                    {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
+                        <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay ahijadxs cargadxs.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

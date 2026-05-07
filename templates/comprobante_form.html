@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Comprobante{% endblock %}
+
+{% block content %}
+<h2>Comprobante de cuota</h2>
+
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p><strong>Jugador:</strong> {{ cuota['apellido'] }}, {{ cuota['nombre'] }}</p>
+    <p><strong>Periodo:</strong> {{ cuota['periodo'] }}</p>
+    <p><strong>Importe:</strong> ${{ cuota['importe'] }}</p>
+
+    {% if cuota['comprobante_drive_file_id'] %}
+        <p>
+            <strong>Archivo actual:</strong>
+            <a href="{{ url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) }}">
+                {{ cuota['comprobante_nombre'] or 'Ver comprobante' }}
+            </a>
+        </p>
+        {% if cuota['comprobante_fecha'] %}
+            <p><strong>Última carga:</strong> {{ cuota['comprobante_fecha'] }}</p>
+        {% endif %}
+    {% endif %}
+
+    <div class="field">
+        <label>Archivo</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="comprobante_pago"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                   required>
+            <span class="upload-title">Arrastrá el comprobante o hacé clic para elegirlo</span>
+            <span class="upload-hint">También podés pegar una imagen desde el portapapeles.</span>
+            <span class="upload-file" data-upload-file-name>Ningún archivo seleccionado</span>
+        </label>
+        <span class="muted-line">PDF, JPG o PNG hasta 10 MB.</span>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar comprobante</button>
+        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

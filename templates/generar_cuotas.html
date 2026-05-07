@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Generar cuotas{% endblock %}
+
+{% block content %}
+<h2>Generación masiva de cuotas</h2>
+
+<form method="post" class="card form-card form-card-narrow">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Período</label>
+        <input type="text" name="periodo" placeholder="Ej: 2026-04" value="{{ periodo or '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Importe base</label>
+        <input type="number" step="0.01" name="importe" value="{{ importe or '' }}" required>
+    </div>
+
+    <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fecha_vencimiento" value="{{ fecha_vencimiento or '' }}">
+    </div>
+
+    <div class="field">
+        <label>Categoría (opcional)</label>
+        <input type="text" name="categoria" placeholder="Ej: Primera, Juveniles..." value="{{ categoria or '' }}">
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Generar cuotas</button>
+        <a class="button secondary" href="{{ url_for('index') }}">Cancelar</a>
+    </div>
+</form>
+
+<div class="card info-card stack-gap">
+    <p><strong>Qué hace esta función:</strong></p>
+    <ul>
+        <li>genera cuotas para jugadores con estado <strong>Activo</strong></li>
+        <li>si completás categoría, genera solo para esa categoría</li>
+        <li>no duplica cuotas si ese jugador ya tiene ese período</li>
+        <li>permite guardar fecha de vencimiento</li>
+        <li>aplica becas vigentes antes de crear la cuota</li>
+    </ul>
+</div>
+{% endblock %}

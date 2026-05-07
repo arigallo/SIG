@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle del jugador{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('timeline_jugador', jugador_id=jugador['id']) }}">Historial</a>
+        {% if puede('jugadores_gestionar') %}
+            <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar jugador</a>
+        {% endif %}
+        {% if puede_ver_finanzas %}
+            <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
+            <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
+        {% endif %}
+        {% if puede_ver_salud %}
+            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha médica</a>
+            <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
+            <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver lesiones</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Estado</h3>
+        <p class="stat-number compact">{{ jugador['estado'] }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Categoría</h3>
+        <p class="stat-number compact">{{ jugador['categoria'] or '-' }}</p>
+    </div>
+
+    {% if puede_ver_finanzas %}
+        <div class="card stat-card">
+            <h3>Beca cuotas</h3>
+            <p class="stat-number compact">
+                {% if jugador['beca_activa'] %}
+                    {{ jugador['beca_porcentaje'] or 0 }}%
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="card stat-card">
+            <h3>Cuotas pendientes</h3>
+            <p class="stat-number compact {% if cuotas_pendientes_count > 0 %}text-danger{% endif %}">
+                {{ cuotas_pendientes_count }}
+            </p>
+        </div>
+
+        <div class="card stat-card">
+            <h3>Deuda actual</h3>
+            <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">${{ deuda }}</p>
+        </div>
+    {% endif %}
+
+    {% if puede_ver_asistencia %}
+        <div class="card stat-card">
+            <h3>Asistencia</h3>
+            <p class="stat-number compact">{{ asistencia_porcentaje }}%</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3>Datos personales</h3>
+        <p><strong>DNI:</strong> {{ jugador['dni'] or '-' }}</p>
+        <p><strong>Fecha de nacimiento:</strong> {{ jugador['fecha_nacimiento'] or '-' }}</p>
+        <p><strong>Teléfono:</strong> {{ jugador['telefono'] or '-' }}</p>
+        <p><strong>Email:</strong> {{ jugador['email'] or '-' }}</p>
+        <p><strong>Dirección:</strong> {{ jugador['direccion'] or '-' }}</p>
+        <p><strong>Número de socio:</strong> {{ jugador['numero_socio'] or '-' }}</p>
+        <p><strong>Obra social:</strong> {{ jugador['obra_social'] or '-' }}</p>
+        <p><strong>Observaciones:</strong> {{ jugador['observaciones'] or '-' }}</p>
+    </div>
+
+    {% if puede_ver_salud %}
+    <div class="card {% if ficha_vencida %}card-alert{% endif %}">
+        <div class="section-header compact">
+            <h3>Ficha médica</h3>
+            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar</a>
+        </div>
+
+        {% if ficha %}
+            <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
+            <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
+            <p><strong>Apto físico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
+            <p><strong>Contacto de emergencia:</strong> {{ ficha['contacto_emergencia'] or '-' }}</p>
+            <p><strong>Teléfono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
+            <p><strong>Observaciones:</strong> {{ ficha['observaciones'] or '-' }}</p>
+            {% if ficha['documento_drive_file_id'] %}
+                <p>
+                    <strong>Documento:</strong>
+                    <a href="{{ url_for('descargar_ficha_medica_documento', jugador_id=jugador['id']) }}">
+                        {{ ficha['documento_nombre'] or 'Ver ficha adjunta' }}
+                    </a>
+                </p>
+            {% endif %}
+        {% else %}
+            <p>No hay ficha médica cargada.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if puede_ver_salud and not puede_ver_finanzas %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Documentos</h3>
+            {% if puede('documentos_gestionar', 'salud_gestionar') %}
+                <a class="button secondary" href="{{ url_for('nuevo_documento_jugador', jugador_id=jugador['id']) }}">Nuevo documento</a>
+            {% endif %}
+        </div>
+
+        {% if documentos or documentos_manual %}
+            <ul class="document-list">
+                {% for documento in documentos %}
+                    <li>{{ documento }}</li>
+                {% endfor %}
+                {% for documento in documentos_manual %}
+                    <li>
+                        <strong>{{ documento['tipo'] }}</strong>
+                        {% if documento['nombre'] %} - {{ documento['nombre'] }}{% endif %}
+                        {% if documento['fecha_vencimiento'] %}
+                            <span class="muted-line">Vence: {{ documento['fecha_vencimiento'] }}</span>
+                        {% endif %}
+                        {% if documento['url'] %}
+                            <a href="{{ documento['url'] }}" target="_blank" rel="noopener">Abrir</a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No hay documentos o enlaces cargados.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% if puede_ver_finanzas or puede_ver_salud %}
+<div class="detail-grid page-section">
+    {% if puede_ver_finanzas %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Contacto familiar / tutor</h3>
+        </div>
+
+        <p><strong>Nombre:</strong> {{ jugador['contacto_tutor'] or '-' }}</p>
+        <p><strong>Parentesco:</strong> {{ jugador['parentesco_tutor'] or '-' }}</p>
+        <p><strong>Teléfono:</strong> {{ jugador['telefono_tutor'] or '-' }}</p>
+        <p><strong>Email:</strong> {{ jugador['email_tutor'] or '-' }}</p>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Beca de cuotas</h3>
+        </div>
+
+        {% if jugador['beca_activa'] %}
+            <p><strong>Porcentaje:</strong> {{ jugador['beca_porcentaje'] or 0 }}%</p>
+            <p><strong>Desde:</strong> {{ jugador['beca_desde'] or '-' }}</p>
+            <p><strong>Hasta:</strong> {{ jugador['beca_hasta'] or '-' }}</p>
+            <p><strong>Motivo:</strong> {{ jugador['beca_motivo'] or '-' }}</p>
+        {% else %}
+            <p>No tiene beca activa.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Documentos</h3>
+            {% if puede('documentos_gestionar', 'salud_gestionar') %}
+                <a class="button secondary" href="{{ url_for('nuevo_documento_jugador', jugador_id=jugador['id']) }}">Nuevo documento</a>
+            {% endif %}
+        </div>
+
+        {% if documentos or documentos_manual %}
+            <ul class="document-list">
+                {% for documento in documentos %}
+                    <li>{{ documento }}</li>
+                {% endfor %}
+                {% for documento in documentos_manual %}
+                    <li>
+                        <strong>{{ documento['tipo'] }}</strong>
+                        {% if documento['nombre'] %} - {{ documento['nombre'] }}{% endif %}
+                        {% if documento['fecha_vencimiento'] %}
+                            <span class="muted-line">Vence: {{ documento['fecha_vencimiento'] }}</span>
+                        {% endif %}
+                        {% if documento['url'] %}
+                            <a href="{{ documento['url'] }}" target="_blank" rel="noopener">Abrir</a>
+                        {% endif %}
+                        {% if puede('documentos_gestionar', 'salud_gestionar') %}
+                            <form method="post" action="{{ url_for('eliminar_documento_jugador', documento_id=documento['id']) }}" onsubmit="return confirm('Eliminar este documento?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button danger" type="submit">Eliminar</button>
+                            </form>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No hay documentos o enlaces cargados.</p>
+        {% endif %}
+    </div>
+
+    {% if puede_gestionar_portal %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Portal externo</h3>
+        </div>
+        {% if portal_url %}
+            <p><strong>Estado:</strong> habilitado</p>
+            <p><a href="{{ portal_url }}" target="_blank" rel="noopener">{{ portal_url }}</a></p>
+            <form method="post" action="{{ url_for('desactivar_portal_jugador', jugador_id=jugador['id']) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button danger" type="submit">Desactivar portal</button>
+            </form>
+        {% else %}
+            <p>Portal externo desactivado.</p>
+            <form method="post" action="{{ url_for('generar_portal_jugador', jugador_id=jugador['id']) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button secondary" type="submit">Generar enlace</button>
+            </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Bitacora</h3>
+    </div>
+
+    <div class="detail-grid">
+        <div class="card">
+            {% if bitacora_tipos %}
+                <form method="post" action="{{ url_for('nueva_bitacora_jugador', jugador_id=jugador['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div class="field">
+                        <label>Tipo</label>
+                        <select name="tipo" required>
+                            {% for tipo in bitacora_tipos %}
+                                <option value="{{ tipo['clave'] }}">{{ tipo['nombre'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Nota</label>
+                        <textarea name="nota" rows="4" required></textarea>
+                    </div>
+                    <button class="button secondary" type="submit">Agregar nota</button>
+                </form>
+            {% else %}
+                <p>No tenes permisos para agregar notas.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            {% if bitacora %}
+                <div class="timeline-list compact-list">
+                    {% for nota in bitacora[:8] %}
+                        <div class="timeline-item">
+                            <span class="badge badge-info">{{ bitacora_labels.get(nota['tipo'], nota['tipo']) }}</span>
+                            <strong>{{ nota['creado_por'] or 'SIG' }}</strong>
+                            <span class="muted-line">{{ nota['creado_en'] }}</span>
+                            <p>{{ nota['nota'] }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>No hay notas visibles para tu rol.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Planes de pago</h3>
+            {% if puede('planes_pago_gestionar') %}
+                <a class="button secondary" href="{{ url_for('nuevo_plan_pago', jugador_id=jugador['id']) }}">Nuevo plan</a>
+            {% endif %}
+        </div>
+
+        {% if planes_pago %}
+            <div class="table-wrapper flush">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Inicio</th>
+                            <th>Monto</th>
+                            <th>Cuotas</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plan in planes_pago %}
+                        <tr>
+                            <td>{{ plan['fecha_inicio'] or '-' }}</td>
+                            <td>{{ plan['monto_total'] | moneda }}</td>
+                            <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                            <td>{{ plan['estado'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No hay planes de pago cargados.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Últimas cuotas</h3>
+            <div class="actions">
+                <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
+                <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver todas</a>
+            </div>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Período</th>
+                        <th>Importe</th>
+                        <th>Beca</th>
+                        <th>Estado</th>
+                        <th>Vencimiento</th>
+                        <th>Método</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cuota in ultimas_cuotas %}
+                    <tr>
+                        <td>{{ cuota['periodo'] }}</td>
+                        <td>{{ cuota['importe'] | moneda }}</td>
+                        <td>
+                            {% if cuota['becada'] %}
+                                {{ cuota['beca_porcentaje'] or 0 }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cuota['becada'] and cuota['importe'] == 0 %}
+                                <span class="status-paid">Becada</span>
+                            {% elif cuota['pagado'] %}
+                                <span class="status-paid">Pagado</span>
+                            {% else %}
+                                <span class="status-pending">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                        <td>{{ cuota['metodo_pago'] or '-' }}</td>
+                        <td>
+                            {% if not cuota['pagado'] %}
+                                <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Registrar pago</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="empty">No hay cuotas cargadas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="profile-summary">
+            <span>Total cuotas: {{ resumen_cuotas['total'] or 0 }}</span>
+            <span>Pagadas: {{ resumen_cuotas['pagadas'] or 0 }}</span>
+            <span>Pendientes: {{ resumen_cuotas['pendientes'] or 0 }}</span>
+            <span>Cobrado: {{ resumen_cuotas['total_pagado'] | moneda }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if puede_ver_salud %}
+    <div class="card {% if lesiones_activas_count > 0 %}card-alert{% endif %}">
+        <div class="section-header compact">
+            <h3>Lesiones recientes</h3>
+            {% if lesiones_activas_count > 0 %}
+                <p class="alert-text">Hay {{ lesiones_activas_count }} lesión(es) activa(s) o en recuperación.</p>
+            {% endif %}
+            <div class="actions">
+                <a class="button" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
+                <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver todas</a>
+            </div>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Zona</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lesion in lesiones %}
+                    <tr>
+                        <td>{{ lesion['fecha_lesion'] or '-' }}</td>
+                        <td>{{ lesion['tipo_lesion'] or '-' }}</td>
+                        <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
+                        <td>{{ lesion['estado'] }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay lesiones cargadas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if puede_ver_asistencia %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Historial de asistencia</h3>
+        <span class="report-note">
+            {{ asistencia_resumen['presentes'] or 0 }} presentes sobre {{ asistencia_resumen['total'] or 0 }} registros
+        </span>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Evento</th>
+                    <th>Estado</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asistencia in ultimas_asistencias %}
+                <tr>
+                    <td>{{ asistencia['fecha'] }}</td>
+                    <td>{{ asistencia['tipo'] }}</td>
+                    <td>{{ asistencia['descripcion'] or '-' }}</td>
+                    <td>
+                        {% set estado_asistencia = asistencia['estado_asistencia'] or ('a_tiempo' if asistencia['presente'] else 'ausente') %}
+                        {% if estado_asistencia == 'a_tiempo' %}
+                            <span class="status-paid">A tiempo</span>
+                        {% elif estado_asistencia == 'tarde' %}
+                            <span class="status-pending">Tarde</span>
+                        {% else %}
+                            <span class="strong-danger">Ausente</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ asistencia['observaciones'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay asistencia registrada para este jugador.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

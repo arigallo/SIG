@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Documentos{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Documentos y vencimientos</h2>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Fichas medicas</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    <th>Estado</th>
+                    <th>Vencimiento</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ficha in fichas %}
+                <tr>
+                    <td>{{ ficha['apellido'] }}, {{ ficha['nombre'] }}</td>
+                    <td>{{ ficha['categoria'] or '-' }}</td>
+                    <td>{{ ficha['estado_documento'] }}</td>
+                    <td>{{ ficha['fecha_vencimiento'] or '-' }}</td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=ficha['jugador_id']) }}">Ver ficha</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay fichas vencidas o por vencer.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Documentos manuales</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Tipo</th>
+                    <th>Nombre</th>
+                    <th>Vencimiento</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for documento in manuales %}
+                <tr>
+                    <td>{{ documento['apellido'] }}, {{ documento['nombre'] }}</td>
+                    <td>{{ documento['tipo'] }}</td>
+                    <td>{{ documento['nombre'] or '-' }}</td>
+                    <td>{{ documento['fecha_vencimiento'] or '-' }}</td>
+                    <td class="actions">
+                        {% if documento['url'] %}
+                            <a class="button secondary" href="{{ documento['url'] }}" target="_blank" rel="noopener">Abrir</a>
+                        {% endif %}
+                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=documento['jugador_id']) }}">Jugador</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay documentos manuales vencidos o por vencer.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

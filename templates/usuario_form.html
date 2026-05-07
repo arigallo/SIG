@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% set es_edicion = modo == 'editar' %}
+
+{% block title %}{% if es_edicion %}Editar usuario{% else %}Nuevo usuario{% endif %}{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>{% if es_edicion %}Editar usuario{% else %}Nuevo usuario{% endif %}</h2>
+        <p class="page-intro">
+            {% if es_edicion %}
+                Actualiza el acceso, email de recuperacion y rol asignado.
+            {% else %}
+                Los usuarios nuevos deberan cambiar su clave en el primer ingreso.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<form method="post" class="card form-card form-card-narrow">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="field">
+        <label>Usuario</label>
+        <input type="text"
+               name="username"
+               value="{{ (usuario['username'] if usuario else username) or '' }}"
+               autocomplete="username"
+               required>
+    </div>
+
+    <div class="field">
+        <label>Email de recuperacion</label>
+        <input type="email"
+               name="email"
+               value="{{ (usuario['email'] if usuario else email) or '' }}"
+               autocomplete="email"
+               placeholder="nombre@dominio.com">
+    </div>
+
+    {% if not es_edicion %}
+        <div class="field">
+            <label>Clave inicial</label>
+            <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+            <small class="field-hint">Se pedira el cambio de clave al ingresar por primera vez.</small>
+        </div>
+    {% endif %}
+
+    <div class="field">
+        <label>Rol</label>
+        {% set rol_actual = rol or (usuario['rol'] if usuario else 'tesorero') %}
+        <select name="rol" required>
+            {% for item in roles %}
+                <option value="{{ item['nombre'] }}" {% if rol_actual == item['nombre'] %}selected{% endif %}>
+                    {{ item['nombre'] }}{% if item['sistema'] %} - base{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">{% if es_edicion %}Guardar usuario{% else %}Crear usuario{% endif %}</button>
+        <a class="button secondary" href="{{ url_for('listar_usuarios') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

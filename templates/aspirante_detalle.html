@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de ahijadx{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</h2>
+    <div class="actions">
+        {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
+            <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Volver</a>
+    </div>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Estado</h3>
+        <p class="stat-number compact">
+            {% if aspirante['estado'] == 'Aspirante' %}
+                Seguimiento
+            {% else %}
+                {{ aspirante['estado'] }}
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Asistencias</h3>
+        <p class="stat-number compact">{{ aspirante['entrenamientos_realizados'] or 0 }} / {{ aspirante['entrenamientos_objetivo'] or 0 }}</p>
+        <span class="muted-line">Solo cuentan eventos de tipo Entrenamiento.</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Progreso</h3>
+        <p class="stat-number compact">{{ aspirante['progreso'] }}%</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Categoria</h3>
+        <p class="stat-number compact">{{ aspirante['categoria'] or '-' }}</p>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3>Datos personales</h3>
+        <p><strong>DNI:</strong> {{ aspirante['dni'] or '-' }}</p>
+        <p><strong>Fecha de nacimiento:</strong> {{ aspirante['fecha_nacimiento'] or '-' }}</p>
+        <p><strong>Telefono:</strong> {{ aspirante['telefono'] or '-' }}</p>
+        <p><strong>Email:</strong> {{ aspirante['email'] or '-' }}</p>
+        <p><strong>Fecha de postulacion:</strong> {{ aspirante['fecha_postulacion'] or '-' }}</p>
+        <p><strong>Observaciones:</strong> {{ aspirante['observaciones'] or '-' }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Madrina/Padrino</h3>
+        {% if aspirante['madrina_apellido'] %}
+            <p><strong>Nombre:</strong> {{ aspirante['madrina_apellido'] }}, {{ aspirante['madrina_nombre'] }}</p>
+            <p><strong>Categoria:</strong> {{ aspirante['madrina_categoria'] or '-' }}</p>
+        {% else %}
+            <p>No tiene madrina/padrino asignadx.</p>
+        {% endif %}
+
+        <h3 class="spaced-small">Ingreso al club</h3>
+        {% if aspirante['estado'] == 'Ingresado' %}
+            <p><strong>Fecha de ingreso:</strong> {{ aspirante['fecha_ingreso_club'] or '-' }}</p>
+            {% if aspirante['jugador_id'] %}
+                <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=aspirante['jugador_id']) }}">Ver jugador</a>
+            {% endif %}
+        {% elif aspirante['listo_para_ingresar'] and puede('aspirantes_gestionar') %}
+            <form method="post" action="{{ url_for('convertir_aspirante', aspirante_id=aspirante['id']) }}" class="inline-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label>Fecha de ingreso</label>
+                <input type="date" name="fecha_ingreso" value="{{ now().strftime('%Y-%m-%d') }}">
+                <button class="button" type="submit">Ingresar como jugador</button>
+            </form>
+        {% else %}
+            <p>Faltan asistencias para habilitar el ingreso.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header compact">
+        <h3>Historial de asistencia</h3>
+        {% if aspirante['listo_para_ingresar'] %}
+            <span class="status-paid">Listx para ingresar</span>
+        {% else %}
+            <span class="status-pending">En seguimiento</span>
+        {% endif %}
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Descripcion</th>
+                    <th>Asistencia</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asistencia in asistencias %}
+                <tr>
+                    <td>{{ asistencia['fecha'] }}</td>
+                    <td>{{ asistencia['tipo'] }}</td>
+                    <td>{{ asistencia['descripcion'] or '-' }}</td>
+                    <td>
+                        {% set estado_asistencia = asistencia['estado_asistencia'] or ('a_tiempo' if asistencia['presente'] else 'ausente') %}
+                        {% if estado_asistencia == 'a_tiempo' %}
+                            <span class="status-paid">A tiempo</span>
+                        {% elif estado_asistencia == 'tarde' %}
+                            <span class="status-pending">Tarde</span>
+                        {% else %}
+                            <span class="strong-danger">Ausente</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ asistencia['observaciones'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay asistencia registrada para estx ahijadx.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
+    <form method="post"
+          action="{{ url_for('eliminar_aspirante', aspirante_id=aspirante['id']) }}"
+          class="actions-row stack-gap"
+          onsubmit="return confirm('Dar de baja estx ahijadx?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="button danger" type="submit">Dar de baja</button>
+    </form>
+{% endif %}
+{% endblock %}

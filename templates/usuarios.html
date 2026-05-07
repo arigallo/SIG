@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Usuarios</h2>
+        <p class="page-intro">Administracion de accesos, roles y recuperacion de clave.</p>
+    </div>
+    <div class="actions">
+        <a class="button" href="{{ url_for('nuevo_usuario') }}">+ Nuevo usuario</a>
+        <a class="button secondary" href="{{ url_for('listar_roles') }}">Roles</a>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Ultimo ingreso</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for usuario in usuarios %}
+            <tr>
+                <td>
+                    <strong>{{ usuario['username'] }}</strong>
+                    {% if session.get("user_id") == usuario['id'] %}
+                        <span class="badge badge-muted">Actual</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if usuario['email'] %}
+                        {{ usuario['email'] }}
+                    {% else %}
+                        <span class="muted-line inline">Sin email</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-info">{{ usuario['rol'] }}</span></td>
+                <td>
+                    {% if usuario['debe_cambiar_password'] %}
+                        <span class="badge badge-warning">Debe cambiar clave</span>
+                    {% else %}
+                        <span class="badge badge-success">Activo</span>
+                    {% endif %}
+                    {% if not usuario['onboarding_visto'] %}
+                        <span class="badge badge-muted">Primer ingreso</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if usuario['ultimo_login'] %}
+                        {{ usuario['ultimo_login'].strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a class="button secondary" href="{{ url_for('editar_usuario', usuario_id=usuario['id']) }}">
+                        Editar
+                    </a>
+
+                    <a class="button secondary" href="{{ url_for('resetear_password_usuario', usuario_id=usuario['id']) }}">
+                        Cambiar clave
+                    </a>
+
+                    {% if session.get("user_id") != usuario['id'] %}
+                    <form method="post"
+                          action="{{ url_for('eliminar_usuario', usuario_id=usuario['id']) }}"
+                          onsubmit="return confirm('Eliminar este usuario?');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="button danger" type="submit">Eliminar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay usuarios cargados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

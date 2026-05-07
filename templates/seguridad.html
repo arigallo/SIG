@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Seguridad{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Seguridad</h2>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Intentos 7 dias</h3>
+        <p class="stat-number compact">{{ login_resumen['intentos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Exitosos</h3>
+        <p class="stat-number compact status-paid">{{ login_resumen['exitosos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Fallidos</h3>
+        <p class="stat-number compact text-danger">{{ login_resumen['fallidos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Bloqueo</h3>
+        <p class="stat-number compact">{{ max_login_attempts }}</p>
+        <span class="report-note">intentos en {{ login_window }} min</span>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>IPs con fallos recientes</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>Usuario</th>
+                    <th>Fallidos</th>
+                    <th>Ultimo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ips_fallidas %}
+                <tr>
+                    <td>{{ item['ip'] or '-' }}</td>
+                    <td>{{ item['username'] or '-' }}</td>
+                    <td class="strong-danger">{{ item['fallidos'] }}</td>
+                    <td>{{ item['ultimo'] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay IPs con fallos repetidos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Intentos recientes</h3>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>IP</th>
+                        <th>Resultado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for intento in intentos_recientes %}
+                    <tr>
+                        <td>{{ intento['fecha'] }}</td>
+                        <td>{{ intento['username'] or '-' }}</td>
+                        <td>{{ intento['ip'] or '-' }}</td>
+                        <td>{% if intento['success'] %}<span class="status-paid">OK</span>{% else %}<span class="status-pending">Fallido</span>{% endif %}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay intentos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Acciones sensibles</h3>
+            <a class="button secondary" href="{{ url_for('exportar_auditoria') }}">Exportar auditoria</a>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>Accion</th>
+                        <th>Entidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for accion in acciones_sensibles %}
+                    <tr>
+                        <td>{{ accion['fecha'] }}</td>
+                        <td>{{ accion['username'] or '-' }}</td>
+                        <td>{{ accion['accion'] }}</td>
+                        <td>{{ accion['entidad'] or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="empty">No hay acciones sensibles recientes.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

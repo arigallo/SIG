@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SIG{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+
+    <header class="topbar">
+        <div class="container topbar-content">
+
+            <div class="brand">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+
+                <div>
+                    <h1>SIG</h1>
+                    <span class="brand-subtitle">
+                        Sistema Integral de Gestion
+                    </span>
+                </div>
+            </div>
+
+            <nav class="main-nav" aria-label="Navegacion principal">
+                <a class="nav-link" href="{{ url_for('index') }}">Panel</a>
+
+                {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
+                {% if mostrar_club %}
+                <details class="nav-group">
+                    <summary>Club</summary>
+                    <div class="nav-menu">
+                        {% if puede('jugadores_ver') %}
+                            <a href="{{ url_for('listar_jugadores') }}">Jugadores</a>
+                        {% endif %}
+                        {% if puede('aspirantes_ver') %}
+                            <a href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+                        {% endif %}
+                        {% if puede('asistencia_ver') %}
+                            <a href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+                        {% endif %}
+                        {% if puede('calendario_ver') %}
+                            <a href="{{ url_for('ver_calendario') }}">Calendario</a>
+                        {% endif %}
+                        {% if puede('jugadores_gestionar') %}
+                            <a href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
+                            <a href="{{ url_for('importar_jugadores') }}">Importar</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
+                {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('reportes_ver') %}
+                {% if mostrar_finanzas %}
+                <details class="nav-group">
+                    <summary>Finanzas</summary>
+                    <div class="nav-menu">
+                        {% if puede('cuotas_gestionar') %}
+                            <a href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
+                            <a href="{{ url_for('listar_comprobantes_revision') }}">Comprobantes</a>
+                            <a href="{{ url_for('conciliar_pagos') }}">Conciliacion</a>
+                        {% endif %}
+                        {% if puede('planes_pago_ver') %}
+                            <a href="{{ url_for('listar_planes_pago') }}">Planes</a>
+                        {% endif %}
+                        {% if puede('caja_ver') %}
+                            <a href="{{ url_for('ver_caja') }}">Caja</a>
+                        {% endif %}
+                        {% if puede('reportes_ver') %}
+                            <a href="{{ url_for('ver_reportes') }}">Reportes</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
+                {% set mostrar_salud = puede('salud_ver') or puede('salud_gestionar') or puede('documentos_ver') or puede('alertas_finanzas', 'alertas_salud') %}
+                {% if mostrar_salud %}
+                <details class="nav-group">
+                    <summary>Salud</summary>
+                    <div class="nav-menu">
+                        {% if puede('salud_ver') %}
+                            <a href="{{ url_for('panel_salud') }}">Panel salud</a>
+                        {% endif %}
+                        {% if puede('salud_gestionar') %}
+                            <a href="{{ url_for('cargar_fichas_medicas_batch') }}">Fichas batch</a>
+                        {% endif %}
+                        {% if puede('documentos_ver', 'salud_ver') %}
+                            <a href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
+                        {% endif %}
+                        {% if puede('alertas_finanzas', 'alertas_salud') %}
+                            <a href="{{ url_for('ver_alertas') }}">Alertas</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
+                {% if puede('comunicaciones_ver') %}
+                <details class="nav-group">
+                    <summary>Comunicacion</summary>
+                    <div class="nav-menu">
+                        <a href="{{ url_for('ver_comunicaciones') }}">Comunicacion</a>
+                        <a href="{{ url_for('ver_notificaciones') }}">
+                            Notificaciones
+                            {% if notificaciones_count %}
+                                <span class="nav-badge">{{ notificaciones_count }}</span>
+                            {% endif %}
+                        </a>
+                    </div>
+                </details>
+                {% endif %}
+
+                {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') %}
+                {% if mostrar_admin %}
+                <details class="nav-group">
+                    <summary>Admin</summary>
+                    <div class="nav-menu">
+                        {% if session.get('rol') == 'admin' %}
+                            <a href="{{ url_for('listar_usuarios') }}">Usuarios</a>
+                            <a href="{{ url_for('listar_roles') }}">Roles</a>
+                            <a href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+                            <a href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
+                        {% endif %}
+                        {% if puede('auditoria_ver') %}
+                            <a href="{{ url_for('ver_auditoria') }}">Auditoria</a>
+                        {% endif %}
+                        {% if puede('seguridad_ver') %}
+                            <a href="{{ url_for('ver_seguridad') }}">Seguridad</a>
+                        {% endif %}
+                        {% if puede('backup_ver') %}
+                            <a href="{{ url_for('backup_db') }}">Backup</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
+                <details class="nav-group nav-account">
+                    <summary>{{ session.get('username') or 'Cuenta' }}</summary>
+                    <div class="nav-menu">
+                        <a href="{{ url_for('cambiar_mi_password') }}">Mi clave</a>
+                        <a href="{{ url_for('logout') }}">Salir</a>
+                    </div>
+                </details>
+            </nav>
+
+        </div>
+    </header>
+
+    <main class="container">
+
+        {% if session.get('rol') == 'admin' and mantenimiento and mantenimiento.activo %}
+            <div class="maintenance-banner">
+                Modo mantenimiento activo. Solo admin puede usar el sistema.
+                <a href="{{ url_for('configurar_mantenimiento') }}">Configurar</a>
+            </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+
+            {% endif %}
+        {% endwith %}
+
+        {% if session.get('user_id') and not session.get('onboarding_visto') and not session.get('debe_cambiar_password') %}
+            <section class="onboarding-panel">
+                <div>
+                    <span class="badge badge-info">Primer ingreso</span>
+                    <h2>Bienvenido al SIG</h2>
+                    <p>Tu vista se adapta al rol asignado. Estos accesos te llevan a las areas disponibles para tu usuario.</p>
+                </div>
+
+                <div class="onboarding-actions">
+                    {% if puede('jugadores_ver') %}
+                        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Jugadores</a>
+                    {% endif %}
+                    {% if puede('reportes_ver') %}
+                        <a class="button secondary" href="{{ url_for('ver_reportes') }}">Finanzas</a>
+                    {% elif puede('caja_ver') %}
+                        <a class="button secondary" href="{{ url_for('ver_caja') }}">Finanzas</a>
+                    {% elif puede('planes_pago_ver') %}
+                        <a class="button secondary" href="{{ url_for('listar_planes_pago') }}">Finanzas</a>
+                    {% elif puede('cuotas_gestionar') %}
+                        <a class="button secondary" href="{{ url_for('generar_cuotas') }}">Finanzas</a>
+                    {% endif %}
+                    {% if puede('salud_ver') %}
+                        <a class="button secondary" href="{{ url_for('ver_documentos_vencidos') }}">Salud</a>
+                    {% endif %}
+                    {% if puede('asistencia_ver') %}
+                        <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('descartar_onboarding') }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button class="button" type="submit">Entendido</button>
+                    </form>
+                </div>
+            </section>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

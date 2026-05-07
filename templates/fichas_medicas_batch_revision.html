@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Revisión batch de fichas médicas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Revisión de fichas médicas</h2>
+    <a class="button secondary" href="{{ url_for('cargar_fichas_medicas_batch') }}">Nueva carga</a>
+</div>
+
+<form method="post" class="card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="table-wrapper batch-review-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Asignar</th>
+                    <th>Archivo</th>
+                    <th>Jugador</th>
+                    <th>Confianza</th>
+                    <th>OCR</th>
+                    <th>Vencimiento</th>
+                    <th>Apto</th>
+                    <th>Contacto</th>
+                    <th>Teléfono</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr class="{% if item['estado'] == 'procesado' %}row-muted{% endif %}">
+                        <td>
+                            <input type="hidden" name="item_ids" value="{{ item['id'] }}">
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="checkbox" name="procesar_{{ item['id'] }}" checked>
+                            {% else %}
+                                <span class="status-paid">Procesada</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ item['archivo_original'] or item['documento_nombre'] }}</strong>
+                            <div class="muted-line">
+                                <a href="{{ url_for('descargar_ficha_medica_batch_documento', item_id=item['id']) }}">Ver archivo</a>
+                            </div>
+                            {% if item['error'] %}
+                                <div class="strong-warning">{{ item['error'] }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <select name="jugador_id_{{ item['id'] }}">
+                                    <option value="">Sin asignar</option>
+                                    {% for jugador in jugadores %}
+                                        <option value="{{ jugador['id'] }}"
+                                                {% if item['jugador_sugerido_id'] == jugador['id'] %}selected{% endif %}>
+                                            {{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['dni'] %} - DNI {{ jugador['dni'] }}{% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                {{ item['asignado_apellido'] }}, {{ item['asignado_nombre'] }}
+                            {% endif %}
+                            {% if item['sugerido_apellido'] %}
+                                <div class="muted-line">Sugerido: {{ item['sugerido_apellido'] }}, {{ item['sugerido_nombre'] }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="confidence-badge confidence-{{ item['confianza'] or 'sin_coincidencia' }}">
+                                {{ item['confianza'] or 'sin coincidencia' }}
+                            </span>
+                            <div class="muted-line">{{ item['motivo'] or '-' }}</div>
+                        </td>
+                        <td>
+                            {% if item['ocr_fecha'] %}
+                                <span class="status-paid">Procesado</span>
+                                <div class="muted-line">{{ item['ocr_fecha'] }}</div>
+                            {% elif item['estado'] == 'pendiente' %}
+                                <button class="button secondary"
+                                        type="submit"
+                                        form="ocr-form-{{ item['id'] }}">
+                                    Procesar OCR
+                                </button>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="date"
+                                       name="fecha_vencimiento_{{ item['id'] }}"
+                                       value="{{ item['fecha_vencimiento_sugerida'] or '' }}">
+                            {% else %}
+                                {{ item['fecha_vencimiento_sugerida'] or '-' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="checkbox"
+                                       name="apto_fisico_{{ item['id'] }}"
+                                       {% if item['apto_sugerido'] %}checked{% endif %}>
+                            {% else %}
+                                {% if item['apto_sugerido'] %}Sí{% else %}No{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="text"
+                                       name="contacto_emergencia_{{ item['id'] }}"
+                                       value="{{ item['contacto_emergencia_sugerido'] or '' }}">
+                            {% else %}
+                                {{ item['contacto_emergencia_sugerido'] or '-' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="text"
+                                       name="telefono_emergencia_{{ item['id'] }}"
+                                       value="{{ item['telefono_emergencia_sugerido'] or '' }}">
+                            {% else %}
+                                {{ item['telefono_emergencia_sugerido'] or '-' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item['estado'] == 'pendiente' %}
+                                <input type="text"
+                                       name="observaciones_{{ item['id'] }}"
+                                       placeholder="Opcional">
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Confirmar asignaciones</button>
+        <a class="button secondary" href="{{ url_for('cargar_fichas_medicas_batch') }}">Cancelar</a>
+    </div>
+</form>
+
+{% for item in items %}
+    {% if item['estado'] == 'pendiente' and not item['ocr_fecha'] %}
+        <form id="ocr-form-{{ item['id'] }}"
+              method="post"
+              action="{{ url_for('procesar_ficha_medica_batch_ocr', item_id=item['id']) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        </form>
+    {% endif %}
+{% endfor %}
+{% endblock %}

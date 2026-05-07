@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Editar ficha médica{% endblock %}
+
+{% block content %}
+<h2>Editar ficha médica</h2>
+
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label class="checkbox-row">
+            <input type="checkbox" name="presentada"
+                   {% if ficha and ficha['presentada'] %}checked{% endif %}>
+            <span>Ficha médica presentada</span>
+        </label>
+    </div>
+
+    <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fecha_vencimiento"
+               value="{{ ficha['fecha_vencimiento'] if ficha else '' }}">
+    </div>
+
+    <div class="field">
+        <label class="checkbox-row">
+            <input type="checkbox" name="apto_fisico"
+                   {% if ficha and ficha['apto_fisico'] %}checked{% endif %}>
+            <span>Apto físico</span>
+        </label>
+    </div>
+
+    <div class="field">
+        <label>Contacto de emergencia</label>
+        <input type="text" name="contacto_emergencia"
+               value="{{ ficha['contacto_emergencia'] if ficha else '' }}">
+    </div>
+
+    <div class="field">
+        <label>Teléfono de emergencia</label>
+        <input type="text" name="telefono_emergencia"
+               value="{{ ficha['telefono_emergencia'] if ficha else '' }}">
+    </div>
+
+    {% if ficha and ficha['documento_drive_file_id'] %}
+        <div class="field">
+            <label>Documento actual</label>
+            <p>
+                <a href="{{ url_for('descargar_ficha_medica_documento', jugador_id=jugador['id']) }}">
+                    {{ ficha['documento_nombre'] or 'Ver ficha adjunta' }}
+                </a>
+            </p>
+            {% if ficha['documento_fecha'] %}
+                <span class="muted-line">Última carga: {{ ficha['documento_fecha'] }}</span>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="field">
+        <label>Documento BDUAR / ficha escaneada</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="ficha_archivo"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            <span class="upload-title">Arrastrá la ficha o hacé clic para elegirla</span>
+            <span class="upload-hint">También podés pegar una imagen desde el portapapeles.</span>
+            <span class="upload-file" data-upload-file-name>Ningún archivo seleccionado</span>
+        </label>
+        <span class="muted-line">PDF, JPG o PNG hasta 16 MB.</span>
+    </div>
+
+    <div class="field">
+        <label class="checkbox-row">
+            <input type="checkbox" name="procesar_ocr" checked>
+            <span>Procesar OCR y completar campos detectados</span>
+        </label>
+    </div>
+
+    <div class="field">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4">{{ ficha['observaciones'] if ficha else '' }}</textarea>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

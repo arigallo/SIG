@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de control{% endblock %}
+
+{% block content %}
+<div class="section-header dashboard-title">
+    <div>
+        <h2>Panel de control</h2>
+        <p class="page-intro">Vista rapida del estado deportivo, financiero y medico del club.</p>
+    </div>
+    <div class="actions">
+        {% if puede('jugadores_gestionar') %}
+            <a class="button secondary" href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
+        {% endif %}
+        {% if puede('cuotas_gestionar') %}
+            <a class="button secondary" href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
+        {% endif %}
+        {% if puede('asistencia_ver') %}
+            <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-cards">
+    {% if puede_ver_jugadores %}
+    <div class="card stat-card alert-card-info">
+        <h3>Total de jugadores</h3>
+        <p class="stat-number">{{ total_jugadores }}</p>
+        <span class="muted-line">Miembros registrados</span>
+    </div>
+    {% endif %}
+
+    {% if puede_ver_finanzas %}
+    <div class="card stat-card alert-card-warning">
+        <h3>Jugadores con deuda</h3>
+        <p class="stat-number">{{ jugadores_con_deuda|length }}</p>
+        <span class="muted-line">Con cuotas pendientes</span>
+    </div>
+    {% endif %}
+
+    {% if puede_ver_salud %}
+    <div class="card stat-card alert-card-critical">
+        <h3>Fichas medicas vencidas</h3>
+        <p class="stat-number">{{ fichas_vencidas|length }}</p>
+        <span class="muted-line">Requieren revision</span>
+    </div>
+
+    <div class="card stat-card alert-card-warning">
+        <h3>Lesiones activas</h3>
+        <p class="stat-number">{{ lesiones_activas|length }}</p>
+        <span class="muted-line">En seguimiento</span>
+    </div>
+    {% endif %}
+</div>
+
+{% if puede_ver_finanzas %}
+<section class="page-section">
+    <div class="section-header">
+        <div>
+            <h3>Finanzas</h3>
+            <p class="page-intro">Resumen del mes seleccionado y deuda vigente.</p>
+        </div>
+        <form method="get" class="inline-filter dashboard-filter">
+            <div>
+                <label>Mes</label>
+                <input type="month" name="mes" value="{{ mes_actual }}">
+            </div>
+            <button class="button secondary" type="submit">Aplicar</button>
+        </form>
+    </div>
+
+    <div class="dashboard-cards">
+        <div class="card stat-card">
+            <h3>Recaudado</h3>
+            <p class="stat-number compact">{{ total_recaudado_mes | moneda }}</p>
+            <span class="muted-line">{{ mes_actual }}</span>
+        </div>
+
+        <div class="card stat-card alert-card-critical">
+            <h3>Deuda total</h3>
+            <p class="stat-number compact text-danger">{{ deuda_total | moneda }}</p>
+            <span class="muted-line">Pendiente historico</span>
+        </div>
+
+        <div class="card stat-card alert-card-info">
+            <h3>Cuotas pagadas</h3>
+            <p class="stat-number">{{ cuotas_pagadas_mes }}</p>
+            <span class="muted-line">{{ mes_actual }}</span>
+        </div>
+
+        <div class="card stat-card alert-card-warning">
+            <h3>Cuotas pendientes</h3>
+            <p class="stat-number text-danger">{{ cuotas_pendientes }}</p>
+            <span class="muted-line">{{ mes_actual }}</span>
+        </div>
+
+        {% if puede('cuotas_gestionar') %}
+        <div class="card stat-card alert-card-info">
+            <h3>Comprobantes</h3>
+            <p class="stat-number compact">{{ comprobantes_pendientes_count }}</p>
+            <span class="muted-line">Pendientes de revision</span>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="page-section">
+    <div class="section-header">
+        <h3>Jugadores con deuda</h3>
+        {% if puede('comunicaciones_ver') %}
+            <a class="button" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+        {% endif %}
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Deuda</th>
+                    <th>Cuotas vencidas</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jugador in jugadores_con_deuda %}
+                <tr>
+                    <td><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
+                    <td>{{ jugador['deuda'] | moneda }}</td>
+                    <td>
+                        {% if jugador['cuotas_vencidas'] %}
+                            <span class="badge badge-warning">{{ jugador['cuotas_vencidas'] }}</span>
+                        {% else %}
+                            <span class="badge badge-muted">Sin vencer</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty">No hay jugadores con deuda.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="page-section">
+    <div class="section-header">
+        <h3>Cuotas pendientes</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    <th>Periodo</th>
+                    <th>Importe</th>
+                    <th>Vencimiento</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in cuotas_pendientes_lista %}
+                <tr>
+                    <td><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
+                    <td>{{ cuota['categoria'] or '-' }}</td>
+                    <td>{{ cuota['periodo'] }}</td>
+                    <td>{{ cuota['importe'] | moneda }}</td>
+                    <td>
+                        {% if cuota['fecha_vencimiento'] %}
+                            {% if cuota['fecha_vencimiento'] < now().strftime('%Y-%m-%d') %}
+                                <span class="badge badge-warning">{{ cuota['fecha_vencimiento'] }}</span>
+                            {% else %}
+                                <span class="badge badge-muted">{{ cuota['fecha_vencimiento'] }}</span>
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        {% if puede('cuotas_gestionar') %}
+                            <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Registrar pago</a>
+                        {% endif %}
+                        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay cuotas pendientes.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if puede('cuotas_gestionar') %}
+<section class="page-section">
+    <div class="section-header">
+        <h3>Comprobantes pendientes</h3>
+        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar todos</a>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Periodo</th>
+                    <th>Importe</th>
+                    <th>Carga</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in comprobantes_pendientes_lista %}
+                <tr>
+                    <td><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
+                    <td>{{ cuota['periodo'] }}</td>
+                    <td>{{ cuota['importe'] | moneda }}</td>
+                    <td>
+                        {{ cuota['comprobante_fecha'] or '-' }}
+                        <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
+                    </td>
+                    <td class="actions">
+                        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar</a>
+                        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay comprobantes pendientes.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endif %}
+
+{% if puede_ver_salud %}
+<section class="page-section">
+    <div class="section-header">
+        <h3>Fichas medicas vencidas</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Vencimiento</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jugador in fichas_vencidas %}
+                <tr>
+                    <td><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
+                    <td><span class="badge badge-warning">{{ jugador['fecha_vencimiento'] }}</span></td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ver ficha</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty">No hay fichas medicas vencidas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="page-section">
+    <div class="section-header">
+        <h3>Lesiones activas</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Zona</th>
+                    <th>Estado</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lesion in lesiones_activas %}
+                <tr>
+                    <td><strong>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</strong></td>
+                    <td>{{ lesion['fecha_lesion'] or '-' }}</td>
+                    <td>{{ lesion['tipo_lesion'] or '-' }}</td>
+                    <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
+                    <td><span class="badge badge-info">{{ lesion['estado'] }}</span></td>
+                    <td>
+                        <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay lesiones activas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

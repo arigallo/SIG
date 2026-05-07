@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{% if modo == 'editar' %}Editar ahijadx{% else %}Nuevx ahijadx{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if modo == 'editar' %}Editar ahijadx{% else %}Nuevx ahijadx{% endif %}</h2>
+
+<form method="post" class="card form-grid">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div>
+        <label>Nombre *</label>
+        <input type="text" name="nombre" value="{{ aspirante['nombre'] if aspirante else '' }}" required>
+    </div>
+
+    <div>
+        <label>Apellido *</label>
+        <input type="text" name="apellido" value="{{ aspirante['apellido'] if aspirante else '' }}" required>
+    </div>
+
+    <div>
+        <label>DNI</label>
+        <input type="text" name="dni" value="{{ aspirante['dni'] if aspirante else '' }}">
+    </div>
+
+    <div>
+        <label>Fecha de nacimiento</label>
+        <input type="date" name="fecha_nacimiento" value="{{ aspirante['fecha_nacimiento'] if aspirante else '' }}">
+    </div>
+
+    <div>
+        <label>Telefono</label>
+        <input type="text" name="telefono" value="{{ aspirante['telefono'] if aspirante else '' }}">
+    </div>
+
+    <div>
+        <label>Email</label>
+        <input type="email" name="email" value="{{ aspirante['email'] if aspirante else '' }}">
+    </div>
+
+    <div>
+        <label>Categoria</label>
+        <input type="text" name="categoria" value="{{ aspirante['categoria'] if aspirante else '' }}" placeholder="Primera, Juveniles, etc.">
+    </div>
+
+    <div>
+        <label>Fecha de postulacion</label>
+        <input type="date" name="fecha_postulacion" value="{{ aspirante['fecha_postulacion'] if aspirante else '' }}">
+    </div>
+
+    <div>
+        <label>Madrina/Padrino</label>
+        <select name="madrina_jugador_id">
+            <option value="">Sin asignar</option>
+            {% set madrina_actual = aspirante['madrina_jugador_id'] if aspirante else None %}
+            {% for madrina in madrinas %}
+                <option value="{{ madrina['id'] }}" {% if madrina_actual == madrina['id'] %}selected{% endif %}>
+                    {{ madrina['apellido'] }}, {{ madrina['nombre'] }}{% if madrina['categoria'] %} - {{ madrina['categoria'] }}{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label>Entrenamientos requeridos</label>
+        <input type="number"
+               name="entrenamientos_objetivo"
+               min="0"
+               value="{{ aspirante['entrenamientos_objetivo'] if aspirante and aspirante['entrenamientos_objetivo'] is not none else 8 }}">
+    </div>
+
+    <div>
+        <label>Estado</label>
+        {% set estado_actual = aspirante['estado'] if aspirante else 'Aspirante' %}
+        <select name="estado">
+            <option value="Aspirante" {% if estado_actual == 'Aspirante' %}selected{% endif %}>En seguimiento</option>
+            <option value="Ingresado" {% if estado_actual == 'Ingresado' %}selected{% endif %}>Ingresado</option>
+            <option value="Baja" {% if estado_actual == 'Baja' %}selected{% endif %}>Baja</option>
+        </select>
+    </div>
+
+    <div class="full">
+        <label>Observaciones</label>
+        <textarea name="observaciones" rows="4">{{ aspirante['observaciones'] if aspirante else '' }}</textarea>
+    </div>
+
+    <div class="full actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

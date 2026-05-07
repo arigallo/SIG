@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Comprobantes{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Revision de comprobantes</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Pendientes</a>
+        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='todos') }}">Todos</a>
+    </div>
+</div>
+
+<div class="dashboard-cards spaced-small">
+    <div class="card stat-card">
+        <h3>Pendientes</h3>
+        <p class="stat-number compact">{{ resumen['pendientes'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Aceptados</h3>
+        <p class="stat-number compact">{{ resumen['aceptados'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Rechazados</h3>
+        <p class="stat-number compact">{{ resumen['rechazados'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Total</h3>
+        <p class="stat-number compact">{{ resumen['total'] or 0 }}</p>
+    </div>
+</div>
+
+<form method="get" class="card search-form">
+    <div>
+        <label>Estado</label>
+        <select name="estado">
+            <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendientes</option>
+            <option value="aceptado" {% if estado == 'aceptado' %}selected{% endif %}>Aceptados</option>
+            <option value="rechazado" {% if estado == 'rechazado' %}selected{% endif %}>Rechazados</option>
+            <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
+        </select>
+    </div>
+    <button class="button secondary" type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Jugador</th>
+                <th>Periodo</th>
+                <th>Importe</th>
+                <th>Estado</th>
+                <th>Carga</th>
+                <th>Archivo</th>
+                <th>Revision</th>
+                <th>Accion</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuota in comprobantes %}
+            <tr>
+                <td>
+                    {{ cuota['apellido'] }}, {{ cuota['nombre'] }}
+                    <span class="muted-line">
+                        <a href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                    </span>
+                </td>
+                <td>{{ cuota['periodo'] }}</td>
+                <td>{{ cuota['importe'] | moneda }}</td>
+                <td>
+                    {% if cuota['comprobante_estado_resuelto'] == 'aceptado' %}
+                        <span class="badge badge-success">Aceptado</span>
+                    {% elif cuota['comprobante_estado_resuelto'] == 'rechazado' %}
+                        <span class="badge badge-danger">Rechazado</span>
+                    {% elif cuota['comprobante_estado_resuelto'] == 'pendiente' %}
+                        <span class="badge badge-warning">Pendiente</span>
+                    {% else %}
+                        <span class="badge badge-muted">Sin comprobante</span>
+                    {% endif %}
+                    {% if cuota['pagado'] %}
+                        <span class="muted-line">Cuota pagada</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ cuota['comprobante_fecha'] or '-' }}
+                    <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
+                </td>
+                <td>
+                    <a class="button secondary" href="{{ url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) }}">Ver</a>
+                    <span class="muted-line">{{ cuota['comprobante_nombre'] or '-' }}</span>
+                </td>
+                <td>
+                    {{ cuota['comprobante_revisado_en'] or '-' }}
+                    <span class="muted-line">{{ cuota['comprobante_revisado_por'] or '-' }}</span>
+                    {% if cuota['comprobante_observaciones'] %}
+                        <span class="muted-line">{{ cuota['comprobante_observaciones'] }}</span>
+                    {% endif %}
+                </td>
+                <td class="review-actions">
+                    {% if cuota['comprobante_estado_resuelto'] in ['pendiente', 'rechazado'] %}
+                        <form method="post" action="{{ url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <input type="hidden" name="accion" value="aceptar">
+                            <button class="button" type="submit">Aceptar</button>
+                        </form>
+                    {% endif %}
+                    {% if cuota['comprobante_estado_resuelto'] == 'pendiente' %}
+                        <form method="post" action="{{ url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <input type="hidden" name="accion" value="rechazar">
+                            <input type="text" name="observaciones" placeholder="Motivo">
+                            <button class="button danger" type="submit">Rechazar</button>
+                        </form>
+                    {% endif %}
+                    {% if cuota['comprobante_estado_resuelto'] == 'aceptado' %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="empty">No hay comprobantes para revisar.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

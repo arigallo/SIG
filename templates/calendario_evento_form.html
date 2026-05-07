@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo evento{% endblock %}
+
+{% block content %}
+<h2>Nuevo evento de calendario</h2>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+        <div>
+            <label>Fecha *</label>
+            <input type="date" name="fecha" value="{{ evento['fecha'] if evento else '' }}" required>
+        </div>
+
+        <div>
+            <label>Tipo *</label>
+            {% set tipo_actual = evento['tipo'] if evento else '' %}
+            <select name="tipo" required>
+                <option value="">Seleccionar...</option>
+                <option value="Entrenamiento" {% if tipo_actual == 'Entrenamiento' %}selected{% endif %}>Entrenamiento</option>
+                <option value="Partido" {% if tipo_actual == 'Partido' %}selected{% endif %}>Partido</option>
+                <option value="Reunión" {% if tipo_actual == 'Reunión' %}selected{% endif %}>Reunión</option>
+                <option value="Evento" {% if tipo_actual == 'Evento' %}selected{% endif %}>Evento</option>
+                <option value="Otro" {% if tipo_actual == 'Otro' %}selected{% endif %}>Otro</option>
+            </select>
+        </div>
+
+        <div class="full">
+            <label>Título *</label>
+            <input type="text" name="titulo" value="{{ evento['titulo'] if evento else '' }}" required>
+        </div>
+
+        <div>
+            <label>Categoría</label>
+            <input type="text" name="categoria" value="{{ evento['categoria'] if evento else '' }}" placeholder="Primera, Juveniles, todo el club">
+        </div>
+
+        <div>
+            <label>Ubicación</label>
+            <input type="text" name="ubicacion" value="{{ evento['ubicacion'] if evento else '' }}">
+        </div>
+
+        <div class="full">
+            <label>Descripción</label>
+            <textarea name="descripcion" rows="4">{{ evento['descripcion'] if evento else '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('ver_calendario') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

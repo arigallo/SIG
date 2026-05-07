@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Portal del jugador</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main class="container portal-page">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="section-header">
+            <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+        </div>
+
+        <div class="dashboard-cards spaced">
+            <div class="card stat-card">
+                <h3>Estado</h3>
+                <p class="stat-number compact">{{ jugador['estado'] }}</p>
+            </div>
+            <div class="card stat-card">
+                <h3>Categoria</h3>
+                <p class="stat-number compact">{{ jugador['categoria'] or '-' }}</p>
+            </div>
+            <div class="card stat-card">
+                <h3>Deuda</h3>
+                <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</p>
+            </div>
+        </div>
+
+        <div class="page-section">
+            <div class="section-header">
+                <h3>Cuotas</h3>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Periodo</th>
+                            <th>Importe</th>
+                            <th>Estado</th>
+                            <th>Vencimiento</th>
+                            <th>Pago</th>
+                            <th>Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuota in cuotas %}
+                        <tr>
+                            <td>{{ cuota['periodo'] }}</td>
+                            <td>{{ cuota['importe'] | moneda }}</td>
+                            <td>
+                                {% if cuota['pagado'] %}
+                                    <span class="status-paid">Pagada</span>
+                                {% else %}
+                                    <span class="status-pending">Pendiente</span>
+                                {% endif %}
+                                {% if cuota['becada'] %}
+                                    <span class="muted-line">Beca {{ cuota['beca_porcentaje'] or 0 }}%</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                            <td>{{ cuota['fecha_pago'] or '-' }}</td>
+                            <td>
+                                {% if cuota['pagado'] %}
+                                    <a class="button secondary" href="{{ url_for('portal_descargar_recibo', token=token, cuota_id=cuota['id']) }}">Recibo</a>
+                                {% else %}
+                                    {% set comprobante_estado = cuota['comprobante_estado'] or ('pendiente' if cuota['comprobante_drive_file_id'] else 'sin_comprobante') %}
+                                    {% if cuota['comprobante_drive_file_id'] %}
+                                        {% if comprobante_estado == 'rechazado' %}
+                                            <span class="badge badge-danger">Rechazado</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">En revision</span>
+                                        {% endif %}
+                                        <span class="muted-line">{{ cuota['comprobante_nombre'] or 'Comprobante recibido' }}</span>
+                                        {% if cuota['comprobante_observaciones'] %}
+                                            <span class="muted-line">{{ cuota['comprobante_observaciones'] }}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante', token=token, cuota_id=cuota['id']) }}">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        <input type="text" name="referencia_pago" placeholder="Referencia">
+                                        <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
+                                            <input class="upload-input"
+                                                   type="file"
+                                                   name="comprobante_pago"
+                                                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                   required>
+                                            <span class="upload-title">Arrastra o pega el comprobante</span>
+                                            <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
+                                        </label>
+                                        <button class="button secondary" type="submit">{% if cuota['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="empty">No hay cuotas cargadas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="detail-grid page-section">
+            <div class="card">
+                <h3>Contacto</h3>
+                <form method="post" action="{{ url_for('portal_actualizar_contacto', token=token) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div class="field">
+                        <label>Telefono</label>
+                        <input type="text" name="telefono" value="{{ jugador['telefono'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Email</label>
+                        <input type="email" name="email" value="{{ jugador['email'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Telefono familiar</label>
+                        <input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Email familiar</label>
+                        <input type="email" name="email_tutor" value="{{ jugador['email_tutor'] or '' }}">
+                    </div>
+                    <button class="button secondary" type="submit">Actualizar contacto</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Ficha medica</h3>
+                {% if ficha %}
+                    <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Si{% else %}No{% endif %}</p>
+                    <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
+                    <p><strong>Apto fisico:</strong> {% if ficha['apto_fisico'] %}Si{% else %}No{% endif %}</p>
+                {% else %}
+                    <p>No hay ficha medica cargada.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h3>Documentos</h3>
+                {% if documentos %}
+                    <ul class="document-list">
+                        {% for documento in documentos %}
+                            <li>
+                                <strong>{{ documento['tipo'] }}</strong>
+                                {% if documento['nombre'] %} - {{ documento['nombre'] }}{% endif %}
+                                {% if documento['fecha_vencimiento'] %}
+                                    <span class="muted-line">Vence: {{ documento['fecha_vencimiento'] }}</span>
+                                {% endif %}
+                                {% if documento['url'] %}
+                                    <a href="{{ documento['url'] }}" target="_blank" rel="noopener">Abrir</a>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No hay documentos cargados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

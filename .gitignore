@@ -1,0 +1,31 @@
+# Python/runtime
+__pycache__/
+*.py[cod]
+.Python
+venv/
+.venv/
+
+# Local editor and tool state
+.cache/
+.vscode/
+
+# Local data, generated files and backups
+*.db
+backups/
+exports/
+recibos/
+
+# Secrets and environment files
+.env
+*.env
+DB_NAME.env
+
+# Deployment/download artifacts
+*.zip
+*.tar.gz
+cloud-sql-proxy.exe
+
+# Copied/legacy local workspaces
+club_jugadores_app/
+arielgallo/
+mysite/

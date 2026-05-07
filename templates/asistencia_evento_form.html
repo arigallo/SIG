@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo evento de asistencia{% endblock %}
+
+{% block content %}
+<h2>Nuevo evento de asistencia</h2>
+
+<form method="post" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+        <label>Fecha</label>
+        <input type="date" name="fecha" required>
+    </div>
+
+    <div class="field">
+        <label>Tipo</label>
+        <select name="tipo" required>
+            <option value="">Seleccionar...</option>
+            <option value="Entrenamiento">Entrenamiento</option>
+            <option value="Partido">Partido</option>
+            <option value="Reunión">Reunión</option>
+            <option value="Otro">Otro</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Descripción</label>
+        <input type="text" name="descripcion" placeholder="Ej: Entrenamiento martes, partido vs...">
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar</button>
+        <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

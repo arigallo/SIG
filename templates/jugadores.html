@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Jugadores{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Jugadores</h2>
+    {% if puede('jugadores_gestionar') %}
+        <div class="actions">
+            <a class="button" href="{{ url_for('nuevo_jugador') }}">+ Nuevo jugador</a>
+            {% if puede('aspirantes_ver') %}
+                <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+            {% endif %}
+            <a class="button secondary" href="{{ url_for('importar_jugadores') }}">Importar Excel</a>
+        </div>
+    {% endif %}
+</div>
+
+<form method="get" class="search-form">
+    <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI o categoría" value="{{ busqueda }}">
+    <button type="submit">Buscar</button>
+    {% if busqueda %}
+        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Limpiar</a>
+    {% endif %}
+</form>
+
+{% if puede('jugadores_gestionar') %}
+<form id="bulk-form" method="post" action="{{ url_for('acciones_masivas_jugadores') }}" class="card bulk-actions spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label>Acción masiva</label>
+        <select name="accion" required>
+            <option value="">Seleccionar...</option>
+            <option value="estado">Cambiar estado</option>
+            <option value="categoria">Cambiar categoría</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Estado</label>
+        <select name="estado">
+            <option value="Activo">Activo</option>
+            <option value="Inactivo">Inactivo</option>
+            <option value="Suspendido">Suspendido</option>
+            <option value="Baja">Baja</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Categoría</label>
+        <input type="text" name="categoria" placeholder="Primera, Juveniles...">
+    </div>
+
+    <button class="button secondary" type="submit">Aplicar a seleccionados</button>
+</form>
+{% endif %}
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                {% if puede('jugadores_gestionar') %}
+                    <th>Sel.</th>
+                {% endif %}
+                <th>Apellido y nombre</th>
+                <th>DNI</th>
+                <th>Categoría</th>
+                <th>Beca</th>
+                <th>Fecha ingreso</th>
+                <th>Estado</th>
+                <th>Teléfono</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for jugador in jugadores %}
+            <tr>
+                {% if puede('jugadores_gestionar') %}
+                    <td>
+                        <input form="bulk-form" type="checkbox" name="jugador_ids" value="{{ jugador['id'] }}">
+                    </td>
+                {% endif %}
+                <td>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</td>
+                <td>{{ jugador['dni'] or '-' }}</td>
+                <td>{{ jugador['categoria'] or '-' }}</td>
+                <td>
+                    {% if jugador['beca_activa'] %}
+                        <span class="status-paid">{{ jugador['beca_porcentaje'] or 0 }}%</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ jugador['fecha_ingreso'] or '-' }}</td>
+                <td>{{ jugador['estado'] }}</td>
+                <td>{{ jugador['telefono'] or '-' }}</td>
+                <td class="actions">
+                    <a class="button" href="{{ url_for('detalle_jugador', jugador_id=jugador['id']) }}">Ver</a>
+                    {% if puede('cuotas_ver') %}
+                        <a class="button" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
+                    {% endif %}
+                    {% if puede('salud_ver') %}
+                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha médica</a>
+                        <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Lesiones</a>
+                    {% endif %}
+                    {% if puede('jugadores_gestionar') %}
+                        <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar</a>
+                    {% endif %}
+                    {% if puede('jugadores_eliminar') %}
+                        <form method="post" action="{{ url_for('eliminar_jugador', jugador_id=jugador['id']) }}" onsubmit="return confirm('¿Eliminar este jugador?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button danger" type="submit">Eliminar</button>
+                        </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{% if puede('jugadores_gestionar') %}9{% else %}8{% endif %}" class="empty">No hay jugadores cargados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

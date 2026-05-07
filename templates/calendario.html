@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Calendario del club</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_anterior) }}">Anterior</a>
+        <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_siguiente) }}">Siguiente</a>
+        {% if puede('calendario_gestionar') %}
+            <a class="button" href="{{ url_for('nuevo_evento_calendario') }}">+ Nuevo evento</a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="get" class="card form-card form-card-narrow spaced-small">
+    <div class="field">
+        <label>Mes</label>
+        <input type="month" name="mes" value="{{ mes }}">
+    </div>
+
+    <button class="button secondary" type="submit">Ver mes</button>
+</form>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Total de eventos</h3>
+        <p class="stat-number compact">{{ calendario['resumen']['total'] }}</p>
+    </div>
+
+    <div class="card stat-card alert-card-info">
+        <h3>Club</h3>
+        <p class="stat-number compact">{{ calendario['resumen']['manuales'] }}</p>
+        <span class="report-note">Entrenamientos, partidos y reuniones</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Asistencia</h3>
+        <p class="stat-number compact">{{ calendario['resumen']['asistencia'] }}</p>
+    </div>
+
+    <div class="card stat-card alert-card-warning">
+        <h3>Vencimientos</h3>
+        <p class="stat-number compact">
+            {{ calendario['resumen']['cuotas'] + calendario['resumen']['fichas'] }}
+        </p>
+        <span class="report-note">Cuotas y fichas médicas</span>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Evento</th>
+                <th>Categoría</th>
+                <th>Ubicación</th>
+                <th>Detalle</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evento in calendario['eventos'] %}
+            <tr class="{% if evento['prioridad'] == 'danger' %}calendar-danger{% elif evento['prioridad'] == 'warning' %}calendar-warning{% endif %}">
+                <td>{{ evento['fecha'] }}</td>
+                <td>
+                    <span class="calendar-type calendar-type-{{ evento['origen'] }}">
+                        {{ evento['tipo'] }}
+                    </span>
+                </td>
+                <td><strong>{{ evento['titulo'] }}</strong></td>
+                <td>{{ evento['categoria'] or '-' }}</td>
+                <td>{{ evento['ubicacion'] or '-' }}</td>
+                <td>{{ evento['detalle'] or '-' }}</td>
+                <td>
+                    {% if evento['url'] %}
+                        <a class="button secondary" href="{{ evento['url'] }}">Ver</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="empty">No hay eventos para este mes.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

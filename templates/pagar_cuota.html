@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar pago{% endblock %}
+
+{% block content %}
+<h2>Registrar pago</h2>
+
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-medium">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p><strong>Jugador:</strong> {{ cuota['apellido'] }}, {{ cuota['nombre'] }}</p>
+    <p><strong>Periodo:</strong> {{ cuota['periodo'] }}</p>
+    <p><strong>Importe a cobrar:</strong> {{ cuota['importe'] | moneda }}</p>
+    {% if cuota['becada'] %}
+        <p>
+            <strong>Beca aplicada:</strong>
+            {{ cuota['beca_porcentaje'] or 0 }}%
+            {% if cuota['descuento_beca'] %}
+                - descuento {{ cuota['descuento_beca'] | moneda }}
+            {% endif %}
+        </p>
+        <p><strong>Importe original:</strong> {{ (cuota['importe_original'] or cuota['importe']) | moneda }}</p>
+    {% endif %}
+
+    <div class="field">
+        <label>Método de pago</label>
+        <select name="metodo_pago" required>
+            <option value="">Seleccionar...</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Mercado Pago">Mercado Pago</option>
+            <option value="Otro">Otro</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Referencia / comprobante</label>
+        <input type="text" name="referencia_pago" placeholder="Ej: N° transferencia, ID Mercado Pago, comprobante interno">
+    </div>
+
+    <div class="field">
+        <label>Comprobante adjunto</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="comprobante_pago"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            <span class="upload-title">Arrastrá el comprobante o hacé clic para elegirlo</span>
+            <span class="upload-hint">También podés pegar una imagen desde el portapapeles.</span>
+            <span class="upload-file" data-upload-file-name>Ningún archivo seleccionado</span>
+        </label>
+        <span class="muted-line">PDF, JPG o PNG hasta 10 MB.</span>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Confirmar pago</button>
+        <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Reportes avanzados</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('exportar_datos_integral') }}">Exportar integral</a>
+        <a class="button" href="{{ url_for('exportar_reportes', desde=filtros['desde'], hasta=filtros['hasta']) }}">
+            Exportar Excel
+        </a>
+    </div>
+</div>
+
+<form method="get" class="card spaced-small">
+    <div class="report-filter-grid">
+        <div>
+            <label>Desde</label>
+            <input type="month" name="desde" value="{{ filtros['desde'] }}">
+        </div>
+
+        <div>
+            <label>Hasta</label>
+            <input type="month" name="hasta" value="{{ filtros['hasta'] }}">
+        </div>
+    </div>
+
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Filtrar</button>
+        <a class="button secondary" href="{{ url_for('ver_reportes') }}">Año actual</a>
+    </div>
+</form>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Ingresos</h3>
+        <p class="stat-number status-paid">{{ reportes['resumen']['ingresos'] | moneda }}</p>
+        <span class="report-note">Caja, sin anulados</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Egresos</h3>
+        <p class="stat-number text-danger">{{ reportes['resumen']['egresos'] | moneda }}</p>
+        <span class="report-note">Caja, sin anulados</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Resultado</h3>
+        <p class="stat-number {% if reportes['resumen']['resultado'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ reportes['resumen']['resultado'] | moneda }}
+        </p>
+        <span class="report-note">{{ filtros['desde'] }} a {{ filtros['hasta'] }}</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Cuotas cobradas</h3>
+        <p class="stat-number">{{ reportes['resumen']['cuotas_cobradas'] | moneda }}</p>
+        <span class="report-note">{{ reportes['resumen']['cuotas_pagadas'] }} pagos registrados</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Deuda vencida</h3>
+        <p class="stat-number text-danger">{{ reportes['resumen']['deuda_vencida'] | moneda }}</p>
+        <span class="report-note">{{ reportes['resumen']['cuotas_pendientes'] }} cuotas pendientes</span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Becas</h3>
+        <p class="stat-number">{{ reportes['resumen']['total_bonificado_becas'] | moneda }}</p>
+        <span class="report-note">
+            {{ reportes['resumen']['becas_totales'] }} totales / {{ reportes['resumen']['becas_parciales'] }} parciales
+        </span>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Asistencia</h3>
+        <p class="stat-number compact">{{ reportes['resumen']['asistencia_porcentaje'] }}%</p>
+        <span class="report-note">{{ reportes['resumen']['asistencia_eventos'] }} eventos</span>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Evolución mensual</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Ingresos</th>
+                    <th>Egresos</th>
+                    <th>Resultado</th>
+                    <th>Movimientos</th>
+                    <th>Cuotas emitidas</th>
+                    <th>Cuotas pagadas</th>
+                    <th>Pendientes</th>
+                    <th>Cobrado</th>
+                    <th>Becas</th>
+                    <th>Bonificado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in reportes['mensual'] %}
+                <tr>
+                    <td>{{ fila['mes'] }}</td>
+                    <td class="status-paid">{{ fila['ingresos'] | moneda }}</td>
+                    <td class="strong-danger">{{ fila['egresos'] | moneda }}</td>
+                    <td class="{% if fila['resultado'] < 0 %}strong-danger{% else %}status-paid{% endif %}">
+                        {{ fila['resultado'] | moneda }}
+                    </td>
+                    <td>{{ fila['movimientos'] }}</td>
+                    <td>{{ fila['cuotas_emitidas'] }}</td>
+                    <td>{{ fila['cuotas_pagadas'] }}</td>
+                    <td>{{ fila['cuotas_pendientes'] }}</td>
+                    <td>{{ fila['total_cobrado'] | moneda }}</td>
+                    <td>{{ fila['cuotas_becadas'] }}</td>
+                    <td>{{ fila['total_bonificado'] | moneda }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="empty">No hay datos para el periodo seleccionado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Becas activas</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoria</th>
+                    <th>Porcentaje</th>
+                    <th>Vigencia</th>
+                    <th>Cuotas becadas</th>
+                    <th>Bonificado</th>
+                    <th>Motivo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in reportes['becas_jugadores'] %}
+                <tr>
+                    <td>{{ fila['apellido'] }}, {{ fila['nombre'] }}</td>
+                    <td>{{ fila['categoria'] or '-' }}</td>
+                    <td>{{ fila['beca_porcentaje'] or 0 }}%</td>
+                    <td>{{ fila['beca_desde'] or 'sin inicio' }} a {{ fila['beca_hasta'] or 'sin fin' }}</td>
+                    <td>{{ fila['cuotas_becadas'] }}</td>
+                    <td>{{ fila['total_bonificado'] | moneda }}</td>
+                    <td>{{ fila['beca_motivo'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay becas activas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Deuda por categoría</h3>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Jugadores</th>
+                        <th>Pendientes</th>
+                        <th>Deuda</th>
+                        <th>Vencida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in reportes['deuda_por_categoria'] %}
+                    <tr>
+                        <td>{{ fila['categoria'] }}</td>
+                        <td>{{ fila['jugadores'] }}</td>
+                        <td>{{ fila['cuotas_pendientes'] }}</td>
+                        <td>{{ fila['deuda'] | moneda }}</td>
+                        <td class="strong-danger">{{ fila['deuda_vencida'] | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="empty">No hay deuda pendiente.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Egresos por concepto</h3>
+        </div>
+
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th>Cantidad</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in reportes['egresos_por_concepto'] %}
+                    <tr>
+                        <td>{{ fila['concepto'] }}</td>
+                        <td>{{ fila['cantidad'] }}</td>
+                        <td class="strong-danger">{{ fila['total'] | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="empty">No hay egresos en este periodo.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Morosos recurrentes</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Categoría</th>
+                    <th>Pendientes</th>
+                    <th>Vencidas</th>
+                    <th>Deuda</th>
+                    <th>Primer vencimiento</th>
+                    <th>Contacto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in reportes['morosos_recurrentes'] %}
+                <tr>
+                    <td>{{ fila['apellido'] }}, {{ fila['nombre'] }}</td>
+                    <td>{{ fila['categoria'] or '-' }}</td>
+                    <td>{{ fila['cuotas_pendientes'] }}</td>
+                    <td class="strong-danger">{{ fila['cuotas_vencidas'] or 0 }}</td>
+                    <td class="strong-danger">{{ fila['deuda'] | moneda }}</td>
+                    <td>{{ fila['primer_vencimiento'] or '-' }}</td>
+                    <td>
+                        {{ fila['telefono'] or '-' }}
+                        {% if fila['email'] %}
+                            <span class="muted-line">{{ fila['email'] }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No hay jugadores con dos o más cuotas pendientes.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Asistencia por categoría</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th>Eventos</th>
+                    <th>Registros</th>
+                    <th>Presentes</th>
+                    <th>Ausentes</th>
+                    <th>Asistencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in reportes['asistencia_por_categoria'] %}
+                <tr>
+                    <td>{{ fila['categoria'] }}</td>
+                    <td>{{ fila['eventos'] }}</td>
+                    <td>{{ fila['registros'] }}</td>
+                    <td class="status-paid">{{ fila['presentes'] }}</td>
+                    <td class="strong-danger">{{ fila['ausentes'] }}</td>
+                    <td>
+                        <strong>{{ fila['porcentaje'] }}%</strong>
+                        <progress class="report-progress" max="100" value="{{ fila['porcentaje'] }}"></progress>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay asistencia registrada en este periodo.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Comunicación{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Comunicación</h2>
+    <a class="button secondary" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+</div>
+
+<form method="get" class="card spaced-small">
+    <div class="field">
+        <label>Mensaje para morosos</label>
+        <textarea name="mensaje" rows="4">{{ template }}</textarea>
+        <span class="report-note">
+            Variables disponibles: {nombre}, {apellido}, {deuda}, {cuotas_pendientes}, {cuotas_vencidas}, {primer_vencimiento}
+        </span>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Actualizar mensajes</button>
+        <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Restaurar plantilla</a>
+    </div>
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Jugador</th>
+                <th>Contacto</th>
+                <th>Deuda</th>
+                <th>Cuotas</th>
+                <th>Mensaje</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in comunicaciones %}
+            {% set jugador = item['jugador'] %}
+            <tr>
+                <td>
+                    <strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong>
+                    <span class="muted-line">{{ jugador['categoria'] or '-' }}</span>
+                </td>
+                <td>
+                    {{ jugador['telefono_tutor'] or jugador['telefono'] or '-' }}
+                    {% if jugador['contacto_tutor'] %}
+                        <span class="muted-line">{{ jugador['contacto_tutor'] }}</span>
+                    {% endif %}
+                    {% if jugador['email_tutor'] or jugador['email'] %}
+                        <span class="muted-line">{{ jugador['email_tutor'] or jugador['email'] }}</span>
+                    {% endif %}
+                </td>
+                <td class="strong-danger">{{ jugador['deuda'] | moneda }}</td>
+                <td>
+                    {{ jugador['cuotas_pendientes'] }} pendientes
+                    <span class="muted-line">{{ jugador['cuotas_vencidas'] or 0 }} vencidas</span>
+                </td>
+                <td class="communication-message">{{ item['mensaje'] }}</td>
+                <td class="actions">
+                    <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                    <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay jugadores con deuda pendiente.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
