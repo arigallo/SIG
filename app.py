@@ -11691,7 +11691,7 @@ def exportar_tests():
             item["estado"] or "",
             item["observaciones"] or "",
             item["creado_por"] or "",
-            item["creado_en"] or "",
+            str(item["creado_en"] or ""),
             item["id"],
             item["jugador_id"],
             item["test_id"],
