@@ -29,16 +29,14 @@
                 <td>{{ rol['usuarios'] }}</td>
                 <td>{% if rol['sistema'] %}Base{% else %}Personalizado{% endif %}</td>
                 <td class="actions">
+                    <a class="button secondary" href="{{ url_for('editar_rol', rol_id=rol['id']) }}">Editar</a>
                     {% if not rol['sistema'] %}
-                        <a class="button secondary" href="{{ url_for('editar_rol', rol_id=rol['id']) }}">Editar</a>
                         <form method="post"
                               action="{{ url_for('eliminar_rol', rol_id=rol['id']) }}"
                               onsubmit="return confirm('¿Eliminar este rol?');">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <button class="button danger" type="submit">Eliminar</button>
                         </form>
-                    {% else %}
-                        -
                     {% endif %}
                 </td>
             </tr>

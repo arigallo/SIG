@@ -4,6 +4,7 @@ __pycache__/
 .Python
 venv/
 .venv/
+.codex-venv/
 
 # Local editor and tool state
 .cache/

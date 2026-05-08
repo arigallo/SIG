@@ -233,6 +233,36 @@
     {% endif %}
 </div>
 
+{% if puede_ver_cambios_portal %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Cambios desde portal</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cambio in cambios_portal %}
+                <tr>
+                    <td>{{ cambio['fecha'] }}</td>
+                    <td class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizacion de datos personales' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" class="empty">No hay cambios recientes desde el portal.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="page-section">
     <div class="section-header">
         <h3>Bitacora</h3>

@@ -7,6 +7,7 @@
     <h2>Graficos de tests</h2>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_tests') }}">Tests</a>
+        <a class="button secondary" href="{{ url_for('exportar_tests', test_id=test_id, categoria=categoria, desde=desde, hasta=hasta, jugadores=jugadores_seleccionados) }}">Exportar Excel</a>
         {% if test_actual and puede('tests_gestionar') %}
             <a class="button" href="{{ url_for('cargar_test_resultados', test_id=test_actual['id']) }}">Cargar</a>
         {% endif %}
@@ -53,6 +54,7 @@
     </div>
     <div class="actions">
         <button class="button" type="submit">Actualizar grafico</button>
+        <a class="button secondary" href="{{ url_for('exportar_tests', test_id=test_id, categoria=categoria, desde=desde, hasta=hasta, jugadores=jugadores_seleccionados) }}">Exportar Excel</a>
         <a class="button secondary" href="{{ url_for('graficos_tests', test_id=test_id) }}">Ver todos</a>
     </div>
 </form>

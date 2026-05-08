@@ -129,9 +129,25 @@
 
         <div class="detail-grid page-section">
             <div class="card">
-                <h3>Contacto</h3>
+                <h3>Datos personales</h3>
                 <form method="post" action="{{ url_for('portal_actualizar_contacto', token=token) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div class="field">
+                        <label>Nombre</label>
+                        <input type="text" name="nombre" value="{{ jugador['nombre'] or '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Apellido</label>
+                        <input type="text" name="apellido" value="{{ jugador['apellido'] or '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>DNI</label>
+                        <input type="text" name="dni" value="{{ jugador['dni'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Fecha de nacimiento</label>
+                        <input type="date" name="fecha_nacimiento" value="{{ jugador['fecha_nacimiento'] or '' }}">
+                    </div>
                     <div class="field">
                         <label>Telefono</label>
                         <input type="text" name="telefono" value="{{ jugador['telefono'] or '' }}">
@@ -141,6 +157,22 @@
                         <input type="email" name="email" value="{{ jugador['email'] or '' }}">
                     </div>
                     <div class="field">
+                        <label>Direccion</label>
+                        <input type="text" name="direccion" value="{{ jugador['direccion'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Obra social</label>
+                        <input type="text" name="obra_social" value="{{ jugador['obra_social'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Contacto familiar</label>
+                        <input type="text" name="contacto_tutor" value="{{ jugador['contacto_tutor'] or '' }}">
+                    </div>
+                    <div class="field">
+                        <label>Parentesco</label>
+                        <input type="text" name="parentesco_tutor" value="{{ jugador['parentesco_tutor'] or '' }}">
+                    </div>
+                    <div class="field">
                         <label>Telefono familiar</label>
                         <input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] or '' }}">
                     </div>
@@ -148,8 +180,23 @@
                         <label>Email familiar</label>
                         <input type="email" name="email_tutor" value="{{ jugador['email_tutor'] or '' }}">
                     </div>
-                    <button class="button secondary" type="submit">Actualizar contacto</button>
+                    <button class="button secondary" type="submit">Actualizar datos</button>
                 </form>
+            </div>
+
+            <div class="card">
+                <h3>Datos del club</h3>
+                <p><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</p>
+                <p><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</p>
+                <p><strong>Fecha de ingreso:</strong> {{ jugador['fecha_ingreso'] or '-' }}</p>
+                <p><strong>Numero de socio:</strong> {{ jugador['numero_socio'] or '-' }}</p>
+                <p><strong>Beca:</strong>
+                    {% if jugador['beca_activa'] %}
+                        {{ jugador['beca_porcentaje'] or 0 }}%
+                    {% else %}
+                        -
+                    {% endif %}
+                </p>
             </div>
 
             <div class="card">

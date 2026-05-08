@@ -130,6 +130,28 @@ def deserializar_permisos(valor, rol=None):
     return normalizar_permisos(permisos)
 
 
+def resumen_auditoria_portal(detalle):
+    try:
+        datos = json.loads(detalle or "{}")
+    except (TypeError, ValueError):
+        return detalle or "Actualizacion de datos personales"
+
+    cambios = datos.get("cambios") or {}
+    if not cambios:
+        campos = datos.get("campos") or []
+        if campos:
+            return "Campos actualizados: " + ", ".join(str(campo) for campo in campos)
+        return "Actualizacion de datos personales"
+
+    partes = []
+    for cambio in cambios.values():
+        label = cambio.get("label") or "Campo"
+        antes = cambio.get("antes") or "-"
+        despues = cambio.get("despues") or "-"
+        partes.append(f"{label}: {antes} -> {despues}")
+    return "; ".join(partes)
+
+
 def grupos_permisos():
     grupos = {}
     for clave, permiso in PERMISOS.items():
@@ -366,10 +388,20 @@ PERMISOS = {
         "nombre": "Alertas médicas",
         "descripcion": "Fichas vencidas y lesiones activas.",
     },
+    "alertas_portal": {
+        "grupo": "Alertas",
+        "nombre": "Cambios desde portal",
+        "descripcion": "Notificaciones por datos personales actualizados desde el portal del jugador.",
+    },
     "auditoria_ver": {
         "grupo": "Administración",
         "nombre": "Ver auditoría",
         "descripcion": "Consulta de actividad del sistema.",
+    },
+    "roles_gestionar": {
+        "grupo": "Administracion",
+        "nombre": "Gestionar roles",
+        "descripcion": "Crear roles y editar permisos, incluidos los roles base.",
     },
     "backup_ver": {
         "grupo": "Administración",
@@ -405,6 +437,7 @@ ROLE_PRESETS = {
         "asistencia_ver",
         "asistencia_gestionar",
         "alertas_finanzas",
+        "alertas_portal",
     ],
     "medico": [
         "jugadores_ver",
@@ -425,6 +458,7 @@ ROLE_PRESETS = {
         "asistencia_gestionar",
         "tests_ver",
         "tests_gestionar",
+        "alertas_portal",
     ],
 }
 
@@ -2711,7 +2745,31 @@ def obtener_notificaciones_operativas():
         ORDER BY a.apellido, a.nombre
         LIMIT 50
     """, (ASPIRANTE_ENTRENAMIENTOS_OBJETIVO, ASPIRANTE_ENTRENAMIENTOS_OBJETIVO)).fetchall()
+
+    cambios_portal = []
+    if tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar"):
+        cambios_portal = conn.execute("""
+            SELECT
+                a.fecha,
+                a.detalle,
+                j.id AS jugador_id,
+                j.apellido,
+                j.nombre,
+                j.dni,
+                j.email,
+                j.telefono
+            FROM auditoria a
+            JOIN jugadores j ON j.id::text = a.entidad_id
+            WHERE a.entidad = 'portal_jugador'
+              AND a.accion = 'actualizar_contacto'
+              AND a.fecha >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+            ORDER BY a.fecha DESC, a.id DESC
+            LIMIT 50
+        """).fetchall()
     conn.close()
+    cambios_portal = [dict(cambio) for cambio in cambios_portal]
+    for cambio in cambios_portal:
+        cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
 
     return {
         "cuotas_vencidas": cuotas_vencidas,
@@ -2720,6 +2778,7 @@ def obtener_notificaciones_operativas():
         "asistencia_baja": asistencia_baja,
         "comprobantes_pendientes": comprobantes_pendientes,
         "ahijadxs_objetivo": ahijadxs_objetivo,
+        "cambios_portal": cambios_portal,
     }
 
 
@@ -2727,6 +2786,7 @@ def obtener_contador_notificaciones():
     if "user_id" not in session or not tiene_permiso("comunicaciones_ver"):
         return 0
 
+    incluir_portal = tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar")
     try:
         conn = get_connection()
         resumen = conn.execute("""
@@ -2767,15 +2827,23 @@ def obtener_contador_notificaciones():
                           FROM aspirante_asistencias aa
                           WHERE aa.aspirante_id = a.id
                             AND COALESCE(aa.presente, 0) = 1
-                      ) >= COALESCE(a.entrenamientos_objetivo, %s)
-                ) AS ahijadxs
-        """, (ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,)).fetchone()
+                          ) >= COALESCE(a.entrenamientos_objetivo, %s)
+                ) AS ahijadxs,
+                (
+                    SELECT COUNT(*)
+                    FROM auditoria a
+                    WHERE %s = 1
+                      AND a.entidad = 'portal_jugador'
+                      AND a.accion = 'actualizar_contacto'
+                      AND a.fecha >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+                ) AS cambios_portal
+        """, (ASPIRANTE_ENTRENAMIENTOS_OBJETIVO, 1 if incluir_portal else 0)).fetchone()
         conn.close()
     except Exception:
         app.logger.exception("No se pudo calcular el contador de notificaciones.")
         return 0
 
-    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "ahijadxs"))
+    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "ahijadxs", "cambios_portal"))
 
 
 def whatsapp_mensaje(telefono, mensaje):
@@ -3379,6 +3447,7 @@ AUDIT_ENDPOINTS = {
     "cargar_test_resultados": ("cargar", "test_deportivo"),
     "importar_test_resultados": ("importar", "test_deportivo"),
     "revisar_test_importacion": ("confirmar_importacion", "test_deportivo"),
+    "exportar_tests": ("exportar", "test_deportivo"),
     "editar_ficha_medica": ("editar", "ficha_medica"),
     "cargar_fichas_medicas_batch": ("cargar_batch", "ficha_medica"),
     "revisar_fichas_medicas_batch": ("confirmar_batch", "ficha_medica"),
@@ -3962,13 +4031,10 @@ def init_db():
             ON CONFLICT(nombre) DO UPDATE SET
                 descripcion = EXCLUDED.descripcion,
                 permisos = CASE
-                    WHEN roles.sistema = 1 THEN EXCLUDED.permisos
+                    WHEN roles.permisos IS NULL OR roles.permisos = '' OR roles.permisos = '[]' THEN EXCLUDED.permisos
                     ELSE roles.permisos
                 END,
-                sistema = CASE
-                    WHEN roles.sistema = 1 THEN 1
-                    ELSE roles.sistema
-                END
+                sistema = 1
         """, (
             nombre_rol,
             descripcion,
@@ -8309,6 +8375,7 @@ def detalle_jugador(jugador_id):
     puede_ver_asistencia = tiene_permiso("asistencia_ver")
     puede_ver_tests = tiene_permiso("tests_ver")
     puede_gestionar_portal = tiene_permiso("portal_jugador_gestionar")
+    puede_ver_cambios_portal = tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar")
 
     conn = get_connection()
 
@@ -8460,6 +8527,21 @@ def detalle_jugador(jugador_id):
             LIMIT 8
         """, (jugador_id,)).fetchall()
 
+    cambios_portal = []
+    if puede_ver_cambios_portal:
+        cambios_portal = conn.execute("""
+            SELECT fecha, detalle
+            FROM auditoria
+            WHERE entidad = 'portal_jugador'
+              AND entidad_id = %s
+              AND accion = 'actualizar_contacto'
+            ORDER BY fecha DESC, id DESC
+            LIMIT 8
+        """, (str(jugador_id),)).fetchall()
+        cambios_portal = [dict(cambio) for cambio in cambios_portal]
+        for cambio in cambios_portal:
+            cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
+
     conn.close()
 
     asistencia_total = asistencia_resumen["total"] or 0
@@ -8509,7 +8591,9 @@ def detalle_jugador(jugador_id):
         puede_ver_asistencia=puede_ver_asistencia,
         puede_ver_tests=puede_ver_tests,
         tests_recientes=tests_recientes,
-        puede_gestionar_portal=puede_gestionar_portal
+        puede_gestionar_portal=puede_gestionar_portal,
+        puede_ver_cambios_portal=puede_ver_cambios_portal,
+        cambios_portal=cambios_portal
         )
 
 
@@ -8671,25 +8755,105 @@ def portal_actualizar_contacto(token):
         abort(404)
 
     data = {
+        "nombre": request.form.get("nombre", "").strip(),
+        "apellido": request.form.get("apellido", "").strip(),
+        "dni": request.form.get("dni", "").strip(),
+        "fecha_nacimiento": request.form.get("fecha_nacimiento", "").strip(),
         "telefono": request.form.get("telefono", "").strip(),
         "email": request.form.get("email", "").strip(),
+        "direccion": request.form.get("direccion", "").strip(),
+        "obra_social": request.form.get("obra_social", "").strip(),
+        "contacto_tutor": request.form.get("contacto_tutor", "").strip(),
+        "parentesco_tutor": request.form.get("parentesco_tutor", "").strip(),
         "telefono_tutor": request.form.get("telefono_tutor", "").strip(),
         "email_tutor": request.form.get("email_tutor", "").strip(),
     }
+
+    if not data["nombre"] or not data["apellido"]:
+        conn.close()
+        flash("Nombre y apellido son obligatorios.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    if data["dni"]:
+        existente = conn.execute("""
+            SELECT id
+            FROM jugadores
+            WHERE dni = %s AND id <> %s
+        """, (data["dni"], jugador["id"])).fetchone()
+        if existente:
+            conn.close()
+            flash("Ya existe otro jugador con ese DNI. Revisalo con administracion.", "error")
+            return redirect(url_for("portal_jugador", token=token))
+
+    campos_modificados = [
+        campo
+        for campo, valor in data.items()
+        if str(jugador[campo] or "") != str(valor or "")
+    ]
+    labels_campos = {
+        "nombre": "Nombre",
+        "apellido": "Apellido",
+        "dni": "DNI",
+        "fecha_nacimiento": "Fecha de nacimiento",
+        "telefono": "Telefono",
+        "email": "Email",
+        "direccion": "Direccion",
+        "obra_social": "Obra social",
+        "contacto_tutor": "Contacto familiar",
+        "parentesco_tutor": "Parentesco",
+        "telefono_tutor": "Telefono familiar",
+        "email_tutor": "Email familiar",
+    }
+    cambios_detalle = {
+        campo: {
+            "label": labels_campos.get(campo, campo),
+            "antes": jugador[campo] or "",
+            "despues": data[campo] or "",
+        }
+        for campo in campos_modificados
+    }
+
     conn.execute("""
         UPDATE jugadores
-        SET telefono = %s,
+        SET nombre = %s,
+            apellido = %s,
+            dni = %s,
+            fecha_nacimiento = %s,
+            telefono = %s,
             email = %s,
+            direccion = %s,
+            obra_social = %s,
+            contacto_tutor = %s,
+            parentesco_tutor = %s,
             telefono_tutor = %s,
-            email_tutor = %s
+            email_tutor = %s,
+            portal_actualizado_en = %s
         WHERE id = %s
     """, (
+        data["nombre"],
+        data["apellido"],
+        data["dni"],
+        data["fecha_nacimiento"],
         data["telefono"],
         data["email"],
+        data["direccion"],
+        data["obra_social"],
+        data["contacto_tutor"],
+        data["parentesco_tutor"],
         data["telefono_tutor"],
         data["email_tutor"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         jugador["id"],
     ))
+    if campos_modificados:
+        campos_texto = ", ".join(labels_campos.get(campo, campo) for campo in campos_modificados)
+        conn.execute("""
+            INSERT INTO jugador_bitacora (jugador_id, tipo, nota, creado_por)
+            VALUES (%s, 'general', %s, 'portal')
+        """, (
+            jugador["id"],
+            f"El jugador actualizo datos personales desde el portal: {campos_texto}.",
+        ))
     conn.commit()
     conn.close()
 
@@ -8697,11 +8861,14 @@ def portal_actualizar_contacto(token):
         "actualizar_contacto",
         "portal_jugador",
         str(jugador["id"]),
-        {"campos": list(data.keys())},
+        {
+            "campos": campos_modificados or list(data.keys()),
+            "cambios": cambios_detalle,
+        },
         username="portal",
         rol="portal",
     )
-    flash("Datos de contacto actualizados.", "ok")
+    flash("Datos personales actualizados.", "ok")
     return redirect(url_for("portal_jugador", token=token))
 
 
@@ -9603,6 +9770,7 @@ def ver_notificaciones():
         asistencia_baja=asistencia_baja,
         comprobantes_pendientes=datos["comprobantes_pendientes"],
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
+        cambios_portal=datos["cambios_portal"],
     )
 
 @app.route("/exportar/morosos")
@@ -10005,7 +10173,7 @@ def permisos_desde_formulario():
 
 @app.route("/roles")
 def listar_roles():
-    check = rol_requerido("admin")
+    check = permiso_requerido("roles_gestionar")
     if check:
         return check
 
@@ -10034,7 +10202,7 @@ def listar_roles():
 
 @app.route("/roles/nuevo", methods=["GET", "POST"])
 def nuevo_rol():
-    check = rol_requerido("admin")
+    check = permiso_requerido("roles_gestionar")
     if check:
         return check
 
@@ -10102,7 +10270,7 @@ def nuevo_rol():
 
 @app.route("/roles/<int:rol_id>/editar", methods=["GET", "POST"])
 def editar_rol(rol_id):
-    check = rol_requerido("admin")
+    check = permiso_requerido("roles_gestionar")
     if check:
         return check
 
@@ -10116,11 +10284,6 @@ def editar_rol(rol_id):
     if rol is None:
         conn.close()
         flash("Rol no encontrado.", "error")
-        return redirect(url_for("listar_roles"))
-
-    if rol["sistema"]:
-        conn.close()
-        flash("Los roles base no se editan. Creá un rol personalizado si necesitás otra combinación.", "error")
         return redirect(url_for("listar_roles"))
 
     if request.method == "POST":
@@ -10150,7 +10313,7 @@ def editar_rol(rol_id):
 
 @app.route("/roles/<int:rol_id>/eliminar", methods=["POST"])
 def eliminar_rol(rol_id):
-    check = rol_requerido("admin")
+    check = permiso_requerido("roles_gestionar")
     if check:
         return check
 
@@ -11405,6 +11568,231 @@ def revisar_test_importacion(batch_id):
         tests=tests,
         jugadores=jugadores,
     )
+
+
+def armar_filtros_tests_desde_request(incluir_test=True):
+    test_id_raw = request.args.get("test_id", "").strip()
+    test_id = int(test_id_raw) if test_id_raw.isdigit() else None
+    categoria = request.args.get("categoria", "").strip()
+    desde = validar_fecha_movimiento(request.args.get("desde", "").strip())
+    hasta = validar_fecha_movimiento(request.args.get("hasta", "").strip())
+    jugadores_seleccionados = [
+        int(valor)
+        for valor in request.args.getlist("jugadores")
+        if str(valor).isdigit()
+    ]
+
+    filtros = []
+    params = []
+    if incluir_test and test_id:
+        filtros.append("r.test_id = %s")
+        params.append(test_id)
+    if categoria:
+        filtros.append("j.categoria = %s")
+        params.append(categoria)
+    if desde:
+        filtros.append("r.fecha >= %s")
+        params.append(desde)
+    if hasta:
+        filtros.append("r.fecha <= %s")
+        params.append(hasta)
+    if jugadores_seleccionados:
+        filtros.append("j.id = ANY(%s)")
+        params.append(jugadores_seleccionados)
+
+    return {
+        "test_id": test_id,
+        "categoria": categoria,
+        "desde": desde,
+        "hasta": hasta,
+        "jugadores": jugadores_seleccionados,
+        "sql": " AND ".join(filtros),
+        "params": params,
+    }
+
+
+@app.route("/tests/exportar")
+def exportar_tests():
+    check = permiso_requerido("tests_ver")
+    if check:
+        return check
+
+    filtros = armar_filtros_tests_desde_request()
+    where_sql = f"WHERE {filtros['sql']}" if filtros["sql"] else ""
+
+    conn = get_connection()
+    resultados = conn.execute(f"""
+        SELECT
+            r.id,
+            r.fecha,
+            r.puntaje,
+            r.observaciones,
+            r.creado_en,
+            r.creado_por,
+            t.id AS test_id,
+            t.nombre AS test_nombre,
+            t.unidad,
+            t.mayor_es_mejor,
+            j.id AS jugador_id,
+            j.apellido,
+            j.nombre,
+            j.dni,
+            j.categoria,
+            j.estado
+        FROM test_resultados r
+        JOIN test_tipos t ON t.id = r.test_id
+        JOIN jugadores j ON j.id = r.jugador_id
+        {where_sql}
+        ORDER BY t.nombre, r.fecha DESC, j.apellido, j.nombre, r.id DESC
+    """, filtros["params"]).fetchall()
+
+    test_actual = None
+    if filtros["test_id"]:
+        test_actual = conn.execute("""
+            SELECT *
+            FROM test_tipos
+            WHERE id = %s
+        """, (filtros["test_id"],)).fetchone()
+
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Resultados"
+    ws.append([
+        "Fecha",
+        "Test",
+        "Unidad",
+        "Puntaje",
+        "Apellido",
+        "Nombre",
+        "DNI",
+        "Categoria",
+        "Estado jugador",
+        "Observaciones",
+        "Cargado por",
+        "Cargado en",
+        "Resultado ID",
+        "Jugador ID",
+        "Test ID",
+    ])
+
+    resumen = {}
+    for item in resultados:
+        ws.append([
+            item["fecha"],
+            item["test_nombre"],
+            item["unidad"] or "",
+            item["puntaje"],
+            item["apellido"],
+            item["nombre"],
+            item["dni"],
+            item["categoria"] or "",
+            item["estado"] or "",
+            item["observaciones"] or "",
+            item["creado_por"] or "",
+            item["creado_en"] or "",
+            item["id"],
+            item["jugador_id"],
+            item["test_id"],
+        ])
+
+        clave = item["test_id"]
+        if clave not in resumen:
+            resumen[clave] = {
+                "test": item["test_nombre"],
+                "unidad": item["unidad"] or "",
+                "mayor_es_mejor": item["mayor_es_mejor"],
+                "puntajes": [],
+                "jugadores": set(),
+                "fechas": [],
+            }
+        resumen[clave]["puntajes"].append(float(item["puntaje"]))
+        resumen[clave]["jugadores"].add(item["jugador_id"])
+        resumen[clave]["fechas"].append(item["fecha"])
+
+    estilizar_hoja_reporte(ws)
+    aplicar_formato_columnas(ws, {"D": "0.00"})
+
+    filas_resumen = []
+    for item in sorted(resumen.values(), key=lambda valor: valor["test"]):
+        puntajes = item["puntajes"]
+        fechas = sorted(item["fechas"])
+        filas_resumen.append([
+            item["test"],
+            item["unidad"],
+            len(puntajes),
+            len(item["jugadores"]),
+            fechas[0] if fechas else "",
+            fechas[-1] if fechas else "",
+            round(sum(puntajes) / len(puntajes), 2) if puntajes else "",
+            min(puntajes) if puntajes else "",
+            max(puntajes) if puntajes else "",
+            "Mayor valor es mejor" if item["mayor_es_mejor"] else "Menor valor es mejor",
+        ])
+    ws_resumen = agregar_hoja_reporte(wb, "Resumen tests", [
+        "Test",
+        "Unidad",
+        "Mediciones",
+        "Jugadores medidos",
+        "Primera fecha",
+        "Ultima fecha",
+        "Promedio",
+        "Minimo",
+        "Maximo",
+        "Criterio",
+    ], filas_resumen)
+    aplicar_formato_columnas(ws_resumen, {"G": "0.00", "H": "0.00", "I": "0.00"})
+
+    if test_actual:
+        comparativo = construir_comparativo_tests(resultados, test_actual)
+        encabezados = ["Jugador", "Categoria"] + comparativo["fechas"] + ["Ultimo cambio", "Estado"]
+        filas_comparativo = []
+        for fila in comparativo["filas"]:
+            filas_comparativo.append([
+                fila["nombre"],
+                fila["categoria"],
+                *[fila["valores"].get(fecha, "") for fecha in comparativo["fechas"]],
+                fila["delta"] if fila["delta"] is not None else "",
+                fila["estado_label"],
+            ])
+        ws_comparativo = agregar_hoja_reporte(wb, "Comparativo", encabezados, filas_comparativo)
+        for col_idx in range(3, 3 + len(comparativo["fechas"])):
+            col_letter = get_column_letter(col_idx)
+            aplicar_formato_columnas(ws_comparativo, {col_letter: "0.00"})
+
+    filtros_texto = [
+        ["Test", test_actual["nombre"] if test_actual else "Todos"],
+        ["Categoria", filtros["categoria"] or "Todas"],
+        ["Desde", filtros["desde"] or "Sin filtro"],
+        ["Hasta", filtros["hasta"] or "Sin filtro"],
+        ["Jugadores seleccionados", len(filtros["jugadores"]) if filtros["jugadores"] else "Todos"],
+        ["Registros exportados", len(resultados)],
+        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Usuario", session.get("username") or ""],
+    ]
+    agregar_hoja_reporte(wb, "Filtros", ["Filtro", "Valor"], filtros_texto)
+
+    filename = f"tests_deportivos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    path = os.path.join("exports", filename)
+    os.makedirs("exports", exist_ok=True)
+    wb.save(path)
+
+    registrar_auditoria(
+        "exportar_ok",
+        "test_deportivo",
+        str(filtros["test_id"]) if filtros["test_id"] else None,
+        {
+            "formato": "xlsx",
+            "cantidad_registros": len(resultados),
+            "categoria": filtros["categoria"],
+            "desde": filtros["desde"],
+            "hasta": filtros["hasta"],
+            "jugadores": len(filtros["jugadores"]),
+        },
+    )
+
+    return send_file(path, as_attachment=True, download_name=filename)
 
 
 @app.route("/tests/graficos")
