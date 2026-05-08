@@ -48,8 +48,31 @@
         <p><strong>Retencion:</strong> {{ estado['backup']['retencion_dias'] }} dias</p>
         <p><strong>PITR:</strong> {{ estado['backup']['pitr_dias'] }} dias</p>
         <p><strong>Ventana:</strong> {{ estado['backup']['ventana'] }}</p>
-        <p><strong>Ultimo backup:</strong> {{ estado['backup']['ultimo_backup'] }}</p>
-        <p class="muted-line">La app no consulta la API de Cloud SQL: el detalle exacto de backups se confirma en Google Cloud SQL.</p>
+        {% set cloud_sql_backup = estado['backup']['cloud_sql'] %}
+        <p><strong>Instancia:</strong> {{ cloud_sql_backup['instance'] or '-' }}</p>
+        <p><strong>Proyecto:</strong> {{ cloud_sql_backup['project'] or '-' }}</p>
+        {% if cloud_sql_backup['api_disponible'] and cloud_sql_backup['ultimo'] %}
+            <p><strong>Ultimo backup:</strong> {{ cloud_sql_backup['ultimo']['end_time'] or cloud_sql_backup['ultimo']['start_time'] or cloud_sql_backup['ultimo']['window_start_time'] or '-' }}</p>
+            <p><strong>Estado:</strong> {{ cloud_sql_backup['ultimo']['status'] }}</p>
+            <p><strong>Tipo:</strong> {{ cloud_sql_backup['ultimo']['type'] }}</p>
+            <p><strong>ID:</strong> {{ cloud_sql_backup['ultimo']['id'] or '-' }}</p>
+        {% elif cloud_sql_backup['api_disponible'] %}
+            <p><strong>Ultimo backup:</strong> No informado por Cloud SQL.</p>
+        {% else %}
+            <p><strong>Ultimo backup:</strong> {{ estado['backup']['ultimo_backup'] }}</p>
+            <p class="muted-line">{{ cloud_sql_backup['error'] or 'No se pudo consultar Cloud SQL Admin API.' }}</p>
+        {% endif %}
+        {% if cloud_sql_backup['en_ejecucion'] %}
+            <p><strong>En ejecucion:</strong> {{ cloud_sql_backup['en_ejecucion']|length }}</p>
+        {% endif %}
+        {% if puede('backup_gestionar') %}
+            <form method="post"
+                  action="{{ url_for('crear_backup_cloud_sql') }}"
+                  onsubmit="return confirm('Solicitar un backup manual de Cloud SQL ahora?');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button secondary" type="submit">Crear backup ahora</button>
+            </form>
+        {% endif %}
     </div>
 
     <div class="card">

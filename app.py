@@ -237,6 +237,8 @@ APP_VERSION = os.environ.get("APP_VERSION", "local")
 CLOUD_SQL_BACKUP_WINDOW = os.environ.get("CLOUD_SQL_BACKUP_WINDOW", "12:00 a.m. - 4:00 a.m.")
 CLOUD_SQL_BACKUP_RETENTION_DAYS = os.environ.get("CLOUD_SQL_BACKUP_RETENTION_DAYS", "7")
 CLOUD_SQL_PITR_DAYS = os.environ.get("CLOUD_SQL_PITR_DAYS", "7")
+CLOUD_SQL_PROJECT = os.environ.get("CLOUD_SQL_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+CLOUD_SQL_INSTANCE = os.environ.get("CLOUD_SQL_INSTANCE", "")
 COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
 BITACORA_TIPOS = {
     "general": "General",
@@ -408,6 +410,11 @@ PERMISOS = {
         "nombre": "Ver backup",
         "descripcion": "Acceso a información de backup.",
     },
+    "backup_gestionar": {
+        "grupo": "Administracion",
+        "nombre": "Ejecutar backup",
+        "descripcion": "Solicitar backups manuales de Cloud SQL desde el panel de sistema.",
+    },
     "portal_jugador_gestionar": {
         "grupo": "Administracion",
         "nombre": "Gestionar portal externo",
@@ -577,6 +584,106 @@ def drive_service():
         scopes=["https://www.googleapis.com/auth/drive"]
     )
     return google_build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+
+def cloud_sql_admin_service():
+    if google_auth_default is None or google_build is None:
+        raise RuntimeError(
+            "Faltan dependencias de Google Cloud. Instalá google-api-python-client y google-auth."
+        )
+
+    credentials, _ = google_auth_default(
+        scopes=["https://www.googleapis.com/auth/sqlservice.admin"]
+    )
+    return google_build("sqladmin", "v1beta4", credentials=credentials, cache_discovery=False)
+
+
+def cloud_sql_instance_context():
+    project = CLOUD_SQL_PROJECT
+    instance = CLOUD_SQL_INSTANCE
+
+    if CLOUD_SQL_CONNECTION_NAME:
+        partes = CLOUD_SQL_CONNECTION_NAME.split(":")
+        if len(partes) == 3:
+            project = project or partes[0]
+            instance = instance or partes[2]
+
+    return {
+        "project": project,
+        "instance": instance,
+        "connection_name": CLOUD_SQL_CONNECTION_NAME or "",
+    }
+
+
+def normalizar_backup_cloud_sql(backup):
+    if not backup:
+        return None
+    return {
+        "id": backup.get("id") or backup.get("selfLink") or "",
+        "status": backup.get("status") or "-",
+        "type": backup.get("type") or "-",
+        "start_time": backup.get("startTime") or "",
+        "end_time": backup.get("endTime") or "",
+        "window_start_time": backup.get("windowStartTime") or "",
+        "description": backup.get("description") or "",
+    }
+
+
+def obtener_info_backups_cloud_sql():
+    contexto = cloud_sql_instance_context()
+    info = {
+        "api_disponible": False,
+        "error": None,
+        "project": contexto["project"],
+        "instance": contexto["instance"],
+        "connection_name": contexto["connection_name"],
+        "ultimo": None,
+        "en_ejecucion": [],
+    }
+
+    if not contexto["project"] or not contexto["instance"]:
+        info["error"] = "Falta configurar CLOUD_SQL_PROJECT/CLOUD_SQL_INSTANCE o CLOUD_SQL_CONNECTION_NAME."
+        return info
+
+    try:
+        service = cloud_sql_admin_service()
+        response = service.backupRuns().list(
+            project=contexto["project"],
+            instance=contexto["instance"],
+            maxResults=10,
+        ).execute()
+        backups = response.get("items") or []
+        backups.sort(
+            key=lambda item: item.get("endTime") or item.get("startTime") or item.get("windowStartTime") or "",
+            reverse=True,
+        )
+        info["api_disponible"] = True
+        info["ultimo"] = normalizar_backup_cloud_sql(backups[0]) if backups else None
+        info["en_ejecucion"] = [
+            normalizar_backup_cloud_sql(item)
+            for item in backups
+            if item.get("status") in {"RUNNING", "PENDING"}
+        ]
+    except Exception as error:
+        app.logger.exception("No se pudo consultar Cloud SQL Admin API.")
+        info["error"] = str(error)
+
+    return info
+
+
+def solicitar_backup_cloud_sql():
+    contexto = cloud_sql_instance_context()
+    if not contexto["project"] or not contexto["instance"]:
+        raise RuntimeError("Falta configurar CLOUD_SQL_PROJECT/CLOUD_SQL_INSTANCE o CLOUD_SQL_CONNECTION_NAME.")
+
+    service = cloud_sql_admin_service()
+    return service.backupRuns().insert(
+        project=contexto["project"],
+        instance=contexto["instance"],
+        body={
+            "description": f"Backup manual solicitado desde SIG por {session.get('username') or 'sistema'}"
+        },
+    ).execute()
 
 
 def require_drive_comprobantes_folder():
@@ -2349,6 +2456,7 @@ def obtener_estado_sistema_admin():
             "pitr_dias": CLOUD_SQL_PITR_DAYS,
             "ventana": CLOUD_SQL_BACKUP_WINDOW,
             "ultimo_backup": os.environ.get("CLOUD_SQL_LAST_BACKUP", "Visible desde Google Cloud SQL"),
+            "cloud_sql": obtener_info_backups_cloud_sql(),
         },
     }
 
@@ -9873,6 +9981,39 @@ def backup_db():
         estado=obtener_estado_sistema_admin(),
         solo_backup=True,
     )
+
+
+@app.route("/admin/sistema/backup", methods=["POST"])
+def crear_backup_cloud_sql():
+    check = permiso_requerido("backup_gestionar")
+    if check:
+        return check
+
+    try:
+        resultado = solicitar_backup_cloud_sql()
+    except Exception as error:
+        app.logger.exception("No se pudo solicitar backup manual de Cloud SQL.")
+        registrar_auditoria(
+            "backup_manual_error",
+            "backup",
+            None,
+            {"error": str(error)},
+        )
+        flash(f"No se pudo solicitar el backup: {error}", "error")
+        return redirect(url_for("panel_sistema_admin" if session.get("rol") == "admin" else "backup_db"))
+
+    registrar_auditoria(
+        "backup_manual_solicitado",
+        "backup",
+        str(resultado.get("targetId") or resultado.get("name") or ""),
+        {
+            "operation": resultado.get("name"),
+            "status": resultado.get("status"),
+            "target_id": resultado.get("targetId"),
+        },
+    )
+    flash("Backup manual solicitado. Puede tardar unos minutos en aparecer como completado.", "ok")
+    return redirect(url_for("panel_sistema_admin" if session.get("rol") == "admin" else "backup_db"))
 
 
 @app.route("/admin/sistema")
