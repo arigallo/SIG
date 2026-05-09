@@ -864,6 +864,20 @@ def validar_comprobante_upload(file_storage):
     return filename, ext, content, mime_type
 
 
+def validar_comprobante_upload_dict(file_storage):
+    validado = validar_comprobante_upload(file_storage)
+    if not validado:
+        return None
+
+    filename, ext, content, mime_type = validado
+    return {
+        "filename": filename,
+        "ext": ext,
+        "content": content,
+        "mime_type": mime_type,
+    }
+
+
 def subir_comprobante_a_drive(file_storage, cuota):
     validado = validar_comprobante_upload(file_storage)
     if not validado:
@@ -904,6 +918,152 @@ def subir_comprobante_a_drive(file_storage, cuota):
         "tamano": int(uploaded.get("size") or len(content)),
         "web_url": uploaded.get("webViewLink"),
     }
+
+
+def get_drive_caja_folder(service, fecha):
+    root_folder = get_drive_comprobantes_base_folder(service)
+    caja_folder = get_or_create_drive_subfolder(service, root_folder, "Caja")
+    periodo = (fecha or datetime.now().strftime("%Y-%m-%d"))[:7]
+    return get_drive_periodo_folder(service, caja_folder, periodo)
+
+
+def subir_comprobante_movimiento_a_drive(validado, movimiento, existing_file_id=None):
+    if not validado:
+        return None
+
+    service = drive_service()
+    folder_id = get_drive_caja_folder(service, movimiento.get("fecha"))
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    concepto_slug = secure_filename(movimiento.get("concepto") or "movimiento") or "movimiento"
+    tipo = secure_filename(movimiento.get("tipo") or "movimiento") or "movimiento"
+    movimiento_id = movimiento.get("id") or "nuevo"
+    drive_name = (
+        f"caja_{movimiento_id}_{movimiento.get('fecha') or 'sin_fecha'}_"
+        f"{tipo}_{concepto_slug}_{timestamp}{validado['ext']}"
+    )
+    media = MediaIoBaseUpload(io.BytesIO(validado["content"]), mimetype=validado["mime_type"], resumable=False)
+
+    if existing_file_id:
+        uploaded = service.files().update(
+            fileId=existing_file_id,
+            body={"name": drive_name},
+            media_body=media,
+            fields="id, name, mimeType, size, webViewLink",
+            supportsAllDrives=True,
+        ).execute()
+    else:
+        uploaded = service.files().create(
+            body={"name": drive_name, "parents": [folder_id]},
+            media_body=media,
+            fields="id, name, mimeType, size, webViewLink",
+            supportsAllDrives=True,
+        ).execute()
+
+    return {
+        "file_id": uploaded["id"],
+        "nombre": uploaded.get("name") or validado["filename"],
+        "mime_type": uploaded.get("mimeType") or validado["mime_type"],
+        "tamano": int(uploaded.get("size") or len(validado["content"])),
+        "web_url": uploaded.get("webViewLink"),
+        "folder_id": folder_id,
+    }
+
+
+def limpiar_numero_operacion(valor):
+    valor = re.sub(r"\s+", " ", valor or "").strip(" .:-#\t")
+    valor = re.split(r"\s{2,}|(?:fecha|monto|importe|estado|destino|origen)\b", valor, flags=re.I)[0]
+    match = re.search(r"[A-Z0-9][A-Z0-9._/-]{3,40}", valor, flags=re.I)
+    return match.group(0).strip(" .:-#") if match else ""
+
+
+def texto_ocr_sin_acentos(texto):
+    texto = normalizar_ocr_texto(texto).lower()
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(char)
+    )
+
+
+def extraer_numero_operacion_comprobante(texto):
+    texto = texto_ocr_sin_acentos(texto)
+    patrones = [
+        r"(?:nro|numero|num|n\W*)\s*(?:de\s*)?operacion\s*[:#-]?\s*([a-z0-9][a-z0-9 ._/-]{3,60})",
+        r"(?:codigo|id)\s+(?:de\s+)?operacion\s*[:#-]?\s*([a-z0-9][a-z0-9 ._/-]{3,60})",
+        r"operacion\s*(?:nro|numero|num|n\W*)?\s*[:#-]?\s*([a-z0-9][a-z0-9 ._/-]{3,60})",
+    ]
+    for linea in texto.splitlines():
+        for patron in patrones:
+            match = re.search(patron, linea, flags=re.I)
+            if match:
+                numero = limpiar_numero_operacion(match.group(1))
+                if numero:
+                    return numero
+    for patron in patrones:
+        match = re.search(patron, texto, flags=re.I)
+        if match:
+            numero = limpiar_numero_operacion(match.group(1))
+            if numero:
+                return numero
+    return ""
+
+
+def normalizar_monto_comprobante(valor):
+    valor = re.sub(r"[^0-9,.]", "", valor or "")
+    if not valor:
+        return ""
+    if "," in valor and "." in valor:
+        if valor.rfind(",") > valor.rfind("."):
+            valor = valor.replace(".", "").replace(",", ".")
+        else:
+            valor = valor.replace(",", "")
+    elif "," in valor:
+        partes = valor.split(",")
+        valor = "".join(partes[:-1]).replace(".", "") + "." + partes[-1]
+    elif valor.count(".") > 1:
+        partes = valor.split(".")
+        valor = "".join(partes[:-1]) + "." + partes[-1]
+    try:
+        monto = float(valor)
+    except ValueError:
+        return ""
+    if monto <= 0:
+        return ""
+    return f"{monto:.2f}".rstrip("0").rstrip(".")
+
+
+def extraer_monto_comprobante(texto):
+    texto = texto_ocr_sin_acentos(texto)
+    patrones = [
+        r"(?:importe|monto|total)\s*(?:pagado|abonado|transferido|de\s+la\s+operacion)?\s*[:$-]?\s*\$?\s*([0-9][0-9.,]{1,20})",
+        r"\$\s*([0-9][0-9.,]{1,20})",
+    ]
+    candidatos = []
+    for patron in patrones:
+        for match in re.finditer(patron, texto, flags=re.I):
+            monto = normalizar_monto_comprobante(match.group(1))
+            if monto:
+                candidatos.append(monto)
+    return candidatos[-1] if candidatos else ""
+
+
+def procesar_comprobante_movimiento(file_storage, movimiento, existing_file_id=None):
+    validado = validar_comprobante_upload_dict(file_storage)
+    if not validado:
+        return None, "", "", ""
+
+    service = drive_service()
+    folder_id = get_drive_caja_folder(service, movimiento.get("fecha"))
+    ocr_texto = normalizar_ocr_texto(
+        extraer_texto_ocr_drive(
+            validado,
+            {"id": "caja", "apellido": "caja", "nombre": movimiento.get("id") or "movimiento"},
+            folder_id,
+        )
+    )
+    numero_operacion = extraer_numero_operacion_comprobante(ocr_texto)
+    monto = extraer_monto_comprobante(ocr_texto)
+    comprobante_info = subir_comprobante_movimiento_a_drive(validado, movimiento, existing_file_id=existing_file_id)
+    return comprobante_info, numero_operacion, monto, ocr_texto
 
 
 def validar_ficha_medica_upload(file_storage):
@@ -4279,6 +4439,20 @@ def init_db():
         conn.execute("ALTER TABLE movimientos ADD COLUMN usuario_anulacion TEXT")
     if "motivo_anulacion" not in columnas_movimientos:
         conn.execute("ALTER TABLE movimientos ADD COLUMN motivo_anulacion TEXT")
+    columnas_comprobante_movimiento = {
+        "comprobante_drive_file_id": "TEXT",
+        "comprobante_nombre": "TEXT",
+        "comprobante_mime_type": "TEXT",
+        "comprobante_tamano": "INTEGER",
+        "comprobante_fecha": "TEXT",
+        "comprobante_usuario": "TEXT",
+        "comprobante_web_url": "TEXT",
+        "comprobante_operacion": "TEXT",
+        "comprobante_ocr_texto": "TEXT",
+    }
+    for columna, definicion in columnas_comprobante_movimiento.items():
+        if columna not in columnas_movimientos:
+            conn.execute(f"ALTER TABLE movimientos ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS cierres_mensuales (
@@ -4573,48 +4747,91 @@ def nuevo_movimiento():
     if request.method == "POST":
         tipo = request.form.get("tipo")
         concepto = request.form.get("concepto")
-        monto = request.form.get("monto")
+        monto = request.form.get("monto", "").strip()
         fecha = validar_fecha_movimiento(request.form.get("fecha", "").strip())
-        referencia = request.form.get("referencia")
+        referencia = request.form.get("referencia", "").strip()
+        comprobante_pago = request.files.get("comprobante_pago")
+
+        movimiento_form = {
+            "tipo": tipo,
+            "concepto": concepto,
+            "monto": monto,
+            "fecha": request.form.get("fecha", "").strip(),
+            "referencia": referencia,
+        }
 
         if not fecha:
-            flash("La fecha del movimiento no es válida.", "error")
-            return render_template(
-                "movimiento_form.html",
-                movimiento={
-                    "tipo": tipo,
-                    "concepto": concepto,
-                    "monto": monto,
-                    "fecha": request.form.get("fecha", "").strip(),
-                    "referencia": referencia,
-                },
-            )
+            flash("La fecha del movimiento no es valida.", "error")
+            return render_template("movimiento_form.html", movimiento=movimiento_form)
 
         mes_movimiento = fecha[:7]
+        movimiento_form["fecha"] = fecha
         if mes_esta_cerrado(mes_movimiento):
             flash("No se puede agregar un movimiento en un mes cerrado.", "error")
-            return render_template(
-                "movimiento_form.html",
-                movimiento={
-                    "tipo": tipo,
-                    "concepto": concepto,
-                    "monto": monto,
-                    "fecha": fecha,
-                    "referencia": referencia,
-                },
-            )
+            return render_template("movimiento_form.html", movimiento=movimiento_form)
+
+        comprobante_info = None
+        numero_operacion = ""
+        monto_ocr = ""
+        ocr_texto = ""
+        if comprobante_pago and comprobante_pago.filename:
+            try:
+                comprobante_info, numero_operacion, monto_ocr, ocr_texto = procesar_comprobante_movimiento(
+                    comprobante_pago,
+                    {**movimiento_form, "fecha": fecha},
+                )
+            except (RuntimeError, ValueError) as error:
+                flash(str(error), "error")
+                return render_template("movimiento_form.html", movimiento=movimiento_form)
+            except Exception as error:
+                app.logger.exception("No se pudo procesar comprobante de movimiento de caja.")
+                flash(mensaje_error_drive(error, carpeta="Caja", accion="subir o leer el comprobante"), "error")
+                return render_template("movimiento_form.html", movimiento=movimiento_form)
+
+        monto_manual = monto
+        if not referencia and numero_operacion:
+            referencia = numero_operacion
+        if not monto and monto_ocr:
+            monto = monto_ocr
+        if not monto:
+            movimiento_form.update({"referencia": referencia, "monto": monto})
+            flash("Debe indicar un monto o adjuntar un comprobante donde pueda leerse el monto.", "error")
+            return render_template("movimiento_form.html", movimiento=movimiento_form)
 
         conn = get_connection()
-
         conn.execute("""
-            INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (tipo, concepto, monto, fecha, referencia))
-
+            INSERT INTO movimientos (
+                tipo, concepto, monto, fecha, referencia,
+                comprobante_drive_file_id, comprobante_nombre, comprobante_mime_type,
+                comprobante_tamano, comprobante_fecha, comprobante_usuario,
+                comprobante_web_url, comprobante_operacion, comprobante_ocr_texto
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            tipo, concepto, monto, fecha, referencia,
+            comprobante_info["file_id"] if comprobante_info else None,
+            comprobante_info["nombre"] if comprobante_info else None,
+            comprobante_info["mime_type"] if comprobante_info else None,
+            comprobante_info["tamano"] if comprobante_info else None,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
+            session.get("username") if comprobante_info else None,
+            comprobante_info["web_url"] if comprobante_info else None,
+            numero_operacion or None,
+            ocr_texto or None,
+        ))
         conn.commit()
         conn.close()
 
-        flash("Movimiento registrado.", "ok")
+        if comprobante_info:
+            detalle = []
+            if numero_operacion:
+                detalle.append(f"operacion {numero_operacion}")
+            if monto_ocr and not monto_manual:
+                detalle.append(f"monto {monto}")
+            extra = f" ({', '.join(detalle)})" if detalle else ""
+            flash(f"Movimiento registrado y comprobante guardado{extra}.", "ok")
+        else:
+            flash("Movimiento registrado.", "ok")
         return redirect(url_for("ver_caja", mes=mes_movimiento))
 
     fecha_default = fecha_movimiento_default(request.args.get("mes"))
@@ -10930,6 +11147,52 @@ def descargar_recibo(cuota_id):
         download_name=f"recibo_cuota_{cuota_id}.pdf"
     )
 
+@app.route("/movimientos/<int:movimiento_id>/comprobante")
+def descargar_comprobante_movimiento(movimiento_id):
+    check = permiso_requerido("caja_ver", "caja_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    movimiento = conn.execute("""
+        SELECT *
+        FROM movimientos
+        WHERE id = %s
+    """, (movimiento_id,)).fetchone()
+    conn.close()
+
+    if movimiento is None:
+        flash("Movimiento no encontrado.", "error")
+        return redirect(url_for("ver_caja"))
+    if not movimiento.get("comprobante_drive_file_id"):
+        flash("El movimiento no tiene comprobante adjunto.", "error")
+        return redirect(url_for("ver_caja", mes=movimiento["fecha"][:7]))
+
+    try:
+        archivo = descargar_drive_file(movimiento["comprobante_drive_file_id"])
+    except RuntimeError as error:
+        flash(str(error), "error")
+        return redirect(url_for("ver_caja", mes=movimiento["fecha"][:7]))
+    except Exception as error:
+        app.logger.exception("No se pudo descargar comprobante de movimiento %s.", movimiento_id)
+        flash(mensaje_error_drive(error, carpeta="Caja", accion="descargar el comprobante"), "error")
+        return redirect(url_for("ver_caja", mes=movimiento["fecha"][:7]))
+
+    registrar_auditoria(
+        "descargar_ok",
+        "comprobante_movimiento",
+        str(movimiento_id),
+        {"archivo": movimiento.get("comprobante_nombre"), "drive_file_id": movimiento.get("comprobante_drive_file_id")},
+    )
+
+    return send_file(
+        archivo,
+        mimetype=movimiento.get("comprobante_mime_type") or "application/octet-stream",
+        as_attachment=False,
+        download_name=movimiento.get("comprobante_nombre") or f"comprobante_movimiento_{movimiento_id}",
+    )
+
+
 @app.route("/caja/exportar")
 def exportar_caja():
     check = permiso_requerido("caja_ver")
@@ -10983,7 +11246,7 @@ def exportar_caja():
     ws["A6"] = "Resultado del mes"
     ws["B6"] = resultado_mes
 
-    encabezados = ["Fecha", "Tipo", "Concepto", "Referencia", "Monto"]
+    encabezados = ["Fecha", "Tipo", "Concepto", "Referencia", "Operacion", "Comprobante", "Monto"]
     for col, encabezado in enumerate(encabezados, start=1):
         celda = ws.cell(row=8, column=col)
         celda.value = encabezado
@@ -10997,14 +11260,16 @@ def exportar_caja():
         ws.cell(row=fila, column=2).value = m["tipo"]
         ws.cell(row=fila, column=3).value = m["concepto"]
         ws.cell(row=fila, column=4).value = m["referencia"]
-        ws.cell(row=fila, column=5).value = m["monto"]
+        ws.cell(row=fila, column=5).value = m.get("comprobante_operacion")
+        ws.cell(row=fila, column=6).value = m.get("comprobante_nombre")
+        ws.cell(row=fila, column=7).value = m["monto"]
 
         if m["tipo"] == "ingreso":
             ws.cell(row=fila, column=2).font = Font(color="166534", bold=True)
-            ws.cell(row=fila, column=5).font = Font(color="166534", bold=True)
+            ws.cell(row=fila, column=7).font = Font(color="166534", bold=True)
         else:
             ws.cell(row=fila, column=2).font = Font(color="DC2626", bold=True)
-            ws.cell(row=fila, column=5).font = Font(color="DC2626", bold=True)
+            ws.cell(row=fila, column=7).font = Font(color="DC2626", bold=True)
 
         fila += 1
 
@@ -11013,10 +11278,10 @@ def exportar_caja():
         ws.cell(row=row, column=2).number_format = '$ #,##0'
 
     for row in range(9, fila):
-        ws.cell(row=row, column=5).number_format = '$ #,##0'
+        ws.cell(row=row, column=7).number_format = '$ #,##0'
 
     thin = Side(style="thin", color="D1D5DB")
-    for row in ws.iter_rows(min_row=8, max_row=max(fila - 1, 8), min_col=1, max_col=5):
+    for row in ws.iter_rows(min_row=8, max_row=max(fila - 1, 8), min_col=1, max_col=7):
         for cell in row:
             cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
 
@@ -11028,7 +11293,9 @@ def exportar_caja():
         "B": 14,
         "C": 40,
         "D": 32,
-        "E": 14,
+        "E": 24,
+        "F": 32,
+        "G": 14,
     }
 
     for col, width in widths.items():
@@ -11082,20 +11349,15 @@ def editar_movimiento(movimiento_id):
     if request.method == "POST":
         tipo = request.form.get("tipo")
         concepto = request.form.get("concepto")
-        monto = request.form.get("monto")
+        monto = request.form.get("monto", "").strip()
         fecha = validar_fecha_movimiento(request.form.get("fecha", "").strip())
-        referencia = request.form.get("referencia")
+        referencia = request.form.get("referencia", "").strip()
+        comprobante_pago = request.files.get("comprobante_pago")
 
         if not fecha:
-            flash("La fecha del movimiento no es válida.", "error")
+            flash("La fecha del movimiento no es valida.", "error")
             movimiento_form = dict(movimiento)
-            movimiento_form.update({
-                "tipo": tipo,
-                "concepto": concepto,
-                "monto": monto,
-                "fecha": request.form.get("fecha", "").strip(),
-                "referencia": referencia,
-            })
+            movimiento_form.update({"tipo": tipo, "concepto": concepto, "monto": monto, "fecha": request.form.get("fecha", "").strip(), "referencia": referencia})
             conn.close()
             return render_template("movimiento_form_editar.html", movimiento=movimiento_form)
 
@@ -11103,22 +11365,76 @@ def editar_movimiento(movimiento_id):
         if mes_esta_cerrado(mes_destino):
             flash("No se puede mover un movimiento a un mes cerrado.", "error")
             movimiento_form = dict(movimiento)
-            movimiento_form.update({
-                "tipo": tipo,
-                "concepto": concepto,
-                "monto": monto,
-                "fecha": fecha,
-                "referencia": referencia,
-            })
+            movimiento_form.update({"tipo": tipo, "concepto": concepto, "monto": monto, "fecha": fecha, "referencia": referencia})
+            conn.close()
+            return render_template("movimiento_form_editar.html", movimiento=movimiento_form)
+
+        comprobante_info = None
+        numero_operacion = ""
+        monto_ocr = ""
+        ocr_texto = ""
+        if comprobante_pago and comprobante_pago.filename:
+            try:
+                comprobante_info, numero_operacion, monto_ocr, ocr_texto = procesar_comprobante_movimiento(
+                    comprobante_pago,
+                    {"id": movimiento_id, "tipo": tipo, "concepto": concepto, "fecha": fecha},
+                    existing_file_id=movimiento.get("comprobante_drive_file_id"),
+                )
+            except (RuntimeError, ValueError) as error:
+                flash(str(error), "error")
+                movimiento_form = dict(movimiento)
+                movimiento_form.update({"tipo": tipo, "concepto": concepto, "monto": monto, "fecha": fecha, "referencia": referencia})
+                conn.close()
+                return render_template("movimiento_form_editar.html", movimiento=movimiento_form)
+            except Exception as error:
+                app.logger.exception("No se pudo procesar comprobante de movimiento de caja %s.", movimiento_id)
+                flash(mensaje_error_drive(error, carpeta="Caja", accion="subir o leer el comprobante"), "error")
+                movimiento_form = dict(movimiento)
+                movimiento_form.update({"tipo": tipo, "concepto": concepto, "monto": monto, "fecha": fecha, "referencia": referencia})
+                conn.close()
+                return render_template("movimiento_form_editar.html", movimiento=movimiento_form)
+
+        if not referencia and numero_operacion:
+            referencia = numero_operacion
+        if not monto and monto_ocr:
+            monto = monto_ocr
+        if not monto:
+            flash("Debe indicar un monto o adjuntar un comprobante donde pueda leerse el monto.", "error")
+            movimiento_form = dict(movimiento)
+            movimiento_form.update({"tipo": tipo, "concepto": concepto, "monto": monto, "fecha": fecha, "referencia": referencia})
             conn.close()
             return render_template("movimiento_form_editar.html", movimiento=movimiento_form)
 
         conn.execute("""
             UPDATE movimientos
-            SET tipo = %s, concepto = %s, monto = %s, fecha = %s, referencia = %s
+            SET tipo = %s,
+                concepto = %s,
+                monto = %s,
+                fecha = %s,
+                referencia = %s,
+                comprobante_drive_file_id = COALESCE(%s, comprobante_drive_file_id),
+                comprobante_nombre = COALESCE(%s, comprobante_nombre),
+                comprobante_mime_type = COALESCE(%s, comprobante_mime_type),
+                comprobante_tamano = COALESCE(%s, comprobante_tamano),
+                comprobante_fecha = COALESCE(%s, comprobante_fecha),
+                comprobante_usuario = COALESCE(%s, comprobante_usuario),
+                comprobante_web_url = COALESCE(%s, comprobante_web_url),
+                comprobante_operacion = COALESCE(%s, comprobante_operacion),
+                comprobante_ocr_texto = COALESCE(%s, comprobante_ocr_texto)
             WHERE id = %s
-        """, (tipo, concepto, monto, fecha, referencia, movimiento_id))
-
+        """, (
+            tipo, concepto, monto, fecha, referencia,
+            comprobante_info["file_id"] if comprobante_info else None,
+            comprobante_info["nombre"] if comprobante_info else None,
+            comprobante_info["mime_type"] if comprobante_info else None,
+            comprobante_info["tamano"] if comprobante_info else None,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
+            session.get("username") if comprobante_info else None,
+            comprobante_info["web_url"] if comprobante_info else None,
+            numero_operacion or None,
+            ocr_texto or None,
+            movimiento_id,
+        ))
         conn.commit()
         conn.close()
 

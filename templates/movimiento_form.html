@@ -5,7 +5,7 @@
 {% block content %}
 <h2>Nuevo movimiento de caja</h2>
 
-<form method="post" class="card form-card form-card-medium">
+<form method="post" enctype="multipart/form-data" class="card form-card form-card-medium">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="field">
         <label>Fecha</label>
@@ -27,12 +27,24 @@
 
     <div class="field">
         <label>Monto</label>
-        <input type="number" step="0.01" name="monto" value="{{ movimiento['monto'] if movimiento and movimiento.get('monto') else '' }}" required>
+        <input type="number" step="0.01" name="monto" value="{{ movimiento['monto'] if movimiento and movimiento.get('monto') else '' }}">
     </div>
 
     <div class="field">
         <label>Referencia</label>
         <input type="text" name="referencia" value="{{ movimiento['referencia'] if movimiento and movimiento.get('referencia') else '' }}" placeholder="Ej: comprobante, transferencia, observación">
+    </div>
+
+    <div class="field">
+        <label>Comprobante</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="comprobante_pago"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            <span class="upload-title">Arrastra el comprobante o hace clic para elegirlo</span>
+            <span class="upload-hint">Si dejas monto o referencia vacios, SIG intenta leerlos del comprobante.</span>
+        </label>
     </div>
 
     <div class="actions-row">

@@ -73,6 +73,7 @@
                     <th>Tipo</th>
                     <th>Concepto</th>
                     <th>Referencia</th>
+                    <th>Comprobante</th>
                     <th>Monto</th>
                     <th>Acción</th>
                 </tr>
@@ -94,12 +95,22 @@
                     <td>{{ m['concepto'] or '-' }}</td>
                     <td>
                         {{ m['referencia'] or '-' }}
+                        {% if m.get('comprobante_operacion') and m.get('comprobante_operacion') != m['referencia'] %}
+                            <div class="muted-line">Op. {{ m.get('comprobante_operacion') }}</div>
+                        {% endif %}
                         {% if m['anulado'] %}
                             <div class="cancelled-note">
                                 Motivo: {{ m['motivo_anulacion'] or '-' }}
                                 <br>
                                 Por {{ m['usuario_anulacion'] or '-' }} el {{ m['fecha_anulacion'] or '-' }}
                             </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.get('comprobante_drive_file_id') %}
+                            <a class="button secondary" href="{{ url_for('descargar_comprobante_movimiento', movimiento_id=m['id']) }}" target="_blank" rel="noopener">Ver</a>
+                        {% else %}
+                            -
                         {% endif %}
                     </td>
                     <td>
@@ -135,7 +146,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="empty">No hay movimientos para este mes.</td>
+                    <td colspan="7" class="empty">No hay movimientos para este mes.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -156,6 +167,7 @@
                     <th>Tipo</th>
                     <th>Concepto</th>
                     <th>Referencia</th>
+                    <th>Comprobante</th>
                     <th>Monto</th>
                 </tr>
             </thead>
@@ -176,10 +188,20 @@
                     <td>{{ m['concepto'] or '-' }}</td>
                     <td>
                         {{ m['referencia'] or '-' }}
+                        {% if m.get('comprobante_operacion') and m.get('comprobante_operacion') != m['referencia'] %}
+                            <div class="muted-line">Op. {{ m.get('comprobante_operacion') }}</div>
+                        {% endif %}
                         {% if m['anulado'] %}
                             <div class="cancelled-note">
                                 Motivo: {{ m['motivo_anulacion'] or '-' }}
                             </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.get('comprobante_drive_file_id') %}
+                            <a class="button secondary" href="{{ url_for('descargar_comprobante_movimiento', movimiento_id=m['id']) }}" target="_blank" rel="noopener">Ver</a>
+                        {% else %}
+                            -
                         {% endif %}
                     </td>
                     <td>
@@ -192,7 +214,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="empty">No hay movimientos cargados.</td>
+                    <td colspan="6" class="empty">No hay movimientos cargados.</td>
                 </tr>
                 {% endfor %}
             </tbody>
