@@ -60,7 +60,7 @@
     const filesLabel = (files) => {
         const selected = Array.from(files || []);
         if (!selected.length) {
-            return "Ningún archivo seleccionado";
+            return "Ningun archivo seleccionado";
         }
 
         if (selected.length > 1) {
@@ -74,7 +74,10 @@
     };
 
     const normalizeClipboardFile = (file) => {
-        if (!file || file.name) {
+        if (!file) {
+            return null;
+        }
+        if (file.name) {
             return file;
         }
 
@@ -91,12 +94,22 @@
         input.dispatchEvent(new Event("change", { bubbles: true }));
     };
 
-    const setDropzoneStatus = (dropzone, message, isError = false) => {
-        const status = dropzone.querySelector("[data-upload-file-name]");
-        if (status) {
-            status.textContent = message;
-            status.classList.toggle("upload-file-error", isError);
+    const ensureDropzoneStatus = (dropzone) => {
+        let status = dropzone.querySelector("[data-upload-file-name]");
+        if (!status) {
+            status = document.createElement("span");
+            status.className = "upload-file";
+            status.dataset.uploadFileName = "";
+            status.textContent = "Ningun archivo seleccionado";
+            dropzone.appendChild(status);
         }
+        return status;
+    };
+
+    const setDropzoneStatus = (dropzone, message, isError = false) => {
+        const status = ensureDropzoneStatus(dropzone);
+        status.textContent = message;
+        status.classList.toggle("upload-file-error", isError);
     };
 
     const applyFilesToDropzone = (dropzone, input, files) => {
@@ -122,6 +135,8 @@
             return;
         }
 
+        ensureDropzoneStatus(dropzone);
+        dropzone.__setUploadFiles = (files) => applyFilesToDropzone(dropzone, input, files);
         dropzone.__setUploadFile = (file) => applyFilesToDropzone(dropzone, input, [file]);
 
         input.addEventListener("change", () => {
@@ -165,25 +180,82 @@
     const dropzones = Array.from(document.querySelectorAll("[data-upload-dropzone]"));
     dropzones.forEach(setupDropzone);
 
+    const findTargetDropzone = (button = null) => {
+        if (button && button.dataset.uploadPaste) {
+            const target = document.querySelector(button.dataset.uploadPaste);
+            if (target) {
+                return target;
+            }
+        }
+        const activeDropzone = document.activeElement && document.activeElement.closest("[data-upload-dropzone]");
+        if (activeDropzone) {
+            return activeDropzone;
+        }
+        if (button) {
+            const formDropzone = button.closest("form")?.querySelector("[data-upload-dropzone]");
+            if (formDropzone) {
+                return formDropzone;
+            }
+        }
+        return dropzones.length === 1 ? dropzones[0] : null;
+    };
+
+    const applyClipboardItems = (items, targetDropzone) => {
+        const files = Array.from(items || [])
+            .filter((item) => item.kind === "file")
+            .map((item) => item.getAsFile())
+            .filter(Boolean);
+
+        if (!files.length || !targetDropzone || typeof targetDropzone.__setUploadFiles !== "function") {
+            return false;
+        }
+        return targetDropzone.__setUploadFiles(files);
+    };
+
     document.addEventListener("paste", (event) => {
         if (!dropzones.length || !event.clipboardData) {
             return;
         }
 
-        const fileItem = Array.from(event.clipboardData.items || []).find((item) => item.kind === "file");
-        if (!fileItem) {
-            return;
-        }
-
-        const activeDropzone = document.activeElement && document.activeElement.closest("[data-upload-dropzone]");
-        const targetDropzone = activeDropzone || (dropzones.length === 1 ? dropzones[0] : null);
-        if (!targetDropzone || typeof targetDropzone.__setUploadFile !== "function") {
-            return;
-        }
-
-        const file = fileItem.getAsFile();
-        if (file && targetDropzone.__setUploadFile(file)) {
+        const targetDropzone = findTargetDropzone();
+        if (applyClipboardItems(event.clipboardData.items, targetDropzone)) {
             event.preventDefault();
         }
+    });
+
+    document.querySelectorAll("[data-upload-paste]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const targetDropzone = findTargetDropzone(button);
+            if (!targetDropzone) {
+                return;
+            }
+
+            if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") {
+                setDropzoneStatus(targetDropzone, "Usa Ctrl+V para pegar una imagen del portapapeles.", true);
+                targetDropzone.focus();
+                return;
+            }
+
+            try {
+                const clipboardItems = await navigator.clipboard.read();
+                const files = [];
+                for (const item of clipboardItems) {
+                    const imageType = item.types.find((type) => type.startsWith("image/"));
+                    if (!imageType) {
+                        continue;
+                    }
+                    const blob = await item.getType(imageType);
+                    const extension = imageType === "image/jpeg" ? "jpg" : "png";
+                    files.push(new File([blob], `comprobante-portapapeles.${extension}`, { type: imageType }));
+                }
+
+                if (!files.length || !targetDropzone.__setUploadFiles(files)) {
+                    setDropzoneStatus(targetDropzone, "No se encontro una imagen valida en el portapapeles.", true);
+                }
+            } catch (error) {
+                setDropzoneStatus(targetDropzone, "No se pudo leer el portapapeles. Usa Ctrl+V sobre esta zona.", true);
+                targetDropzone.focus();
+            }
+        });
     });
 })();

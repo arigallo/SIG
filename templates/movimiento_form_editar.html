@@ -42,14 +42,16 @@
                 Actual: <a href="{{ url_for('descargar_comprobante_movimiento', movimiento_id=movimiento['id']) }}" target="_blank" rel="noopener">{{ movimiento.get('comprobante_nombre') or 'Ver comprobante' }}</a>
             </p>
         {% endif %}
-        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+        <label id="comprobante-movimiento-dropzone" class="upload-dropzone" data-upload-dropzone tabindex="0">
             <input class="upload-input"
                    type="file"
                    name="comprobante_pago"
                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
             <span class="upload-title">Arrastra un comprobante nuevo o hace clic para elegirlo</span>
             <span class="upload-hint">Si dejas monto o referencia vacios, SIG intenta leerlos del comprobante.</span>
+                    <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
         </label>
+        <button class="button secondary" type="button" data-upload-paste="#comprobante-movimiento-dropzone">Pegar desde portapapeles</button>
     </div>
 
     <div class="actions-row">
