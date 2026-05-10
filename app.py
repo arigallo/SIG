@@ -240,6 +240,10 @@ CLOUD_SQL_PITR_DAYS = os.environ.get("CLOUD_SQL_PITR_DAYS", "7")
 CLOUD_SQL_PROJECT = os.environ.get("CLOUD_SQL_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 CLOUD_SQL_INSTANCE = os.environ.get("CLOUD_SQL_INSTANCE", "")
 COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
+CALENDARIO_DEPORTIVO_TIPOS = {"Entrenamiento", "Partido", "Evento", "Otro"}
+CALENDARIO_ASISTENCIA_TIPOS = {"Entrenamiento", "Partido"}
+CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
+
 BITACORA_TIPOS = {
     "general": "General",
     "finanzas": "Finanzas",
@@ -2665,6 +2669,192 @@ def rango_mes(mes):
     return inicio.strftime("%Y-%m-%d"), siguiente.strftime("%Y-%m-%d")
 
 
+def normalizar_hora_evento(valor):
+    valor = (valor or "").strip()
+    if not valor:
+        return ""
+    for formato in ("%H:%M", "%H:%M:%S"):
+        try:
+            return datetime.strptime(valor, formato).strftime("%H:%M")
+        except ValueError:
+            continue
+    return ""
+
+
+def normalizar_duracion_evento(valor, default=90):
+    try:
+        duracion = int(valor or default)
+    except (TypeError, ValueError):
+        duracion = default
+    return min(max(duracion, 15), 24 * 60)
+
+
+def calendario_evento_es_deportivo(tipo):
+    return (tipo or "").strip() in CALENDARIO_DEPORTIVO_TIPOS
+
+
+def calendario_evento_requiere_asistencia(tipo):
+    return (tipo or "").strip() in CALENDARIO_ASISTENCIA_TIPOS
+
+
+def normalizar_categoria_calendario(categoria):
+    return (categoria or "").strip()
+
+
+def categoria_evento_aplica(categoria_evento, categoria_jugador):
+    categoria_evento = normalizar_categoria_calendario(categoria_evento).lower()
+    if not categoria_evento or categoria_evento in {"todo", "todos", "todo el club", "club", "general"}:
+        return True
+    categoria_jugador = normalizar_categoria_calendario(categoria_jugador).lower()
+    return bool(categoria_jugador and categoria_jugador in categoria_evento)
+
+
+def fecha_hora_evento(evento):
+    fecha = evento.get("fecha")
+    hora = normalizar_hora_evento(evento.get("hora_inicio") or evento.get("hora"))
+    if hora:
+        return f"{fecha} {hora}"
+    return fecha
+
+
+def formato_fecha_hora_evento(evento):
+    fecha = evento.get("fecha") or ""
+    hora = normalizar_hora_evento(evento.get("hora_inicio") or evento.get("hora"))
+    return f"{fecha} {hora}" if hora else fecha
+
+
+def crear_evento_asistencia_desde_calendario(conn, data):
+    descripcion = data.get("descripcion") or data.get("titulo") or ""
+    if data.get("ubicacion"):
+        descripcion = f"{descripcion}\nLugar: {data['ubicacion']}".strip()
+    if data.get("categoria"):
+        descripcion = f"{descripcion}\nCategoria: {data['categoria']}".strip()
+
+    fila = conn.execute("""
+        INSERT INTO eventos_asistencia (fecha, tipo, descripcion)
+        VALUES (%s, %s, %s)
+        RETURNING id
+    """, (data["fecha"], data["tipo"], descripcion)).fetchone()
+    return fila["id"]
+
+
+def obtener_eventos_deportivos_portal(jugador, limit=8):
+    conn = get_connection()
+    eventos = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE COALESCE(publicar_portal, 0) = 1
+          AND fecha >= CURRENT_DATE::text
+        ORDER BY fecha ASC, COALESCE(hora_inicio, '') ASC, id ASC
+        LIMIT 80
+    """).fetchall()
+    conn.close()
+
+    filtrados = []
+    for evento in eventos:
+        if categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
+            filtrados.append(evento)
+        if len(filtrados) >= limit:
+            break
+    return filtrados
+
+
+def obtener_eventos_deportivos_ics(token):
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT *
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        return None, []
+
+    eventos = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE COALESCE(publicar_portal, 0) = 1
+          AND fecha >= (CURRENT_DATE - INTERVAL '30 days')::text
+        ORDER BY fecha ASC, COALESCE(hora_inicio, '') ASC, id ASC
+    """).fetchall()
+    conn.close()
+    return jugador, [evento for evento in eventos if categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria"))]
+
+
+def ics_escape(valor):
+    valor = str(valor or "")
+    return (
+        valor.replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+    )
+
+
+def ics_fold(linea):
+    if len(linea) <= 74:
+        return linea
+    partes = []
+    while len(linea) > 74:
+        partes.append(linea[:74])
+        linea = " " + linea[74:]
+    partes.append(linea)
+    return "\r\n".join(partes)
+
+
+def ics_fecha_evento(fecha, hora=None, duracion_minutos=90):
+    hora = normalizar_hora_evento(hora)
+    if not hora:
+        inicio = datetime.strptime(fecha, "%Y-%m-%d")
+        fin = inicio + timedelta(days=1)
+        return (
+            f"DTSTART;VALUE=DATE:{inicio.strftime('%Y%m%d')}",
+            f"DTEND;VALUE=DATE:{fin.strftime('%Y%m%d')}",
+        )
+    inicio = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M")
+    fin = inicio + timedelta(minutes=normalizar_duracion_evento(duracion_minutos))
+    return (
+        f"DTSTART;TZID={CALENDARIO_TZ}:{inicio.strftime('%Y%m%dT%H%M%S')}",
+        f"DTEND;TZID={CALENDARIO_TZ}:{fin.strftime('%Y%m%dT%H%M%S')}",
+    )
+
+
+def generar_ics_calendario(jugador, eventos, feed_url):
+    ahora = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    lineas = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Ruda Macho Rugby//SIG//ES",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        f"X-WR-CALNAME:SIG - {ics_escape(jugador['apellido'])}, {ics_escape(jugador['nombre'])}",
+        f"X-WR-TIMEZONE:{CALENDARIO_TZ}",
+        f"URL:{feed_url}",
+    ]
+    for evento in eventos:
+        uid = f"calendario-{evento['id']}@sig.rudamachorugby.com"
+        descripcion = evento.get("descripcion") or ""
+        if evento.get("categoria"):
+            descripcion = f"{descripcion}\nCategoria: {evento['categoria']}".strip()
+        dtstart, dtend = ics_fecha_evento(evento["fecha"], evento.get("hora_inicio"), evento.get("duracion_minutos") or 90)
+        lineas.extend([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTAMP:{ahora}",
+            dtstart,
+            dtend,
+            f"SUMMARY:{ics_escape(evento['titulo'])}",
+            f"DESCRIPTION:{ics_escape(descripcion)}",
+            f"LOCATION:{ics_escape(evento.get('ubicacion') or '')}",
+            f"CATEGORIES:{ics_escape(evento.get('tipo') or 'Club')}",
+            "END:VEVENT",
+        ])
+    lineas.append("END:VCALENDAR")
+    return "\r\n".join(ics_fold(linea) for linea in lineas) + "\r\n"
+
+
 def obtener_calendario(mes):
     desde, hasta = rango_mes(mes)
     conn = get_connection()
@@ -2677,7 +2867,11 @@ def obtener_calendario(mes):
             titulo,
             descripcion,
             ubicacion,
-            categoria
+            categoria,
+            hora_inicio,
+            duracion_minutos,
+            publicar_portal,
+            asistencia_evento_id
         FROM calendario_eventos
         WHERE fecha >= %s AND fecha < %s
         ORDER BY fecha ASC, id ASC
@@ -2689,8 +2883,13 @@ def obtener_calendario(mes):
             fecha,
             tipo,
             descripcion
-        FROM eventos_asistencia
+        FROM eventos_asistencia e
         WHERE fecha >= %s AND fecha < %s
+          AND NOT EXISTS (
+              SELECT 1
+              FROM calendario_eventos ce
+              WHERE ce.asistencia_evento_id = e.id
+          )
         ORDER BY fecha ASC, id ASC
     """, (desde, hasta)).fetchall()
 
@@ -2742,19 +2941,23 @@ def obtener_calendario(mes):
     for evento in eventos_manuales:
         eventos.append({
             "fecha": evento["fecha"],
+            "hora": evento.get("hora_inicio") or "",
+            "fecha_hora": formato_fecha_hora_evento(evento),
             "tipo": evento["tipo"],
             "titulo": evento["titulo"],
             "detalle": evento["descripcion"] or "",
             "ubicacion": evento["ubicacion"] or "",
             "categoria": evento["categoria"] or "",
             "origen": "calendario",
-            "url": None,
+            "url": url_for("tomar_asistencia", evento_id=evento["asistencia_evento_id"]) if evento.get("asistencia_evento_id") else None,
             "prioridad": "normal",
         })
 
     for evento in eventos_asistencia:
         eventos.append({
             "fecha": evento["fecha"],
+            "hora": "",
+            "fecha_hora": evento["fecha"],
             "tipo": evento["tipo"],
             "titulo": f"Asistencia: {evento['tipo']}",
             "detalle": evento["descripcion"] or "",
@@ -2791,7 +2994,7 @@ def obtener_calendario(mes):
             "prioridad": "danger",
         })
 
-    eventos.sort(key=lambda item: (item["fecha"], item["tipo"], item["titulo"]))
+    eventos.sort(key=lambda item: (item["fecha"], item.get("hora") or "", item["tipo"], item["titulo"]))
 
     eventos_por_dia = {}
     for evento in eventos:
@@ -4492,6 +4695,17 @@ def init_db():
         ON calendario_eventos (fecha)
     """)
 
+    columnas_calendario_eventos = get_columns(conn, "calendario_eventos")
+    columnas_extra_calendario = {
+        "hora_inicio": "TEXT",
+        "duracion_minutos": "INTEGER DEFAULT 90",
+        "publicar_portal": "INTEGER DEFAULT 1",
+        "asistencia_evento_id": "INTEGER",
+    }
+    for columna, definicion in columnas_extra_calendario.items():
+        if columna not in columnas_calendario_eventos:
+            conn.execute(f"ALTER TABLE calendario_eventos ADD COLUMN {columna} {definicion}")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS asistencias (
             id SERIAL PRIMARY KEY,
@@ -4853,6 +5067,7 @@ def proteger_rutas():
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
         "portal_descargar_recibo",
+        "portal_calendario_ics",
     }
 
     if request.method == "POST" and request.endpoint != "static":
@@ -9055,6 +9270,11 @@ def portal_jugador(token):
     """, (jugador["id"],)).fetchall()
     conn.close()
 
+    eventos_deportivos = obtener_eventos_deportivos_portal(jugador)
+    calendario_ics_url = url_for("portal_calendario_ics", token=token, _external=True)
+    calendario_webcal_url = calendario_ics_url.replace("https://", "webcal://", 1).replace("http://", "webcal://", 1)
+    calendario_google_url = "https://calendar.google.com/calendar/r?cid=" + quote(calendario_webcal_url, safe="")
+
     return render_template(
         "portal_jugador.html",
         jugador=jugador,
@@ -9062,7 +9282,28 @@ def portal_jugador(token):
         deuda=deuda,
         ficha=ficha,
         documentos=documentos,
+        eventos_deportivos=eventos_deportivos,
+        calendario_ics_url=calendario_ics_url,
+        calendario_webcal_url=calendario_webcal_url,
+        calendario_google_url=calendario_google_url,
         token=token,
+    )
+
+
+@app.route("/portal/<token>/calendario.ics")
+def portal_calendario_ics(token):
+    jugador, eventos = obtener_eventos_deportivos_ics(token)
+    if jugador is None:
+        abort(404)
+    feed_url = url_for("portal_calendario_ics", token=token, _external=True)
+    contenido = generar_ics_calendario(jugador, eventos, feed_url)
+    return Response(
+        contenido,
+        mimetype="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": "inline; filename=calendario-sig.ics",
+            "Cache-Control": "public, max-age=900",
+        },
     )
 
 
@@ -9351,29 +9592,45 @@ def nuevo_evento_calendario():
     if request.method == "POST":
         data = {
             "fecha": request.form.get("fecha", "").strip(),
+            "hora_inicio": normalizar_hora_evento(request.form.get("hora_inicio", "")),
+            "duracion_minutos": normalizar_duracion_evento(request.form.get("duracion_minutos", "90")),
             "tipo": request.form.get("tipo", "").strip(),
             "titulo": request.form.get("titulo", "").strip(),
             "descripcion": request.form.get("descripcion", "").strip(),
             "ubicacion": request.form.get("ubicacion", "").strip(),
             "categoria": request.form.get("categoria", "").strip(),
+            "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
+            "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
         }
 
+        if calendario_evento_requiere_asistencia(data["tipo"]):
+            data["crear_asistencia"] = 1 if request.form.get("crear_asistencia", "on") == "on" else 0
+
         if not data["fecha"] or not data["tipo"] or not data["titulo"]:
-            flash("Fecha, tipo y título son obligatorios.", "error")
+            flash("Fecha, tipo y titulo son obligatorios.", "error")
             return render_template("calendario_evento_form.html", evento=data)
 
         try:
             datetime.strptime(data["fecha"], "%Y-%m-%d")
         except ValueError:
-            flash("La fecha del evento no es válida.", "error")
+            flash("La fecha del evento no es valida.", "error")
+            return render_template("calendario_evento_form.html", evento=data)
+
+        if request.form.get("hora_inicio") and not data["hora_inicio"]:
+            flash("La hora debe tener formato HH:MM.", "error")
             return render_template("calendario_evento_form.html", evento=data)
 
         conn = get_connection()
+        asistencia_evento_id = None
+        if data["crear_asistencia"]:
+            asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
+
         conn.execute("""
             INSERT INTO calendario_eventos (
-                fecha, tipo, titulo, descripcion, ubicacion, categoria
+                fecha, tipo, titulo, descripcion, ubicacion, categoria,
+                hora_inicio, duracion_minutos, publicar_portal, asistencia_evento_id
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             data["fecha"],
             data["tipo"],
@@ -9381,14 +9638,24 @@ def nuevo_evento_calendario():
             data["descripcion"],
             data["ubicacion"],
             data["categoria"],
+            data["hora_inicio"] or None,
+            data["duracion_minutos"],
+            data["publicar_portal"],
+            asistencia_evento_id,
         ))
         conn.commit()
         conn.close()
 
-        flash("Evento agregado al calendario.", "ok")
+        if asistencia_evento_id:
+            flash("Evento agregado al calendario y listo para tomar asistencia.", "ok")
+        else:
+            flash("Evento agregado al calendario.", "ok")
         return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
 
-    return render_template("calendario_evento_form.html", evento=None)
+    return render_template(
+        "calendario_evento_form.html",
+        evento={"publicar_portal": 1, "crear_asistencia": 1, "duracion_minutos": 90},
+    )
 
 
 @app.route("/alertas")

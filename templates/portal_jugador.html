@@ -38,6 +38,48 @@
 
         <div class="page-section">
             <div class="section-header">
+                <h3>Calendario deportivo</h3>
+                <div class="actions">
+                    <a class="button" href="{{ calendario_webcal_url }}">Suscribirme en iPhone</a>
+                    <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Suscribirme en Android</a>
+                    <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Evento</th>
+                            <th>Lugar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for evento in eventos_deportivos %}
+                        <tr>
+                            <td>{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</td>
+                            <td><span class="badge badge-info">{{ evento['tipo'] }}</span></td>
+                            <td>
+                                <strong>{{ evento['titulo'] }}</strong>
+                                {% if evento['descripcion'] %}
+                                    <span class="muted-line">{{ evento['descripcion'] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ evento['ubicacion'] or '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty">No hay eventos deportivos publicados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="page-section">
+            <div class="section-header">
                 <h3>Cuotas</h3>
             </div>
             <div class="table-wrapper">

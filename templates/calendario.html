@@ -53,7 +53,7 @@
     <table>
         <thead>
             <tr>
-                <th>Fecha</th>
+                <th>Fecha y hora</th>
                 <th>Tipo</th>
                 <th>Evento</th>
                 <th>Categoría</th>
@@ -65,7 +65,7 @@
         <tbody>
             {% for evento in calendario['eventos'] %}
             <tr class="{% if evento['prioridad'] == 'danger' %}calendar-danger{% elif evento['prioridad'] == 'warning' %}calendar-warning{% endif %}">
-                <td>{{ evento['fecha'] }}</td>
+                <td>{{ evento['fecha_hora'] or evento['fecha'] }}</td>
                 <td>
                     <span class="calendar-type calendar-type-{{ evento['origen'] }}">
                         {{ evento['tipo'] }}
@@ -77,7 +77,7 @@
                 <td>{{ evento['detalle'] or '-' }}</td>
                 <td>
                     {% if evento['url'] %}
-                        <a class="button secondary" href="{{ evento['url'] }}">Ver</a>
+                        <a class="button secondary" href="{{ evento['url'] }}">{% if evento['origen'] == 'calendario' %}Tomar asistencia{% else %}Ver{% endif %}</a>
                     {% else %}
                         -
                     {% endif %}
