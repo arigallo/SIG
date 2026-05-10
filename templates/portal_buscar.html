@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIG - Ruda Macho Rugby Club</title>
+    <meta name="robots" content="noindex,nofollow">
+    <title>Portal del jugador</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body class="login-body">
@@ -16,28 +17,21 @@
             </picture>
         </div>
 
-        <h1>Ruda Macho Rugby Club</h1>
-        <h2>Sistema Integral de Gestion (SIG)</h2>
+        <h1>Portal del jugador</h1>
+        <h2>Ingresa con DNI, email o numero de socio</h2>
 
         <form method="post">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label>Usuario</label>
-                <input type="text" name="username" required>
+                <label>DNI, email o numero de socio</label>
+                <input type="text" name="identificador" value="{{ identificador or '' }}" autocomplete="username" required>
             </div>
 
-            <div>
-                <label>Clave</label>
-                <input type="password" name="password" required>
-            </div>
-
-            <button class="button login-button" type="submit">Ingresar</button>
+            <button class="button login-button" type="submit">Entrar al portal</button>
         </form>
 
         <div class="login-links">
-            <a href="{{ url_for('portal_buscar') }}">Portal del jugador</a>
-            <span> · </span>
-            <a href="{{ url_for('solicitar_recuperacion_password') }}">Olvide mi clave</a>
+            <a href="{{ url_for('login') }}">Acceso administracion</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

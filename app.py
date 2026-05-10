@@ -1899,6 +1899,10 @@ def generar_portal_token():
     return secrets.token_urlsafe(32)
 
 
+def normalizar_identificador_portal(valor):
+    return "".join(ch for ch in str(valor or "").strip() if ch.isalnum() or ch in {"@", ".", "_", "-", "+"})
+
+
 def normalizar_mes(valor, default):
     valor = (valor or "").strip()
     try:
@@ -5063,6 +5067,7 @@ def proteger_rutas():
         "restablecer_password",
         "logout",
         "static",
+        "portal_buscar",
         "portal_jugador",
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
@@ -7219,6 +7224,41 @@ def acciones_masivas_jugadores():
         )
         detalle = {"accion": "categoria", "categoria": nueva_categoria, "cantidad": len(ids)}
         mensaje = f"Categoría actualizada para {len(ids)} jugador(es)."
+    elif accion == "portal_activar":
+        if not tiene_permiso("portal_jugador_gestionar"):
+            conn.close()
+            flash("No tenes permiso para gestionar portales de jugadores.", "error")
+            return redirect(url_for("listar_jugadores"))
+
+        jugadores = conn.execute("""
+            SELECT id, portal_token
+            FROM jugadores
+            WHERE id = ANY(%s)
+            FOR UPDATE
+        """, (ids,)).fetchall()
+        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        activados = 0
+        tokens_generados = 0
+        for jugador in jugadores:
+            token = jugador.get("portal_token")
+            if not token:
+                token = generar_portal_token()
+                tokens_generados += 1
+            conn.execute("""
+                UPDATE jugadores
+                SET portal_token = %s,
+                    portal_activo = 1,
+                    portal_actualizado_en = %s
+                WHERE id = %s
+            """, (token, ahora, jugador["id"]))
+            activados += 1
+
+        detalle = {
+            "accion": "portal_activar",
+            "cantidad": activados,
+            "tokens_generados": tokens_generados,
+        }
+        mensaje = f"Portal activado para {activados} jugador(es)."
     else:
         conn.close()
         flash("La acción masiva no es válida.", "error")
@@ -9219,6 +9259,44 @@ def desactivar_portal_jugador(jugador_id):
 
     flash("Portal externo desactivado.", "ok")
     return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
+
+
+@app.route("/portal", methods=["GET", "POST"])
+def portal_buscar():
+    identificador = ""
+    if request.method == "POST":
+        identificador = normalizar_identificador_portal(request.form.get("identificador", ""))
+        if not identificador:
+            flash("Ingresa tu DNI, email o numero de socio.", "error")
+            return render_template("portal_buscar.html", identificador=identificador)
+
+        identificador_lower = identificador.lower()
+        identificador_digitos = "".join(ch for ch in identificador if ch.isdigit())
+        conn = get_connection()
+        jugadores = conn.execute("""
+            SELECT id, portal_token
+            FROM jugadores
+            WHERE COALESCE(portal_activo, 0) = 1
+              AND portal_token IS NOT NULL
+              AND (
+                  LOWER(COALESCE(email, '')) = %s
+                  OR REGEXP_REPLACE(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
+                  OR REGEXP_REPLACE(COALESCE(numero_socio, ''), '[^0-9]', '', 'g') = %s
+              )
+            ORDER BY id ASC
+            LIMIT 2
+        """, (identificador_lower, identificador_digitos, identificador_digitos)).fetchall()
+        conn.close()
+
+        if len(jugadores) == 1:
+            return redirect(url_for("portal_jugador", token=jugadores[0]["portal_token"]))
+
+        if len(jugadores) > 1:
+            flash("Encontramos mas de un portal con ese dato. Proba con DNI o consulta con administracion.", "error")
+        else:
+            flash("No encontramos un portal activo con ese dato. Revisalo o consulta con administracion.", "error")
+
+    return render_template("portal_buscar.html", identificador=identificador)
 
 
 @app.route("/portal/<token>")

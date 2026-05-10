@@ -32,6 +32,9 @@
             <option value="">Seleccionar...</option>
             <option value="estado">Cambiar estado</option>
             <option value="categoria">Cambiar categoría</option>
+            {% if puede('portal_jugador_gestionar') %}
+                <option value="portal_activar">Activar portal</option>
+            {% endif %}
         </select>
     </div>
 
