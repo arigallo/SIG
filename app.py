@@ -9274,6 +9274,12 @@ def portal_jugador(token):
     calendario_ics_url = url_for("portal_calendario_ics", token=token, _external=True)
     calendario_webcal_url = calendario_ics_url.replace("https://", "webcal://", 1).replace("http://", "webcal://", 1)
     calendario_google_url = "https://calendar.google.com/calendar/r?cid=" + quote(calendario_webcal_url, safe="")
+    calendario_android_url = (
+        calendario_ics_url.replace("https://", "intent://", 1).replace("http://", "intent://", 1)
+        + "#Intent;scheme=webcal;S.browser_fallback_url="
+        + quote(calendario_ics_url, safe="")
+        + ";end"
+    )
 
     return render_template(
         "portal_jugador.html",
@@ -9286,6 +9292,7 @@ def portal_jugador(token):
         calendario_ics_url=calendario_ics_url,
         calendario_webcal_url=calendario_webcal_url,
         calendario_google_url=calendario_google_url,
+        calendario_android_url=calendario_android_url,
         token=token,
     )
 
