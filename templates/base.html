@@ -55,7 +55,7 @@
                 </details>
                 {% endif %}
 
-                {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('reportes_ver') %}
+                {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('presupuesto_ver') or puede('reportes_ver') %}
                 {% if mostrar_finanzas %}
                 <details class="nav-group">
                     <summary>Finanzas</summary>
@@ -70,6 +70,9 @@
                         {% endif %}
                         {% if puede('caja_ver') %}
                             <a href="{{ url_for('ver_caja') }}">Caja</a>
+                        {% endif %}
+                        {% if puede('presupuesto_ver', 'caja_ver') %}
+                            <a href="{{ url_for('ver_presupuesto') }}">Presupuesto</a>
                         {% endif %}
                         {% if puede('reportes_ver') %}
                             <a href="{{ url_for('ver_reportes') }}">Reportes</a>

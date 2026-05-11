@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Presupuesto{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2>Presupuesto mensual</h2>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_caja', mes=mes) }}">Ver caja</a>
+        <a class="button secondary" href="{{ url_for('ver_reportes', desde=mes, hasta=mes) }}">Reportes</a>
+    </div>
+</div>
+
+<form method="get" class="card form-card form-card-wide spaced-small">
+    <div class="form-grid">
+        <div>
+            <label>Mes base</label>
+            <input type="month" name="mes" value="{{ mes }}">
+        </div>
+        <div>
+            <label>Meses a proyectar</label>
+            <input type="number" name="meses" value="{{ meses_proyeccion }}" min="1" max="24">
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button secondary" type="submit">Actualizar</button>
+    </div>
+</form>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Ingresos presupuestados</h3>
+        <p class="stat-number status-paid">{{ presupuesto['resumen']['ingresos_presupuestados'] | moneda }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Gastos presupuestados</h3>
+        <p class="stat-number text-danger">{{ presupuesto['resumen']['egresos_presupuestados'] | moneda }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Resultado estimado</h3>
+        <p class="stat-number {% if presupuesto['resumen']['resultado_presupuestado'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ presupuesto['resumen']['resultado_presupuestado'] | moneda }}
+        </p>
+    </div>
+    <div class="card stat-card">
+        <h3>Resultado real</h3>
+        <p class="stat-number {% if presupuesto['resumen']['resultado_real'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ presupuesto['resumen']['resultado_real'] | moneda }}
+        </p>
+    </div>
+</div>
+
+{% if puede('presupuesto_gestionar', 'caja_gestionar') %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Agregar concepto</h3>
+    </div>
+    <form method="post" action="{{ url_for('crear_presupuesto_item') }}" class="card form-card form-card-wide">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mes_retorno" value="{{ mes }}">
+        <div class="form-grid">
+            <div>
+                <label>Tipo</label>
+                <select name="tipo" required>
+                    <option value="egreso">Gasto</option>
+                    <option value="ingreso">Ingreso</option>
+                </select>
+            </div>
+            <div>
+                <label>Categoria</label>
+                <select name="categoria" required>
+                    <option value="fijo">Fijo mensual</option>
+                    <option value="variable">Variable estimado</option>
+                </select>
+            </div>
+            <div class="full">
+                <label>Concepto</label>
+                <input type="text" name="concepto" placeholder="Alquiler, sueldos, servicios, sponsors..." required>
+            </div>
+            <div>
+                <label>Monto mensual</label>
+                <input type="number" name="monto" min="0" step="0.01" required>
+            </div>
+            <div>
+                <label>Inicio</label>
+                <input type="month" name="mes_inicio" value="{{ mes }}">
+            </div>
+            <div>
+                <label>Fin</label>
+                <input type="month" name="mes_fin">
+            </div>
+            <div class="full">
+                <label>Notas</label>
+                <textarea name="notas" rows="3"></textarea>
+            </div>
+        </div>
+        <div class="actions-row stack-gap">
+            <button class="button" type="submit">Agregar al presupuesto</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Conceptos activos para {{ mes }}</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Categoria</th>
+                    <th>Concepto</th>
+                    <th>Vigencia</th>
+                    <th>Monto</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in presupuesto['items'] %}
+                <tr class="{% if not item['activo'] %}movement-cancelled{% endif %}">
+                    <td>
+                        {% if item['tipo'] == 'ingreso' %}
+                            <span class="status-paid">Ingreso</span>
+                        {% else %}
+                            <span class="strong-danger">Gasto</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ 'Fijo' if item['categoria'] == 'fijo' else 'Variable' }}</td>
+                    <td>
+                        <strong>{{ item['concepto'] }}</strong>
+                        {% if item['notas'] %}
+                            <span class="muted-line">{{ item['notas'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item['mes_inicio'] or 'Desde siempre' }} / {{ item['mes_fin'] or 'Sin fin' }}</td>
+                    <td>
+                        {% if item['tipo'] == 'ingreso' %}
+                            <span class="status-paid">+{{ item['monto'] | moneda }}</span>
+                        {% else %}
+                            <span class="strong-danger">-{{ item['monto'] | moneda }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        {% if puede('presupuesto_gestionar', 'caja_gestionar') %}
+                            <form method="post" action="{{ url_for('alternar_presupuesto_item', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="mes_retorno" value="{{ mes }}">
+                                <button class="button secondary" type="submit">{% if item['activo'] %}Pausar{% else %}Activar{% endif %}</button>
+                            </form>
+                            <form method="post" action="{{ url_for('eliminar_presupuesto_item', item_id=item['id']) }}" onsubmit="return confirm('Eliminar este concepto del presupuesto?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="mes_retorno" value="{{ mes }}">
+                                <button class="button danger" type="submit">Eliminar</button>
+                            </form>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">Todavia no hay conceptos presupuestados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Proyeccion y comparacion real</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Ingresos presup.</th>
+                    <th>Gastos presup.</th>
+                    <th>Resultado presup.</th>
+                    <th>Ingresos reales</th>
+                    <th>Gastos reales</th>
+                    <th>Resultado real</th>
+                    <th>Desvio</th>
+                    <th>Cuotas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in presupuesto['proyeccion'] %}
+                <tr>
+                    <td>{{ fila['mes'] }}</td>
+                    <td class="status-paid">{{ fila['ingresos_presupuestados'] | moneda }}</td>
+                    <td class="strong-danger">{{ fila['egresos_presupuestados'] | moneda }}</td>
+                    <td class="{% if fila['resultado_presupuestado'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+                        {{ fila['resultado_presupuestado'] | moneda }}
+                    </td>
+                    <td>{{ fila['ingresos_reales'] | moneda }}</td>
+                    <td>{{ fila['egresos_reales'] | moneda }}</td>
+                    <td class="{% if fila['resultado_real'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+                        {{ fila['resultado_real'] | moneda }}
+                    </td>
+                    <td class="{% if fila['desvio'] < 0 %}text-danger{% else %}status-paid{% endif %}">
+                        {{ fila['desvio'] | moneda }}
+                    </td>
+                    <td>
+                        {{ fila['cuotas_emitidas'] }} emitidas
+                        <span class="muted-line">Cobrado {{ fila['cuotas_cobradas'] | moneda }}</span>
+                        <span class="muted-line">Pendiente {{ fila['cuotas_pendientes'] | moneda }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

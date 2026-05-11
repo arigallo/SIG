@@ -324,6 +324,16 @@ PERMISOS = {
         "nombre": "Gestionar caja",
         "descripcion": "Crear, editar, anular movimientos y cerrar meses.",
     },
+    "presupuesto_ver": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Ver presupuesto",
+        "descripcion": "Consultar presupuestos mensuales y proyecciones financieras.",
+    },
+    "presupuesto_gestionar": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Gestionar presupuesto",
+        "descripcion": "Crear y administrar gastos e ingresos presupuestados.",
+    },
     "reportes_ver": {
         "grupo": "Reportes",
         "nombre": "Ver reportes",
@@ -441,6 +451,8 @@ ROLE_PRESETS = {
         "planes_pago_gestionar",
         "caja_ver",
         "caja_gestionar",
+        "presupuesto_ver",
+        "presupuesto_gestionar",
         "reportes_ver",
         "comunicaciones_ver",
         "calendario_ver",
@@ -1927,6 +1939,14 @@ def meses_entre(desde, hasta):
     return meses
 
 
+def sumar_meses(mes, cantidad):
+    fecha = datetime.strptime(mes, "%Y-%m")
+    total = fecha.year * 12 + fecha.month - 1 + cantidad
+    year = total // 12
+    month = total % 12 + 1
+    return f"{year:04d}-{month:02d}"
+
+
 def filtros_reportes():
     hoy = datetime.now()
     default_desde = f"{hoy.year}-01"
@@ -3356,6 +3376,95 @@ def parsear_importe(valor):
         return None
 
 
+def obtener_presupuesto_mensual(mes, meses_proyeccion=6):
+    mes = normalizar_mes(mes, datetime.now().strftime("%Y-%m"))
+    meses = meses_entre(mes, sumar_meses(mes, max(1, min(meses_proyeccion, 24)) - 1))
+    conn = get_connection()
+
+    items = conn.execute("""
+        SELECT *
+        FROM presupuesto_items
+        ORDER BY activo DESC, tipo ASC, categoria ASC, concepto ASC, id ASC
+    """).fetchall()
+
+    movimientos = conn.execute("""
+        SELECT
+            substring(fecha from 1 for 7) AS mes,
+            COALESCE(SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE 0 END), 0) AS ingresos,
+            COALESCE(SUM(CASE WHEN tipo = 'egreso' THEN monto ELSE 0 END), 0) AS egresos
+        FROM movimientos
+        WHERE COALESCE(anulado, 0) = 0
+          AND substring(fecha from 1 for 7) = ANY(%s)
+        GROUP BY substring(fecha from 1 for 7)
+    """, (meses,)).fetchall()
+
+    cuotas = conn.execute("""
+        SELECT
+            periodo AS mes,
+            COUNT(*) AS cuotas_emitidas,
+            COALESCE(SUM(importe), 0) AS total_emitido,
+            COALESCE(SUM(CASE WHEN pagado = 1 THEN importe ELSE 0 END), 0) AS total_cobrado,
+            COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(anulada, 0) = 0 THEN importe ELSE 0 END), 0) AS total_pendiente
+        FROM cuotas
+        WHERE periodo = ANY(%s)
+        GROUP BY periodo
+    """, (meses,)).fetchall()
+    conn.close()
+
+    movimientos_por_mes = {fila["mes"]: fila for fila in movimientos}
+    cuotas_por_mes = {fila["mes"]: fila for fila in cuotas}
+    proyeccion = []
+    for mes_item in meses:
+        ingresos_presupuestados = 0
+        egresos_presupuestados = 0
+        activos = []
+        for item in items:
+            if not item.get("activo"):
+                continue
+            if item.get("mes_inicio") and item["mes_inicio"] > mes_item:
+                continue
+            if item.get("mes_fin") and item["mes_fin"] < mes_item:
+                continue
+            monto = float(item.get("monto") or 0)
+            activos.append(item)
+            if item["tipo"] == "ingreso":
+                ingresos_presupuestados += monto
+            else:
+                egresos_presupuestados += monto
+
+        caja = movimientos_por_mes.get(mes_item, {})
+        cuota = cuotas_por_mes.get(mes_item, {})
+        ingresos_reales = float(caja.get("ingresos") or 0)
+        egresos_reales = float(caja.get("egresos") or 0)
+        resultado_presupuestado = ingresos_presupuestados - egresos_presupuestados
+        resultado_real = ingresos_reales - egresos_reales
+        proyeccion.append({
+            "mes": mes_item,
+            "ingresos_presupuestados": ingresos_presupuestados,
+            "egresos_presupuestados": egresos_presupuestados,
+            "resultado_presupuestado": resultado_presupuestado,
+            "ingresos_reales": ingresos_reales,
+            "egresos_reales": egresos_reales,
+            "resultado_real": resultado_real,
+            "desvio": resultado_real - resultado_presupuestado,
+            "cuotas_emitidas": cuota.get("cuotas_emitidas", 0) or 0,
+            "cuotas_emitidas_total": cuota.get("total_emitido", 0) or 0,
+            "cuotas_cobradas": cuota.get("total_cobrado", 0) or 0,
+            "cuotas_pendientes": cuota.get("total_pendiente", 0) or 0,
+            "items": activos,
+        })
+
+    mes_actual = proyeccion[0] if proyeccion else {}
+    return {
+        "mes": mes,
+        "meses": meses,
+        "items": items,
+        "items_activos": mes_actual.get("items", []),
+        "proyeccion": proyeccion,
+        "resumen": mes_actual,
+    }
+
+
 def leer_csv_conciliacion(archivo):
     nombre = (archivo.filename or "").lower()
     if nombre.endswith(".xlsx"):
@@ -4662,6 +4771,27 @@ def init_db():
             conn.execute(f"ALTER TABLE movimientos ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS presupuesto_items (
+            id SERIAL PRIMARY KEY,
+            tipo TEXT NOT NULL,
+            categoria TEXT NOT NULL DEFAULT 'fijo',
+            concepto TEXT NOT NULL,
+            monto REAL NOT NULL,
+            mes_inicio TEXT,
+            mes_fin TEXT,
+            activo INTEGER DEFAULT 1,
+            notas TEXT,
+            creado_en TEXT,
+            actualizado_en TEXT
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_presupuesto_items_activo
+        ON presupuesto_items (activo)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS cierres_mensuales (
             id SERIAL PRIMARY KEY,
             mes TEXT UNIQUE NOT NULL,
@@ -4875,6 +5005,129 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+@app.route("/presupuesto")
+def ver_presupuesto():
+    check = permiso_requerido("presupuesto_ver", "caja_ver")
+    if check:
+        return check
+
+    mes = normalizar_mes(request.args.get("mes"), datetime.now().strftime("%Y-%m"))
+    try:
+        meses_proyeccion = int(request.args.get("meses", "6") or 6)
+    except ValueError:
+        meses_proyeccion = 6
+    presupuesto = obtener_presupuesto_mensual(mes, meses_proyeccion)
+    return render_template("presupuesto.html", presupuesto=presupuesto, mes=mes, meses_proyeccion=meses_proyeccion)
+
+
+@app.route("/presupuesto/items", methods=["POST"])
+def crear_presupuesto_item():
+    check = permiso_requerido("presupuesto_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    tipo = request.form.get("tipo", "").strip()
+    categoria = request.form.get("categoria", "fijo").strip()
+    concepto = request.form.get("concepto", "").strip()
+    monto = parsear_importe(request.form.get("monto"))
+    mes_inicio = normalizar_mes(request.form.get("mes_inicio"), "")
+    mes_fin = normalizar_mes(request.form.get("mes_fin"), "")
+    notas = request.form.get("notas", "").strip()
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+
+    if tipo not in {"ingreso", "egreso"}:
+        flash("Selecciona si el concepto es ingreso o egreso.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    if categoria not in {"fijo", "variable"}:
+        flash("La categoria del presupuesto no es valida.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    if not concepto:
+        flash("El concepto es obligatorio.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    if monto is None or monto <= 0:
+        flash("El monto debe ser mayor a cero.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    if mes_inicio and mes_fin and mes_fin < mes_inicio:
+        flash("El mes de fin no puede ser anterior al inicio.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO presupuesto_items (
+            tipo, categoria, concepto, monto, mes_inicio, mes_fin, activo, notas, creado_en, actualizado_en
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s)
+    """, (tipo, categoria, concepto, monto, mes_inicio or None, mes_fin or None, notas, ahora, ahora))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "crear",
+        "presupuesto_item",
+        None,
+        {"tipo": tipo, "categoria": categoria, "concepto": concepto, "monto": monto},
+    )
+    flash("Concepto agregado al presupuesto.", "ok")
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+
+
+@app.route("/presupuesto/items/<int:item_id>/toggle", methods=["POST"])
+def alternar_presupuesto_item(item_id):
+    check = permiso_requerido("presupuesto_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+    conn = get_connection()
+    item = conn.execute("SELECT * FROM presupuesto_items WHERE id = %s", (item_id,)).fetchone()
+    if item is None:
+        conn.close()
+        flash("Concepto no encontrado.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+
+    nuevo_estado = 0 if item.get("activo") else 1
+    conn.execute("""
+        UPDATE presupuesto_items
+        SET activo = %s,
+            actualizado_en = %s
+        WHERE id = %s
+    """, (nuevo_estado, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("alternar", "presupuesto_item", str(item_id), {"activo": nuevo_estado})
+    flash("Concepto de presupuesto actualizado.", "ok")
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+
+
+@app.route("/presupuesto/items/<int:item_id>/eliminar", methods=["POST"])
+def eliminar_presupuesto_item(item_id):
+    check = permiso_requerido("presupuesto_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+    conn = get_connection()
+    item = conn.execute("SELECT * FROM presupuesto_items WHERE id = %s", (item_id,)).fetchone()
+    if item is None:
+        conn.close()
+        flash("Concepto no encontrado.", "error")
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    conn.execute("DELETE FROM presupuesto_items WHERE id = %s", (item_id,))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "eliminar",
+        "presupuesto_item",
+        str(item_id),
+        {"concepto": item["concepto"], "monto": item["monto"]},
+    )
+    flash("Concepto eliminado del presupuesto.", "ok")
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+
 
 @app.route("/caja")
 def ver_caja():
