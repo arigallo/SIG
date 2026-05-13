@@ -10068,6 +10068,53 @@ def portal_jugador(token):
         ORDER BY r.fecha DESC, r.id DESC
         LIMIT 24
     """, (jugador["id"],)).fetchall()
+
+    portal_tests = conn.execute("""
+        SELECT DISTINCT
+            t.id,
+            t.nombre,
+            t.unidad,
+            t.mayor_es_mejor
+        FROM test_tipos t
+        JOIN test_resultados r ON r.test_id = t.id
+        WHERE r.jugador_id = %s
+        ORDER BY t.nombre
+    """, (jugador["id"],)).fetchall()
+
+    portal_test_id_raw = request.args.get("test_id", "").strip()
+    portal_test_id = int(portal_test_id_raw) if portal_test_id_raw.isdigit() else None
+    if not portal_test_id and portal_tests:
+        portal_test_id = portal_tests[0]["id"]
+
+    portal_test_desde = validar_fecha_movimiento(request.args.get("test_desde", "").strip())
+    portal_test_hasta = validar_fecha_movimiento(request.args.get("test_hasta", "").strip())
+    portal_test_actual = next((test for test in portal_tests if test["id"] == portal_test_id), None)
+    portal_test_resultados = []
+    if portal_test_actual:
+        filtros = ["r.jugador_id = %s", "r.test_id = %s"]
+        params = [jugador["id"], portal_test_id]
+        if portal_test_desde:
+            filtros.append("r.fecha >= %s")
+            params.append(portal_test_desde)
+        if portal_test_hasta:
+            filtros.append("r.fecha <= %s")
+            params.append(portal_test_hasta)
+
+        where = " AND ".join(filtros)
+        portal_test_resultados = conn.execute(f"""
+            SELECT
+                r.*,
+                j.apellido,
+                j.nombre,
+                j.categoria
+            FROM test_resultados r
+            JOIN jugadores j ON j.id = r.jugador_id
+            WHERE {where}
+            ORDER BY r.fecha, r.id
+        """, params).fetchall()
+
+    portal_test_grafico = construir_grafico_tests(portal_test_resultados)
+    portal_test_comparativo = construir_comparativo_tests(portal_test_resultados, portal_test_actual)
     conn.close()
 
     eventos_deportivos = obtener_eventos_deportivos_portal(jugador)
@@ -10091,6 +10138,14 @@ def portal_jugador(token):
         planes_pago=planes_pago,
         tests_recientes=tests_recientes,
         resumen_tests=resumir_resultados_tests(tests_recientes),
+        portal_tests=portal_tests,
+        portal_test_id=portal_test_id,
+        portal_test_desde=portal_test_desde or "",
+        portal_test_hasta=portal_test_hasta or "",
+        portal_test_actual=portal_test_actual,
+        portal_test_grafico=portal_test_grafico,
+        portal_test_comparativo=portal_test_comparativo,
+        portal_test_resultados=portal_test_resultados,
         eventos_deportivos=eventos_deportivos,
         calendario_ics_url=calendario_ics_url,
         calendario_webcal_url=calendario_webcal_url,

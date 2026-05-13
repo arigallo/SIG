@@ -309,6 +309,138 @@
             {% endif %}
         </div>
 
+        <div class="page-section">
+            <div class="section-header">
+                <h3>Analisis de tests</h3>
+                {% if portal_test_actual %}
+                    <span class="report-note">{{ portal_test_actual['unidad'] or 'Puntaje' }}</span>
+                {% endif %}
+            </div>
+
+            {% if portal_tests %}
+                <form method="get" class="card">
+                    <div class="report-filter-grid">
+                        <label>
+                            Test
+                            <select name="test_id">
+                                {% for test in portal_tests %}
+                                    <option value="{{ test['id'] }}" {% if test['id'] == portal_test_id %}selected{% endif %}>{{ test['nombre'] }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            Desde
+                            <input type="date" name="test_desde" value="{{ portal_test_desde }}">
+                        </label>
+                        <label>
+                            Hasta
+                            <input type="date" name="test_hasta" value="{{ portal_test_hasta }}">
+                        </label>
+                    </div>
+                    <div class="actions">
+                        <button class="button" type="submit">Actualizar grafico</button>
+                        <a class="button secondary" href="{{ url_for('portal_jugador', token=token, test_id=portal_test_id) }}">Limpiar fechas</a>
+                    </div>
+                </form>
+
+                {% if portal_test_grafico['series'] %}
+                    <div class="top-gap">
+                        <div class="test-chart">
+                            <svg viewBox="0 0 {{ portal_test_grafico['svg_width'] }} {{ portal_test_grafico['svg_height'] }}" role="img" aria-label="Grafico de evolucion del jugador">
+                                {% for marca in portal_test_grafico['eje_y'] %}
+                                    <line class="chart-grid-line" x1="{{ portal_test_grafico['pad_left'] }}" y1="{{ marca['y'] }}" x2="{{ portal_test_grafico['svg_width'] - portal_test_grafico['pad_right'] }}" y2="{{ marca['y'] }}"></line>
+                                    <text class="chart-axis-label" x="8" y="{{ marca['y'] + 4 }}">{{ marca['valor'] }}</text>
+                                {% endfor %}
+                                {% for serie in portal_test_grafico['series'] %}
+                                    <polyline class="chart-line" points="{{ serie['polyline'] }}" style="stroke: {{ serie['color'] }}"></polyline>
+                                    {% for punto in serie['puntos'] %}
+                                        <circle class="chart-point" cx="{{ punto['x'] }}" cy="{{ punto['y'] }}" r="4" style="fill: {{ serie['color'] }}">
+                                            <title>{{ punto['fecha'] }}: {{ punto['valor'] }}</title>
+                                        </circle>
+                                    {% endfor %}
+                                {% endfor %}
+                            </svg>
+                        </div>
+                        <div class="chart-legend">
+                            {% for serie in portal_test_grafico['series'] %}
+                                <span class="chart-legend-item">
+                                    <span class="chart-color" style="background: {{ serie['color'] }}"></span>
+                                    {{ serie['nombre'] }} ({{ serie['ultimo'] }})
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="top-gap">
+                        <div class="section-header">
+                            <h3>Comparativo por fecha</h3>
+                            <span class="report-note">
+                                {% if portal_test_comparativo['mayor_es_mejor'] %}
+                                    Mayor valor es mejor
+                                {% else %}
+                                    Menor valor es mejor
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>Jugador</th>
+                                        <th>Categoria</th>
+                                        {% for fecha in portal_test_comparativo['fechas'] %}
+                                            <th>{{ fecha }}</th>
+                                        {% endfor %}
+                                        <th>Ultimo cambio</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fila in portal_test_comparativo['filas'] %}
+                                    <tr>
+                                        <td>{{ fila['nombre'] }}</td>
+                                        <td>{{ fila['categoria'] }}</td>
+                                        {% for fecha in portal_test_comparativo['fechas'] %}
+                                            <td class="{% if fila['ordenados'] and fecha == fila['ordenados'][-1]['fecha'] %}latest-value{% endif %}">
+                                                {% if fecha in fila['valores'] %}
+                                                    {{ fila['valores'][fecha] }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                        <td>
+                                            {% if fila['delta'] is not none %}
+                                                {% if fila['delta'] > 0 %}+{% endif %}{{ fila['delta'] }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if fila['estado'] == 'mejora' %}
+                                                <span class="badge badge-success">{{ fila['estado_label'] }}</span>
+                                            {% elif fila['estado'] == 'empeora' %}
+                                                <span class="badge badge-danger">{{ fila['estado_label'] }}</span>
+                                            {% elif fila['estado'] == 'igual' %}
+                                                <span class="badge badge-warning">{{ fila['estado_label'] }}</span>
+                                            {% else %}
+                                                <span class="badge badge-muted">{{ fila['estado_label'] }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="top-gap">No hay mediciones para ese test con los filtros seleccionados.</p>
+                {% endif %}
+            {% else %}
+                <p>No hay tests cargados todavia.</p>
+            {% endif %}
+        </div>
+
         <div class="detail-grid page-section">
             <div class="card">
                 <h3>Datos personales</h3>
