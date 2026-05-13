@@ -226,45 +226,6 @@
 
         <div class="page-section">
             <div class="section-header">
-                <h3>Planes de pago</h3>
-            </div>
-            {% if planes_pago %}
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Inicio</th>
-                                <th>Monto</th>
-                                <th>Cuotas</th>
-                                <th>Estado</th>
-                                <th>Detalle</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for plan in planes_pago %}
-                            <tr>
-                                <td>{{ plan['fecha_inicio'] or '-' }}</td>
-                                <td>{{ plan['monto_total'] | moneda }}</td>
-                                <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
-                                <td>{{ plan['estado'] }}</td>
-                                <td>
-                                    {{ plan['descripcion'] or '-' }}
-                                    {% if plan['observaciones'] %}
-                                        <span class="muted-line">{{ plan['observaciones'] }}</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p>No hay planes de pago registrados.</p>
-            {% endif %}
-        </div>
-
-        <div class="page-section">
-            <div class="section-header">
                 <h3>Evolucion de tests</h3>
             </div>
             {% if resumen_tests %}
