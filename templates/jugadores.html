@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Jugadores{% endblock %}
+{% block title %}Jugadores y socios{% endblock %}
 
 {% block content %}
 <div class="section-header">
-    <h2>Jugadores</h2>
+    <h2>Jugadores y socios</h2>
     {% if puede('jugadores_gestionar') %}
         <div class="actions">
-            <a class="button" href="{{ url_for('nuevo_jugador') }}">+ Nuevo jugador</a>
+            <a class="button" href="{{ url_for('nuevo_jugador') }}">+ Nuevo registro</a>
             {% if puede('aspirantes_ver') %}
                 <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
             {% endif %}
@@ -16,9 +16,15 @@
 </div>
 
 <form method="get" class="search-form">
-    <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI o categoría" value="{{ busqueda }}">
+    <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoria o tipo" value="{{ busqueda }}">
+    <select name="tipo">
+        <option value="">Todos los tipos</option>
+        {% for tipo in tipos_miembro %}
+            <option value="{{ tipo }}" {% if tipo_filtro == tipo %}selected{% endif %}>{{ tipo }}</option>
+        {% endfor %}
+    </select>
     <button type="submit">Buscar</button>
-    {% if busqueda %}
+    {% if busqueda or tipo_filtro %}
         <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Limpiar</a>
     {% endif %}
 </form>
@@ -27,11 +33,11 @@
 <form id="bulk-form" method="post" action="{{ url_for('acciones_masivas_jugadores') }}" class="card bulk-actions spaced-small">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
-        <label>Acción masiva</label>
+        <label>Accion masiva</label>
         <select name="accion" required>
             <option value="">Seleccionar...</option>
             <option value="estado">Cambiar estado</option>
-            <option value="categoria">Cambiar categoría</option>
+            <option value="categoria">Cambiar categoria</option>
             {% if puede('portal_jugador_gestionar') %}
                 <option value="portal_activar">Activar portal</option>
             {% endif %}
@@ -49,7 +55,7 @@
     </div>
 
     <div>
-        <label>Categoría</label>
+        <label>Categoria</label>
         <input type="text" name="categoria" placeholder="Primera, Juveniles...">
     </div>
 
@@ -65,17 +71,20 @@
                     <th>Sel.</th>
                 {% endif %}
                 <th>Apellido y nombre</th>
+                <th>Tipo</th>
                 <th>DNI</th>
-                <th>Categoría</th>
+                <th>Categoria</th>
+                <th>Cuota</th>
                 <th>Beca</th>
                 <th>Fecha ingreso</th>
                 <th>Estado</th>
-                <th>Teléfono</th>
+                <th>Telefono</th>
                 <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for jugador in jugadores %}
+            {% set tipo_miembro = jugador['tipo_miembro'] or 'Jugador' %}
             <tr>
                 {% if puede('jugadores_gestionar') %}
                     <td>
@@ -83,8 +92,16 @@
                     </td>
                 {% endif %}
                 <td>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</td>
+                <td><span class="badge badge-info">{{ tipo_miembro }}</span></td>
                 <td>{{ jugador['dni'] or '-' }}</td>
                 <td>{{ jugador['categoria'] or '-' }}</td>
+                <td>
+                    {% if jugador.get('cobra_cuota', 1) %}
+                        <span class="status-paid">Si</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td>
                     {% if jugador['beca_activa'] %}
                         <span class="status-paid">{{ jugador['beca_porcentaje'] or 0 }}%</span>
@@ -100,15 +117,15 @@
                     {% if puede('cuotas_ver') %}
                         <a class="button" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
                     {% endif %}
-                    {% if puede('salud_ver') %}
-                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha médica</a>
+                    {% if puede('salud_ver') and tipo_miembro == 'Jugador' %}
+                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha medica</a>
                         <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Lesiones</a>
                     {% endif %}
                     {% if puede('jugadores_gestionar') %}
                         <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar</a>
                     {% endif %}
                     {% if puede('jugadores_eliminar') %}
-                        <form method="post" action="{{ url_for('eliminar_jugador', jugador_id=jugador['id']) }}" onsubmit="return confirm('¿Eliminar este jugador?');">
+                        <form method="post" action="{{ url_for('eliminar_jugador', jugador_id=jugador['id']) }}" onsubmit="return confirm('Eliminar este registro?');">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <button class="button danger" type="submit">Eliminar</button>
                         </form>
@@ -117,7 +134,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="{% if puede('jugadores_gestionar') %}9{% else %}8{% endif %}" class="empty">No hay jugadores cargados.</td>
+                <td colspan="{% if puede('jugadores_gestionar') %}11{% else %}10{% endif %}" class="empty">No hay registros cargados.</td>
             </tr>
             {% endfor %}
         </tbody>

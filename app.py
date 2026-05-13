@@ -193,6 +193,10 @@ DRIVE_COMPROBANTES_FOLDER_ID = (
     os.environ.get("GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID")
     or os.environ.get("DRIVE_COMPROBANTES_FOLDER_ID")
 )
+DRIVE_SHARED_DRIVE_ID = (
+    os.environ.get("GOOGLE_DRIVE_SHARED_DRIVE_ID")
+    or os.environ.get("DRIVE_SHARED_DRIVE_ID")
+)
 DRIVE_COMPROBANTES_SUBFOLDER = (
     os.environ.get("GOOGLE_DRIVE_COMPROBANTES_SUBFOLDER")
     or os.environ.get("DRIVE_COMPROBANTES_SUBFOLDER")
@@ -243,6 +247,7 @@ COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
 CALENDARIO_DEPORTIVO_TIPOS = {"Entrenamiento", "Partido", "Evento", "Otro"}
 CALENDARIO_ASISTENCIA_TIPOS = {"Entrenamiento", "Partido"}
 CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
+TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
 
 BITACORA_TIPOS = {
     "general": "General",
@@ -703,15 +708,17 @@ def solicitar_backup_cloud_sql():
 
 
 def require_drive_comprobantes_folder():
-    if not DRIVE_COMPROBANTES_FOLDER_ID:
-        raise RuntimeError("Falta configurar GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID.")
+    if not DRIVE_COMPROBANTES_FOLDER_ID and not DRIVE_SHARED_DRIVE_ID:
+        raise RuntimeError(
+            "Falta configurar GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."
+        )
     return DRIVE_COMPROBANTES_FOLDER_ID
 
 
 def require_drive_fichas_medicas_folder():
-    if not DRIVE_FICHAS_MEDICAS_FOLDER_ID:
+    if not DRIVE_FICHAS_MEDICAS_FOLDER_ID and not DRIVE_SHARED_DRIVE_ID:
         raise RuntimeError(
-            "Falta configurar GOOGLE_DRIVE_FICHAS_MEDICAS_FOLDER_ID o GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID."
+            "Falta configurar GOOGLE_DRIVE_FICHAS_MEDICAS_FOLDER_ID, GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."
         )
     return DRIVE_FICHAS_MEDICAS_FOLDER_ID
 
@@ -720,25 +727,48 @@ def drive_query_escape(value):
     return str(value or "").replace("\\", "\\\\").replace("'", "\\'")
 
 
-def get_or_create_drive_subfolder(service, parent_id, name):
+def find_drive_folder(service, name, parent_id=None, drive_id=None):
     safe_name = drive_query_escape(name)
-    safe_parent = drive_query_escape(parent_id)
-    query = (
-        "mimeType = 'application/vnd.google-apps.folder' "
-        f"and name = '{safe_name}' "
-        f"and '{safe_parent}' in parents "
-        "and trashed = false"
-    )
-    result = service.files().list(
-        q=query,
-        fields="files(id, name)",
-        pageSize=1,
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
-    ).execute()
+    query_parts = [
+        "mimeType = 'application/vnd.google-apps.folder'",
+        f"name = '{safe_name}'",
+        "trashed = false",
+    ]
+    if parent_id:
+        safe_parent = drive_query_escape(parent_id)
+        query_parts.append(f"'{safe_parent}' in parents")
+
+    list_kwargs = {
+        "q": " and ".join(query_parts),
+        "fields": "files(id, name)",
+        "pageSize": 1,
+        "supportsAllDrives": True,
+        "includeItemsFromAllDrives": True,
+    }
+    if drive_id:
+        list_kwargs["corpora"] = "drive"
+        list_kwargs["driveId"] = drive_id
+
+    result = service.files().list(**list_kwargs).execute()
     files = result.get("files", [])
     if files:
         return files[0]["id"]
+    return None
+
+
+def get_drive_root_subfolder(service, drive_id, name):
+    folder_id = find_drive_folder(service, name, parent_id="root", drive_id=drive_id)
+    if folder_id:
+        return folder_id
+    raise RuntimeError(
+        f"No se encontro la carpeta '{name}' en la unidad compartida configurada."
+    )
+
+
+def get_or_create_drive_subfolder(service, parent_id, name):
+    folder_id = find_drive_folder(service, name, parent_id=parent_id)
+    if folder_id:
+        return folder_id
 
     folder = service.files().create(
         body={
@@ -772,18 +802,26 @@ def get_drive_periodo_folder(service, root_folder, periodo):
 
 def get_drive_comprobantes_base_folder(service):
     root_folder = require_drive_comprobantes_folder()
-    subfolder = (DRIVE_COMPROBANTES_SUBFOLDER or "").strip()
-    if not subfolder:
-        return root_folder
-    return get_or_create_drive_subfolder(service, root_folder, subfolder)
+    if root_folder:
+        subfolder = (DRIVE_COMPROBANTES_SUBFOLDER or "").strip()
+        if not subfolder:
+            return root_folder
+        return get_or_create_drive_subfolder(service, root_folder, subfolder)
+
+    subfolder = (DRIVE_COMPROBANTES_SUBFOLDER or "Comprobantes").strip()
+    return get_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
 
 
 def get_drive_fichas_medicas_base_folder(service):
     root_folder = require_drive_fichas_medicas_folder()
-    subfolder = (DRIVE_FICHAS_MEDICAS_SUBFOLDER or "").strip()
-    if not subfolder:
-        return root_folder
-    return get_or_create_drive_subfolder(service, root_folder, subfolder)
+    if root_folder:
+        subfolder = (DRIVE_FICHAS_MEDICAS_SUBFOLDER or "").strip()
+        if not subfolder:
+            return root_folder
+        return get_or_create_drive_subfolder(service, root_folder, subfolder)
+
+    subfolder = (DRIVE_FICHAS_MEDICAS_SUBFOLDER or "Fichas medicas").strip()
+    return get_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
 
 
 def get_drive_jugador_folder(service, root_folder, jugador):
@@ -1367,9 +1405,10 @@ def sugerir_jugador_ficha_ocr(texto, jugadores):
 
 def obtener_jugadores_selector(conn):
     return conn.execute("""
-        SELECT id, apellido, nombre, dni, categoria, estado
+        SELECT id, apellido, nombre, dni, categoria, estado, tipo_miembro
         FROM jugadores
         WHERE COALESCE(estado, 'Activo') <> 'Baja'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
         ORDER BY apellido, nombre
     """).fetchall()
 
@@ -1458,6 +1497,134 @@ def descargar_drive_file(file_id):
         _, done = downloader.next_chunk()
     file_buffer.seek(0)
     return file_buffer
+
+
+def eliminar_drive_file(file_id):
+    if not file_id:
+        return
+    service = drive_service()
+    service.files().delete(
+        fileId=file_id,
+        supportsAllDrives=True,
+    ).execute()
+
+
+def es_preview_pdf(mime_type):
+    return (mime_type or "").lower() == "application/pdf"
+
+
+def es_preview_imagen(mime_type):
+    return (mime_type or "").lower().startswith("image/")
+
+
+def obtener_preview_tipo(mime_type):
+    if es_preview_pdf(mime_type):
+        return "pdf"
+    if es_preview_imagen(mime_type):
+        return "image"
+    return "other"
+
+
+def resumir_resultados_tests(resultados):
+    agrupados = {}
+    for item in resultados or []:
+        clave = item.get("test_nombre") or item.get("nombre") or "Test"
+        agrupados.setdefault(clave, []).append(item)
+
+    resumen = []
+    for nombre, items in agrupados.items():
+        ordenados = sorted(
+            items,
+            key=lambda fila: ((fila.get("fecha") or ""), fila.get("id") or 0),
+            reverse=True,
+        )
+        actual = ordenados[0]
+        previo = ordenados[1] if len(ordenados) > 1 else None
+        delta = None
+        if previo is not None:
+            try:
+                delta = round(float(actual.get("puntaje") or 0) - float(previo.get("puntaje") or 0), 2)
+            except (TypeError, ValueError):
+                delta = None
+        resumen.append({
+            "nombre": nombre,
+            "actual": actual,
+            "previo": previo,
+            "delta": delta,
+        })
+
+    resumen.sort(key=lambda item: item["nombre"].lower())
+    return resumen
+
+
+def get_drive_lesion_folder(service, jugador, lesion):
+    root_folder = get_drive_fichas_medicas_base_folder(service)
+    jugador_folder = get_drive_jugador_folder(service, root_folder, jugador)
+    lesiones_folder = get_or_create_drive_subfolder(service, jugador_folder, "Lesiones")
+    lesion_slug = secure_filename(
+        f"lesion_{lesion['id']}_{lesion.get('tipo_lesion') or 'adjuntos'}"
+    ) or f"lesion_{lesion['id']}"
+    return get_or_create_drive_subfolder(service, lesiones_folder, lesion_slug)
+
+
+def subir_documento_lesion_a_drive(validado, jugador, lesion):
+    if not validado:
+        return None
+
+    service = drive_service()
+    folder_id = get_drive_lesion_folder(service, jugador, lesion)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    drive_name = f"lesion_{lesion['id']}_{timestamp}_{validado['filename']}"
+    media = MediaIoBaseUpload(
+        io.BytesIO(validado["content"]),
+        mimetype=validado["mime_type"],
+        resumable=False,
+    )
+    uploaded = service.files().create(
+        body={"name": drive_name, "parents": [folder_id]},
+        media_body=media,
+        fields="id, name, mimeType, size, webViewLink",
+        supportsAllDrives=True,
+    ).execute()
+    return {
+        "file_id": uploaded["id"],
+        "nombre": uploaded.get("name") or validado["filename"],
+        "mime_type": uploaded.get("mimeType") or validado["mime_type"],
+        "tamano": int(uploaded.get("size") or len(validado["content"])),
+        "web_url": uploaded.get("webViewLink"),
+        "folder_id": folder_id,
+    }
+
+
+def guardar_documentos_lesion(conn, jugador, lesion, archivos, descripcion=""):
+    guardados = 0
+    for archivo in archivos or []:
+        if not archivo or not archivo.filename:
+            continue
+        validado = validar_ficha_medica_upload(archivo)
+        documento = subir_documento_lesion_a_drive(validado, jugador, lesion)
+        conn.execute("""
+            INSERT INTO lesiones_documentos (
+                lesion_id, jugador_id, nombre, mime_type, tamano,
+                drive_file_id, drive_folder_id, web_url, descripcion,
+                creado_en, creado_por
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            lesion["id"],
+            jugador["id"],
+            documento["nombre"],
+            documento["mime_type"],
+            documento["tamano"],
+            documento["file_id"],
+            documento["folder_id"],
+            documento["web_url"],
+            descripcion or None,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            session.get("username"),
+        ))
+        guardados += 1
+    return guardados
 
 
 def mensaje_error_drive(error, carpeta="Cuotas", accion="subir el comprobante"):
@@ -1913,6 +2080,11 @@ def generar_portal_token():
 
 def normalizar_identificador_portal(valor):
     return "".join(ch for ch in str(valor or "").strip() if ch.isalnum() or ch in {"@", ".", "_", "-", "+"})
+
+
+def normalizar_tipo_miembro(valor):
+    valor = (valor or "Jugador").strip()
+    return valor if valor in TIPOS_MIEMBRO else "Jugador"
 
 
 def normalizar_mes(valor, default):
@@ -2964,6 +3136,7 @@ def obtener_calendario(mes):
 
     for evento in eventos_manuales:
         eventos.append({
+            "id": evento["id"],
             "fecha": evento["fecha"],
             "hora": evento.get("hora_inicio") or "",
             "fecha_hora": formato_fecha_hora_evento(evento),
@@ -2974,11 +3147,14 @@ def obtener_calendario(mes):
             "categoria": evento["categoria"] or "",
             "origen": "calendario",
             "url": url_for("tomar_asistencia", evento_id=evento["asistencia_evento_id"]) if evento.get("asistencia_evento_id") else None,
+            "edit_url": url_for("editar_evento_calendario", evento_id=evento["id"]),
+            "delete_url": url_for("eliminar_evento_calendario", evento_id=evento["id"]),
             "prioridad": "normal",
         })
 
     for evento in eventos_asistencia:
         eventos.append({
+            "id": evento["id"],
             "fecha": evento["fecha"],
             "hora": "",
             "fecha_hora": evento["fecha"],
@@ -2989,11 +3165,14 @@ def obtener_calendario(mes):
             "categoria": "",
             "origen": "asistencia",
             "url": url_for("tomar_asistencia", evento_id=evento["id"]),
+            "edit_url": None,
+            "delete_url": None,
             "prioridad": "normal",
         })
 
     for cuota in cuotas:
         eventos.append({
+            "id": cuota["id"],
             "fecha": cuota["fecha_vencimiento"],
             "tipo": "Cuota",
             "titulo": f"Vence cuota {cuota['periodo']}",
@@ -3002,11 +3181,14 @@ def obtener_calendario(mes):
             "categoria": cuota["categoria"] or "",
             "origen": "cuota",
             "url": url_for("ver_cuotas", jugador_id=cuota["jugador_id"]),
+            "edit_url": None,
+            "delete_url": None,
             "prioridad": "warning",
         })
 
     for ficha in fichas:
         eventos.append({
+            "id": ficha["jugador_id"],
             "fecha": ficha["fecha_vencimiento"],
             "tipo": "Ficha médica",
             "titulo": "Vence ficha médica",
@@ -3015,6 +3197,8 @@ def obtener_calendario(mes):
             "categoria": ficha["categoria"] or "",
             "origen": "ficha",
             "url": url_for("ver_ficha_medica", jugador_id=ficha["jugador_id"]),
+            "edit_url": None,
+            "delete_url": None,
             "prioridad": "danger",
         })
 
@@ -3703,6 +3887,11 @@ def mapear_fila_jugador(headers, row):
         "fecha_ingreso": "fecha_ingreso",
         "ingreso": "fecha_ingreso",
         "estado": "estado",
+        "tipo": "tipo_miembro",
+        "tipo_miembro": "tipo_miembro",
+        "tipo_de_miembro": "tipo_miembro",
+        "cobra_cuota": "cobra_cuota",
+        "cuota": "cobra_cuota",
         "contacto_tutor": "contacto_tutor",
         "tutor": "contacto_tutor",
         "responsable": "contacto_tutor",
@@ -3731,6 +3920,8 @@ def mapear_fila_jugador(headers, row):
         "categoria": "",
         "fecha_ingreso": "",
         "estado": "Activo",
+        "tipo_miembro": "Jugador",
+        "cobra_cuota": "1",
         "contacto_tutor": "",
         "parentesco_tutor": "",
         "telefono_tutor": "",
@@ -3749,6 +3940,8 @@ def mapear_fila_jugador(headers, row):
 
     if not data["estado"]:
         data["estado"] = "Activo"
+    data["tipo_miembro"] = normalizar_tipo_miembro(data["tipo_miembro"])
+    data["cobra_cuota"] = 0 if str(data["cobra_cuota"]).strip().lower() in {"0", "no", "false", "off"} else 1
 
     return data
 
@@ -4204,6 +4397,8 @@ def init_db():
         "portal_token": "TEXT",
         "portal_activo": "INTEGER DEFAULT 0",
         "portal_actualizado_en": "TEXT",
+        "tipo_miembro": "TEXT DEFAULT 'Jugador'",
+        "cobra_cuota": "INTEGER DEFAULT 1",
     }
 
     for columna, tipo_columna in columnas_extra_jugador.items():
@@ -4573,6 +4768,30 @@ def init_db():
             observaciones TEXT,
             FOREIGN KEY (jugador_id) REFERENCES jugadores (id)
         )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS lesiones_documentos (
+            id SERIAL PRIMARY KEY,
+            lesion_id INTEGER NOT NULL,
+            jugador_id INTEGER NOT NULL,
+            nombre TEXT,
+            mime_type TEXT,
+            tamano INTEGER,
+            drive_file_id TEXT NOT NULL,
+            drive_folder_id TEXT,
+            web_url TEXT,
+            descripcion TEXT,
+            creado_en TEXT,
+            creado_por TEXT,
+            FOREIGN KEY (lesion_id) REFERENCES lesiones (id),
+            FOREIGN KEY (jugador_id) REFERENCES jugadores (id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_lesiones_documentos_lesion
+        ON lesiones_documentos (lesion_id, id DESC)
     """)
 
     conn.execute("""
@@ -6806,12 +7025,21 @@ def listar_jugadores():
         return check
 
     busqueda = request.args.get("q", "").strip()
+    tipo_filtro = request.args.get("tipo", "").strip()
+    if tipo_filtro not in TIPOS_MIEMBRO:
+        tipo_filtro = ""
     conn = get_connection()
+
+    filtros = []
+    parametros_base = []
+    if tipo_filtro:
+        filtros.append("COALESCE(tipo_miembro, 'Jugador') = %s")
+        parametros_base.append(tipo_filtro)
 
     if busqueda:
         terminos = [termino for termino in re.split(r"\s+", busqueda) if termino]
         condiciones = []
-        parametros = []
+        parametros = list(parametros_base)
 
         for termino in terminos:
             like = f"%{termino}%"
@@ -6824,25 +7052,36 @@ def listar_jugadores():
                     OR telefono ILIKE %s
                     OR email ILIKE %s
                     OR estado ILIKE %s
+                    OR tipo_miembro ILIKE %s
                     OR concat_ws(' ', nombre, apellido) ILIKE %s
                     OR concat_ws(' ', apellido, nombre) ILIKE %s
                 )
             """)
-            parametros.extend([like] * 9)
+            parametros.extend([like] * 10)
+
+        filtros.extend(condiciones)
 
         jugadores = conn.execute("""
             SELECT * FROM jugadores
-            WHERE """ + " AND ".join(condiciones) + """
+            WHERE """ + " AND ".join(filtros) + """
             ORDER BY apellido, nombre
         """, parametros).fetchall()
     else:
+        where_sql = "WHERE " + " AND ".join(filtros) if filtros else ""
         jugadores = conn.execute("""
             SELECT * FROM jugadores
+            """ + where_sql + """
             ORDER BY apellido, nombre
-        """).fetchall()
+        """, parametros_base).fetchall()
 
     conn.close()
-    return render_template("jugadores.html", jugadores=jugadores, busqueda=busqueda)
+    return render_template(
+        "jugadores.html",
+        jugadores=jugadores,
+        busqueda=busqueda,
+        tipo_filtro=tipo_filtro,
+        tipos_miembro=sorted(TIPOS_MIEMBRO),
+    )
 
 
 def obtener_madrinas_disponibles(conn):
@@ -6850,6 +7089,7 @@ def obtener_madrinas_disponibles(conn):
         SELECT id, nombre, apellido, categoria
         FROM jugadores
         WHERE estado = 'Activo'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
         ORDER BY apellido, nombre
     """).fetchall()
 
@@ -7266,6 +7506,8 @@ def nuevo_jugador():
             "direccion": request.form.get("direccion", "").strip(),
             "obra_social": request.form.get("obra_social", "").strip(),
             "numero_socio": request.form.get("numero_socio", "").strip(),
+            "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
+            "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
             "documentos": request.form.get("documentos", "").strip(),
             "observaciones": request.form.get("observaciones", "").strip(),
         }
@@ -7292,9 +7534,10 @@ def nuevo_jugador():
                 nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                 fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
                 email_tutor, direccion, obra_social, numero_socio, documentos, observaciones,
-                beca_activa, beca_porcentaje, beca_desde, beca_hasta, beca_motivo
+                beca_activa, beca_porcentaje, beca_desde, beca_hasta, beca_motivo,
+                tipo_miembro, cobra_cuota
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
@@ -7303,7 +7546,7 @@ def nuevo_jugador():
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
             data["obra_social"], data["numero_socio"], data["documentos"], data["observaciones"],
             data["beca_activa"], data["beca_porcentaje"], data["beca_desde"],
-            data["beca_hasta"], data["beca_motivo"]
+            data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"]
         )).fetchone()
 
         if data["beca_activa"]:
@@ -7317,7 +7560,7 @@ def nuevo_jugador():
         conn.commit()
         conn.close()
 
-        flash("Jugador cargado correctamente.", "ok")
+        flash("Registro cargado correctamente.", "ok")
         return redirect(url_for("listar_jugadores"))
 
     return render_template("jugador_form.html", jugador=None, modo="nuevo")
@@ -7386,16 +7629,17 @@ def importar_jugadores():
                 INSERT INTO jugadores (
                     nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                     fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
-                    email_tutor, direccion, obra_social, numero_socio, documentos, observaciones
+                    email_tutor, direccion, obra_social, numero_socio, documentos, observaciones,
+                    tipo_miembro, cobra_cuota
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
                 data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
                 data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
                 data["telefono_tutor"], data["email_tutor"], data["direccion"],
                 data["obra_social"], data["numero_socio"], data["documentos"],
-                data["observaciones"],
+                data["observaciones"], data["tipo_miembro"], data["cobra_cuota"],
             ))
             creados += 1
 
@@ -7558,6 +7802,8 @@ def editar_jugador(jugador_id):
             "direccion": request.form.get("direccion", "").strip(),
             "obra_social": request.form.get("obra_social", "").strip(),
             "numero_socio": request.form.get("numero_socio", "").strip(),
+            "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
+            "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
             "documentos": request.form.get("documentos", "").strip(),
             "observaciones": request.form.get("observaciones", "").strip(),
         }
@@ -7590,7 +7836,7 @@ def editar_jugador(jugador_id):
                 email = %s, categoria = %s, fecha_ingreso = %s, estado = %s,
                 contacto_tutor = %s, parentesco_tutor = %s, telefono_tutor = %s,
                 email_tutor = %s, direccion = %s, obra_social = %s, numero_socio = %s,
-                documentos = %s, observaciones = %s,
+                tipo_miembro = %s, cobra_cuota = %s, documentos = %s, observaciones = %s,
                 beca_activa = %s, beca_porcentaje = %s, beca_desde = %s,
                 beca_hasta = %s, beca_motivo = %s
             WHERE id = %s
@@ -7599,8 +7845,8 @@ def editar_jugador(jugador_id):
             data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
             data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
-            data["obra_social"], data["numero_socio"], data["documentos"],
-            data["observaciones"], data["beca_activa"], data["beca_porcentaje"],
+            data["obra_social"], data["numero_socio"], data["tipo_miembro"], data["cobra_cuota"],
+            data["documentos"], data["observaciones"], data["beca_activa"], data["beca_porcentaje"],
             data["beca_desde"], data["beca_hasta"], data["beca_motivo"], jugador_id
         ))
         if registro_beca:
@@ -7614,7 +7860,7 @@ def editar_jugador(jugador_id):
         conn.commit()
         conn.close()
 
-        flash("Jugador actualizado correctamente.", "ok")
+        flash("Registro actualizado correctamente.", "ok")
         return redirect(url_for("listar_jugadores"))
 
     conn.close()
@@ -8821,12 +9067,26 @@ def ver_lesiones(jugador_id):
         ORDER BY fecha_lesion DESC, id DESC
     """, (jugador_id,)).fetchall()
 
+    documentos = conn.execute("""
+        SELECT *
+        FROM lesiones_documentos
+        WHERE jugador_id = %s
+        ORDER BY id DESC
+    """, (jugador_id,)).fetchall()
+
     conn.close()
+
+    documentos_por_lesion = {}
+    for documento in documentos:
+        documento = dict(documento)
+        documento["preview_tipo"] = obtener_preview_tipo(documento.get("mime_type"))
+        documentos_por_lesion.setdefault(documento["lesion_id"], []).append(documento)
 
     return render_template(
         "lesiones.html",
         jugador=jugador,
-        lesiones=lesiones
+        lesiones=lesiones,
+        documentos_por_lesion=documentos_por_lesion,
     )
 
 @app.route("/jugadores/<int:jugador_id>/lesiones/nueva", methods=["GET", "POST"])
@@ -8852,16 +9112,46 @@ def nueva_lesion(jugador_id):
         fecha_alta = request.form.get("fecha_alta", "").strip()
         observaciones = request.form.get("observaciones", "").strip()
 
-        conn.execute("""
+        lesion_id = conn.execute("""
             INSERT INTO lesiones (
                 jugador_id, fecha_lesion, tipo_lesion, zona_cuerpo,
                 diagnostico, tratamiento, estado, fecha_alta, observaciones
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
         """, (
             jugador_id, fecha_lesion, tipo_lesion, zona_cuerpo,
             diagnostico, tratamiento, estado, fecha_alta, observaciones
-        ))
+        )).fetchone()["id"]
+
+        archivos = request.files.getlist("documentos_adjuntos")
+        descripcion_adjuntos = request.form.get("descripcion_adjuntos", "").strip()
+        try:
+            guardar_documentos_lesion(
+                conn,
+                jugador,
+                {"id": lesion_id, "tipo_lesion": tipo_lesion},
+                archivos,
+                descripcion_adjuntos,
+            )
+        except (RuntimeError, ValueError) as error:
+            conn.rollback()
+            conn.close()
+            flash(str(error), "error")
+            return render_template("lesion_form.html", jugador=jugador)
+        except Exception as error:
+            conn.rollback()
+            conn.close()
+            app.logger.exception("No se pudieron guardar adjuntos de lesion del jugador %s.", jugador_id)
+            flash(
+                mensaje_error_drive(
+                    error,
+                    carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER,
+                    accion="guardar adjuntos de la lesion",
+                ),
+                "error",
+            )
+            return render_template("lesion_form.html", jugador=jugador)
 
         conn.commit()
         conn.close()
@@ -8870,7 +9160,7 @@ def nueva_lesion(jugador_id):
         return redirect(url_for("ver_lesiones", jugador_id=jugador_id))
 
     conn.close()
-    return render_template("lesion_form.html", jugador=jugador)
+    return render_template("lesion_form.html", jugador=jugador, documentos=[])
 
 @app.route("/lesiones/<int:lesion_id>/editar", methods=["GET", "POST"])
 def editar_lesion(lesion_id):
@@ -8894,6 +9184,13 @@ def editar_lesion(lesion_id):
         WHERE id = %s
     """, (lesion["jugador_id"],)).fetchone()
 
+    documentos = conn.execute("""
+        SELECT *
+        FROM lesiones_documentos
+        WHERE lesion_id = %s
+        ORDER BY id DESC
+    """, (lesion_id,)).fetchall()
+
     if request.method == "POST":
         fecha_lesion = request.form.get("fecha_lesion", "").strip()
         tipo_lesion = request.form.get("tipo_lesion", "").strip()
@@ -8916,6 +9213,59 @@ def editar_lesion(lesion_id):
             fecha_alta, observaciones, lesion_id
         ))
 
+        archivos = request.files.getlist("documentos_adjuntos")
+        descripcion_adjuntos = request.form.get("descripcion_adjuntos", "").strip()
+        try:
+            guardar_documentos_lesion(
+                conn,
+                jugador,
+                {"id": lesion_id, "tipo_lesion": tipo_lesion},
+                archivos,
+                descripcion_adjuntos,
+            )
+        except (RuntimeError, ValueError) as error:
+            conn.rollback()
+            conn.close()
+            flash(str(error), "error")
+            lesion_data = dict(lesion)
+            lesion_data.update({
+                "fecha_lesion": fecha_lesion,
+                "tipo_lesion": tipo_lesion,
+                "zona_cuerpo": zona_cuerpo,
+                "diagnostico": diagnostico,
+                "tratamiento": tratamiento,
+                "estado": estado,
+                "fecha_alta": fecha_alta,
+                "observaciones": observaciones,
+            })
+            documentos_preview = [dict(item, preview_tipo=obtener_preview_tipo(item.get("mime_type"))) for item in documentos]
+            return render_template("lesion_form.html", jugador=jugador, lesion=lesion_data, documentos=documentos_preview)
+        except Exception as error:
+            conn.rollback()
+            conn.close()
+            app.logger.exception("No se pudieron guardar adjuntos de la lesion %s.", lesion_id)
+            flash(
+                mensaje_error_drive(
+                    error,
+                    carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER,
+                    accion="guardar adjuntos de la lesion",
+                ),
+                "error",
+            )
+            lesion_data = dict(lesion)
+            lesion_data.update({
+                "fecha_lesion": fecha_lesion,
+                "tipo_lesion": tipo_lesion,
+                "zona_cuerpo": zona_cuerpo,
+                "diagnostico": diagnostico,
+                "tratamiento": tratamiento,
+                "estado": estado,
+                "fecha_alta": fecha_alta,
+                "observaciones": observaciones,
+            })
+            documentos_preview = [dict(item, preview_tipo=obtener_preview_tipo(item.get("mime_type"))) for item in documentos]
+            return render_template("lesion_form.html", jugador=jugador, lesion=lesion_data, documentos=documentos_preview)
+
         conn.commit()
         conn.close()
 
@@ -8923,7 +9273,8 @@ def editar_lesion(lesion_id):
         return redirect(url_for("ver_lesiones", jugador_id=jugador["id"]))
 
     conn.close()
-    return render_template("lesion_form.html", jugador=jugador, lesion=lesion)
+    documentos = [dict(item, preview_tipo=obtener_preview_tipo(item.get("mime_type"))) for item in documentos]
+    return render_template("lesion_form.html", jugador=jugador, lesion=lesion, documentos=documentos)
 
 @app.route("/lesiones/<int:lesion_id>/eliminar", methods=["POST"])
 def eliminar_lesion(lesion_id):
@@ -8942,12 +9293,98 @@ def eliminar_lesion(lesion_id):
         flash("Lesión no encontrada.", "error")
         return redirect(url_for("listar_jugadores"))
 
+    documentos = conn.execute("""
+        SELECT drive_file_id
+        FROM lesiones_documentos
+        WHERE lesion_id = %s
+    """, (lesion_id,)).fetchall()
+
+    for documento in documentos:
+        try:
+            eliminar_drive_file(documento["drive_file_id"])
+        except Exception:
+            app.logger.warning("No se pudo eliminar archivo de Drive de la lesion %s.", lesion_id)
+
+    conn.execute("DELETE FROM lesiones_documentos WHERE lesion_id = %s", (lesion_id,))
     conn.execute("DELETE FROM lesiones WHERE id = %s", (lesion_id,))
     conn.commit()
     conn.close()
 
     flash("Lesión eliminada.", "ok")
     return redirect(url_for("ver_lesiones", jugador_id=lesion["jugador_id"]))
+
+@app.route("/lesiones/documentos/<int:documento_id>")
+def ver_documento_lesion(documento_id):
+    check = permiso_requerido("salud_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    documento = conn.execute("""
+        SELECT *
+        FROM lesiones_documentos
+        WHERE id = %s
+    """, (documento_id,)).fetchone()
+    conn.close()
+
+    if documento is None:
+        flash("Adjunto de lesion no encontrado.", "error")
+        return redirect(url_for("listar_jugadores"))
+
+    try:
+        archivo = descargar_drive_file(documento["drive_file_id"])
+    except RuntimeError as error:
+        flash(str(error), "error")
+        return redirect(url_for("ver_lesiones", jugador_id=documento["jugador_id"]))
+    except Exception as error:
+        app.logger.exception("No se pudo descargar adjunto de lesion %s.", documento_id)
+        flash(
+            mensaje_error_drive(
+                error,
+                carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER,
+                accion="descargar el adjunto de la lesion",
+            ),
+            "error",
+        )
+        return redirect(url_for("ver_lesiones", jugador_id=documento["jugador_id"]))
+
+    return send_file(
+        archivo,
+        mimetype=documento["mime_type"] or "application/octet-stream",
+        as_attachment=False,
+        download_name=documento["nombre"] or f"lesion_documento_{documento_id}",
+    )
+
+
+@app.route("/lesiones/documentos/<int:documento_id>/eliminar", methods=["POST"])
+def eliminar_documento_lesion(documento_id):
+    check = permiso_requerido("salud_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    documento = conn.execute("""
+        SELECT *
+        FROM lesiones_documentos
+        WHERE id = %s
+    """, (documento_id,)).fetchone()
+    if documento is None:
+        conn.close()
+        flash("Adjunto de lesion no encontrado.", "error")
+        return redirect(url_for("listar_jugadores"))
+
+    try:
+        eliminar_drive_file(documento["drive_file_id"])
+    except Exception:
+        app.logger.warning("No se pudo eliminar archivo de Drive del documento de lesion %s.", documento_id)
+
+    conn.execute("DELETE FROM lesiones_documentos WHERE id = %s", (documento_id,))
+    conn.commit()
+    conn.close()
+
+    flash("Adjunto eliminado.", "ok")
+    return redirect(url_for("editar_lesion", lesion_id=documento["lesion_id"]))
+
 
 @app.route("/cuotas/generar", methods=["GET", "POST"])
 def generar_cuotas():
@@ -8982,7 +9419,9 @@ def generar_cuotas():
             jugadores = conn.execute("""
                 SELECT *
                 FROM jugadores
-                WHERE estado = 'Activo' AND categoria = %s
+                WHERE estado = 'Activo'
+                  AND COALESCE(cobra_cuota, 1) = 1
+                  AND categoria = %s
                 ORDER BY apellido, nombre
             """, (categoria,)).fetchall()
         else:
@@ -8990,6 +9429,7 @@ def generar_cuotas():
                 SELECT *
                 FROM jugadores
                 WHERE estado = 'Activo'
+                  AND COALESCE(cobra_cuota, 1) = 1
                 ORDER BY apellido, nombre
             """).fetchall()
 
@@ -9221,6 +9661,11 @@ def detalle_jugador(jugador_id):
         conn.close()
         flash("Jugador no encontrado.", "error")
         return redirect(url_for("listar_jugadores"))
+
+    es_jugador_deportivo = (jugador.get("tipo_miembro") or "Jugador") == "Jugador"
+    puede_ver_salud = puede_ver_salud and es_jugador_deportivo
+    puede_ver_asistencia = puede_ver_asistencia and es_jugador_deportivo
+    puede_ver_tests = puede_ver_tests and es_jugador_deportivo
 
     deuda = conn.execute("""
         SELECT COALESCE(SUM(importe), 0) AS total
@@ -9571,6 +10016,7 @@ def portal_jugador(token):
                metodo_pago, becada, beca_porcentaje, descuento_beca,
                plan_pago_monto, plan_pago_detalle, anulada, anulacion_motivo,
                comprobante_drive_file_id, comprobante_nombre, comprobante_fecha,
+               comprobante_mime_type,
                comprobante_estado, comprobante_observaciones
         FROM cuotas
         WHERE jugador_id = %s
@@ -9599,6 +10045,29 @@ def portal_jugador(token):
         WHERE jugador_id = %s
         ORDER BY fecha_vencimiento DESC NULLS LAST, id DESC
     """, (jugador["id"],)).fetchall()
+
+    planes_pago = conn.execute("""
+        SELECT *
+        FROM planes_pago
+        WHERE jugador_id = %s
+        ORDER BY
+            CASE WHEN estado = 'Activo' THEN 0 ELSE 1 END,
+            fecha_inicio DESC,
+            id DESC
+        LIMIT 12
+    """, (jugador["id"],)).fetchall()
+
+    tests_recientes = conn.execute("""
+        SELECT
+            r.*,
+            t.nombre AS test_nombre,
+            t.unidad
+        FROM test_resultados r
+        JOIN test_tipos t ON t.id = r.test_id
+        WHERE r.jugador_id = %s
+        ORDER BY r.fecha DESC, r.id DESC
+        LIMIT 24
+    """, (jugador["id"],)).fetchall()
     conn.close()
 
     eventos_deportivos = obtener_eventos_deportivos_portal(jugador)
@@ -9619,6 +10088,9 @@ def portal_jugador(token):
         deuda=deuda,
         ficha=ficha,
         documentos=documentos,
+        planes_pago=planes_pago,
+        tests_recientes=tests_recientes,
+        resumen_tests=resumir_resultados_tests(tests_recientes),
         eventos_deportivos=eventos_deportivos,
         calendario_ics_url=calendario_ics_url,
         calendario_webcal_url=calendario_webcal_url,
@@ -9859,6 +10331,44 @@ def portal_subir_comprobante(token, cuota_id):
     return redirect(url_for("portal_jugador", token=token))
 
 
+@app.route("/portal/<token>/cuotas/<int:cuota_id>/comprobante/ver")
+def portal_ver_comprobante(token, cuota_id):
+    conn = get_connection()
+    cuota = conn.execute("""
+        SELECT c.*
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.id = %s
+          AND j.portal_token = %s
+          AND COALESCE(j.portal_activo, 0) = 1
+    """, (cuota_id, token)).fetchone()
+    conn.close()
+
+    if cuota is None:
+        abort(404)
+
+    if not cuota["comprobante_drive_file_id"]:
+        flash("La cuota no tiene comprobante adjunto.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    try:
+        archivo = descargar_drive_file(cuota["comprobante_drive_file_id"])
+    except RuntimeError as error:
+        flash(str(error), "error")
+        return redirect(url_for("portal_jugador", token=token))
+    except Exception as error:
+        app.logger.exception("No se pudo descargar comprobante desde portal para cuota %s.", cuota_id)
+        flash(mensaje_error_drive(error, accion="descargar el comprobante"), "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    return send_file(
+        archivo,
+        mimetype=cuota["comprobante_mime_type"] or "application/octet-stream",
+        as_attachment=False,
+        download_name=cuota["comprobante_nombre"] or f"comprobante_cuota_{cuota_id}",
+    )
+
+
 @app.route("/portal/<token>/cuotas/<int:cuota_id>/recibo")
 def portal_descargar_recibo(token, cuota_id):
     conn = get_connection()
@@ -9994,6 +10504,152 @@ def nuevo_evento_calendario():
         "calendario_evento_form.html",
         evento={"publicar_portal": 1, "crear_asistencia": 1, "duracion_minutos": 90},
     )
+
+
+@app.route("/calendario/<int:evento_id>/editar", methods=["GET", "POST"])
+def editar_evento_calendario(evento_id):
+    check = permiso_requerido("calendario_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE id = %s
+    """, (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("ver_calendario"))
+
+    if request.method == "POST":
+        data = {
+            "fecha": request.form.get("fecha", "").strip(),
+            "hora_inicio": normalizar_hora_evento(request.form.get("hora_inicio", "")),
+            "duracion_minutos": normalizar_duracion_evento(request.form.get("duracion_minutos", "90")),
+            "tipo": request.form.get("tipo", "").strip(),
+            "titulo": request.form.get("titulo", "").strip(),
+            "descripcion": request.form.get("descripcion", "").strip(),
+            "ubicacion": request.form.get("ubicacion", "").strip(),
+            "categoria": request.form.get("categoria", "").strip(),
+            "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
+            "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
+        }
+
+        if calendario_evento_requiere_asistencia(data["tipo"]):
+            data["crear_asistencia"] = 1 if request.form.get("crear_asistencia", "on") == "on" else 0
+
+        if not data["fecha"] or not data["tipo"] or not data["titulo"]:
+            conn.close()
+            flash("Fecha, tipo y titulo son obligatorios.", "error")
+            data["id"] = evento_id
+            return render_template("calendario_evento_form.html", evento=data)
+
+        try:
+            datetime.strptime(data["fecha"], "%Y-%m-%d")
+        except ValueError:
+            conn.close()
+            flash("La fecha del evento no es valida.", "error")
+            data["id"] = evento_id
+            return render_template("calendario_evento_form.html", evento=data)
+
+        if request.form.get("hora_inicio") and not data["hora_inicio"]:
+            conn.close()
+            flash("La hora debe tener formato HH:MM.", "error")
+            data["id"] = evento_id
+            return render_template("calendario_evento_form.html", evento=data)
+
+        asistencia_evento_id = evento.get("asistencia_evento_id")
+        if data["crear_asistencia"]:
+            if asistencia_evento_id:
+                conn.execute("""
+                    UPDATE eventos_asistencia
+                    SET fecha = %s,
+                        tipo = %s,
+                        descripcion = %s
+                    WHERE id = %s
+                """, (
+                    data["fecha"],
+                    data["tipo"],
+                    data["titulo"] if data["titulo"] != data["tipo"] else (data["descripcion"] or ""),
+                    asistencia_evento_id,
+                ))
+            else:
+                asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
+        elif asistencia_evento_id:
+            conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
+            conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
+            conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
+            asistencia_evento_id = None
+
+        conn.execute("""
+            UPDATE calendario_eventos
+            SET fecha = %s,
+                tipo = %s,
+                titulo = %s,
+                descripcion = %s,
+                ubicacion = %s,
+                categoria = %s,
+                hora_inicio = %s,
+                duracion_minutos = %s,
+                publicar_portal = %s,
+                asistencia_evento_id = %s
+            WHERE id = %s
+        """, (
+            data["fecha"],
+            data["tipo"],
+            data["titulo"],
+            data["descripcion"],
+            data["ubicacion"],
+            data["categoria"],
+            data["hora_inicio"] or None,
+            data["duracion_minutos"],
+            data["publicar_portal"],
+            asistencia_evento_id,
+            evento_id,
+        ))
+        conn.commit()
+        conn.close()
+
+        flash("Evento actualizado.", "ok")
+        return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
+
+    conn.close()
+    evento = dict(evento)
+    evento["crear_asistencia"] = 1 if evento.get("asistencia_evento_id") else 0
+    return render_template("calendario_evento_form.html", evento=evento)
+
+
+@app.route("/calendario/<int:evento_id>/eliminar", methods=["POST"])
+def eliminar_evento_calendario(evento_id):
+    check = permiso_requerido("calendario_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE id = %s
+    """, (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("ver_calendario"))
+
+    asistencia_evento_id = evento.get("asistencia_evento_id")
+    if asistencia_evento_id:
+        conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
+        conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
+        conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
+
+    conn.execute("DELETE FROM calendario_eventos WHERE id = %s", (evento_id,))
+    conn.commit()
+    conn.close()
+
+    flash("Evento eliminado.", "ok")
+    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
 
 
 @app.route("/alertas")
@@ -12312,6 +12968,7 @@ def cargar_test_resultados(test_id):
         SELECT id, apellido, nombre, dni, categoria, estado
         FROM jugadores
         WHERE COALESCE(estado, 'Activo') <> 'Baja'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
         ORDER BY categoria, apellido, nombre
     """).fetchall()
 
@@ -12876,6 +13533,7 @@ def graficos_tests():
         SELECT id, apellido, nombre, categoria
         FROM jugadores
         WHERE COALESCE(estado, 'Activo') <> 'Baja'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
         ORDER BY categoria, apellido, nombre
     """).fetchall()
 
@@ -13017,6 +13675,7 @@ def tomar_asistencia(evento_id):
         SELECT *
         FROM jugadores
         WHERE estado = 'Activo'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
         ORDER BY apellido, nombre
     """).fetchall()
 

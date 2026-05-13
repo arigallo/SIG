@@ -47,6 +47,24 @@
     </div>
 
     <div>
+        <label>Tipo de registro</label>
+        {% set tipo_actual = jugador['tipo_miembro'] if jugador and jugador.get('tipo_miembro') else 'Jugador' %}
+        <select name="tipo_miembro">
+            <option value="Jugador" {% if tipo_actual == 'Jugador' %}selected{% endif %}>Jugador</option>
+            <option value="Socio activo" {% if tipo_actual == 'Socio activo' %}selected{% endif %}>Socio activo</option>
+            <option value="Colaborador" {% if tipo_actual == 'Colaborador' %}selected{% endif %}>Colaborador</option>
+        </select>
+    </div>
+
+    <div>
+        <label class="checkbox-row">
+            <input type="checkbox" name="cobra_cuota"
+                   {% if not jugador or jugador.get('cobra_cuota', 1) %}checked{% endif %}>
+            <span>Genera cuota mensual</span>
+        </label>
+    </div>
+
+    <div>
         <label>Fecha de ingreso</label>
         <input type="date" name="fecha_ingreso" value="{{ jugador['fecha_ingreso'] if jugador else '' }}">
     </div>

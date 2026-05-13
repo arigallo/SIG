@@ -1,0 +1,12 @@
+<div class="embedded-preview">
+    {% if preview_tipo == 'image' %}
+        <img src="{{ src }}" alt="{{ nombre or 'Vista previa' }}" class="embedded-preview-image">
+    {% elif preview_tipo == 'pdf' %}
+        <iframe src="{{ src }}" title="{{ nombre or 'Vista previa PDF' }}" class="embedded-preview-frame"></iframe>
+    {% else %}
+        <div class="embedded-preview-empty">
+            <p>No hay vista embebida para este tipo de archivo.</p>
+            <a class="button secondary" href="{{ src }}">Abrir archivo</a>
+        </div>
+    {% endif %}
+</div>

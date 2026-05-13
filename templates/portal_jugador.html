@@ -186,6 +186,16 @@
                                         {% if cuota['comprobante_observaciones'] %}
                                             <span class="muted-line">{{ cuota['comprobante_observaciones'] }}</span>
                                         {% endif %}
+                                        <details class="embedded-preview-card top-gap">
+                                            <summary>Ver comprobante</summary>
+                                            {% with
+                                                src=url_for('portal_ver_comprobante', token=token, cuota_id=cuota['id']),
+                                                nombre=cuota['comprobante_nombre'],
+                                                preview_tipo='pdf' if cuota['comprobante_mime_type'] == 'application/pdf' else 'image' if cuota['comprobante_mime_type'] and cuota['comprobante_mime_type'].startswith('image/') else 'other'
+                                            %}
+                                                {% include "_embedded_file_preview.html" %}
+                                            {% endwith %}
+                                        </details>
                                     {% endif %}
                                     <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante', token=token, cuota_id=cuota['id']) }}">
                                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -212,6 +222,91 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="page-section">
+            <div class="section-header">
+                <h3>Planes de pago</h3>
+            </div>
+            {% if planes_pago %}
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Inicio</th>
+                                <th>Monto</th>
+                                <th>Cuotas</th>
+                                <th>Estado</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in planes_pago %}
+                            <tr>
+                                <td>{{ plan['fecha_inicio'] or '-' }}</td>
+                                <td>{{ plan['monto_total'] | moneda }}</td>
+                                <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                                <td>{{ plan['estado'] }}</td>
+                                <td>
+                                    {{ plan['descripcion'] or '-' }}
+                                    {% if plan['observaciones'] %}
+                                        <span class="muted-line">{{ plan['observaciones'] }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay planes de pago registrados.</p>
+            {% endif %}
+        </div>
+
+        <div class="page-section">
+            <div class="section-header">
+                <h3>Evolucion de tests</h3>
+            </div>
+            {% if resumen_tests %}
+                <div class="mini-stat-grid">
+                    {% for item in resumen_tests %}
+                        <div class="mini-stat">
+                            <strong>{{ item['nombre'] }}</strong>
+                            <span>{{ item['actual']['puntaje'] }}{% if item['actual']['unidad'] %} {{ item['actual']['unidad'] }}{% endif %}</span>
+                            <span class="muted-line">{{ item['actual']['fecha'] }}</span>
+                            {% if item['delta'] is not none %}
+                                <span class="muted-line">Variacion: {% if item['delta'] > 0 %}+{% endif %}{{ item['delta'] }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% if tests_recientes %}
+                <div class="table-wrapper top-gap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Test</th>
+                                <th>Puntaje</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for resultado in tests_recientes %}
+                            <tr>
+                                <td>{{ resultado['fecha'] }}</td>
+                                <td>{{ resultado['test_nombre'] }}</td>
+                                <td>{{ resultado['puntaje'] }} {{ resultado['unidad'] or '' }}</td>
+                                <td>{{ resultado['observaciones'] or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay tests cargados todavia.</p>
+            {% endif %}
         </div>
 
         <div class="detail-grid page-section">

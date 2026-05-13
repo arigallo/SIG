@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Nuevo evento{% endblock %}
+{% block title %}{% if evento and evento.get('id') %}Editar evento{% else %}Nuevo evento{% endif %}{% endblock %}
 
 {% block content %}
-<h2>Nuevo evento de calendario</h2>
+<h2>{% if evento and evento.get('id') %}Editar evento de calendario{% else %}Nuevo evento de calendario{% endif %}</h2>
 
 <form method="post" class="card form-card form-card-wide">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -69,6 +69,12 @@
     <div class="actions-row stack-gap">
         <button class="button" type="submit">Guardar</button>
         <a class="button secondary" href="{{ url_for('ver_calendario') }}">Cancelar</a>
+        {% if evento and evento.get('id') %}
+            <form method="post" action="{{ url_for('eliminar_evento_calendario', evento_id=evento['id']) }}" onsubmit="return confirm('Eliminar este evento?');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button danger" type="submit">Eliminar</button>
+            </form>
+        {% endif %}
     </div>
 </form>
 {% endblock %}

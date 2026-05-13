@@ -459,6 +459,97 @@ textarea::placeholder {
     color: var(--danger);
 }
 
+.top-gap {
+    margin-top: 12px;
+}
+
+.cell-expanded {
+    background: #fbfcfe;
+}
+
+.inline-detail-stack {
+    display: grid;
+    gap: 16px;
+}
+
+.inline-detail-text p {
+    margin: 0 0 8px;
+}
+
+.inline-detail-docs {
+    display: grid;
+    gap: 12px;
+}
+
+.embedded-preview-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #ffffff;
+}
+
+.embedded-preview-card summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.embedded-preview-card summary::-webkit-details-marker {
+    display: none;
+}
+
+.embedded-preview {
+    padding: 0 14px 14px;
+}
+
+.embedded-preview-frame,
+.embedded-preview-image {
+    display: block;
+    width: 100%;
+    min-height: 420px;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.embedded-preview-image {
+    min-height: 0;
+    max-height: 720px;
+    object-fit: contain;
+}
+
+.embedded-preview-empty {
+    padding: 14px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--surface-soft);
+}
+
+.stack-list {
+    display: grid;
+    gap: 12px;
+}
+
+.mini-stat-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.mini-stat {
+    padding: 10px 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    background: var(--surface-soft);
+}
+
+.mini-stat strong,
+.mini-stat span {
+    display: block;
+}
+
 .button,
 button {
     display: inline-flex;

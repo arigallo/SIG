@@ -75,10 +75,20 @@
                 <td>{{ evento['categoria'] or '-' }}</td>
                 <td>{{ evento['ubicacion'] or '-' }}</td>
                 <td>{{ evento['detalle'] or '-' }}</td>
-                <td>
+                <td class="actions">
                     {% if evento['url'] %}
                         <a class="button secondary" href="{{ evento['url'] }}">{% if evento['origen'] == 'calendario' %}Tomar asistencia{% else %}Ver{% endif %}</a>
-                    {% else %}
+                    {% endif %}
+                    {% if puede('calendario_gestionar') and evento['edit_url'] %}
+                        <a class="button secondary" href="{{ evento['edit_url'] }}">Editar</a>
+                    {% endif %}
+                    {% if puede('calendario_gestionar') and evento['delete_url'] %}
+                        <form method="post" action="{{ evento['delete_url'] }}" onsubmit="return confirm('Eliminar este evento?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button danger" type="submit">Eliminar</button>
+                        </form>
+                    {% endif %}
+                    {% if not evento['url'] and not evento['edit_url'] and not evento['delete_url'] %}
                         -
                     {% endif %}
                 </td>

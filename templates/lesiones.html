@@ -36,6 +36,43 @@
                     </form>
                 </td>
             </tr>
+            <tr>
+                <td colspan="6" class="cell-expanded">
+                    <div class="inline-detail-stack">
+                        <div class="inline-detail-text">
+                            <p><strong>Diagnostico:</strong> {{ lesion['diagnostico'] or '-' }}</p>
+                            <p><strong>Tratamiento:</strong> {{ lesion['tratamiento'] or '-' }}</p>
+                            <p><strong>Observaciones:</strong> {{ lesion['observaciones'] or '-' }}</p>
+                        </div>
+                        <div class="inline-detail-docs">
+                            {% set docs = documentos_por_lesion.get(lesion['id'], []) %}
+                            <div class="section-header compact">
+                                <h3>Adjuntos</h3>
+                                <a class="button secondary" href="{{ url_for('editar_lesion', lesion_id=lesion['id']) }}">Gestionar</a>
+                            </div>
+                            {% if docs %}
+                                {% for documento in docs %}
+                                    <details class="embedded-preview-card" {% if loop.first %}open{% endif %}>
+                                        <summary>
+                                            <strong>{{ documento['nombre'] or ('Adjunto ' ~ documento['id']) }}</strong>
+                                            <span class="muted-line">{{ documento['descripcion'] or documento['mime_type'] or '-' }}</span>
+                                        </summary>
+                                        {% with
+                                            src=url_for('ver_documento_lesion', documento_id=documento['id']),
+                                            nombre=documento['nombre'],
+                                            preview_tipo=documento['preview_tipo']
+                                        %}
+                                            {% include "_embedded_file_preview.html" %}
+                                        {% endwith %}
+                                    </details>
+                                {% endfor %}
+                            {% else %}
+                                <p>No hay adjuntos cargados para esta lesion.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+            </tr>
             {% else %}
             <tr>
                 <td colspan="6" class="empty">No hay lesiones cargadas.</td>

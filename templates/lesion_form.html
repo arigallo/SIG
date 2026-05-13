@@ -9,7 +9,7 @@
     {% if lesion %}Editar lesión{% else %}Nueva lesión{% endif %}
 </h2>
 
-<form method="post" class="card form-grid">
+<form method="post" enctype="multipart/form-data" class="card form-grid">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
         <label>Fecha de lesión</label>
@@ -56,6 +56,24 @@
         <textarea name="observaciones" rows="4">{{ lesion['observaciones'] if lesion else '' }}</textarea>
     </div>
 
+    <div class="full">
+        <label>Adjuntar estudios o informes</label>
+        <label class="upload-dropzone" data-upload-dropzone tabindex="0">
+            <input class="upload-input"
+                   type="file"
+                   name="documentos_adjuntos"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                   multiple>
+            <span class="upload-title">Arrastra, pega o elegi archivos</span>
+            <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
+        </label>
+    </div>
+
+    <div class="full">
+        <label>Descripcion de los adjuntos</label>
+        <input type="text" name="descripcion_adjuntos" placeholder="Ej: radiografia, resonancia, informe medico">
+    </div>
+
     <div class="full actions-row">
         <button class="button" type="submit">Guardar</button>
         {% if lesion %}
@@ -65,4 +83,33 @@
         {% endif %}
     </div>
 </form>
+
+{% if documentos %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Adjuntos actuales</h3>
+    </div>
+    <div class="stack-list">
+        {% for documento in documentos %}
+            <details class="embedded-preview-card" {% if loop.first %}open{% endif %}>
+                <summary>
+                    <strong>{{ documento['nombre'] or ('Adjunto ' ~ documento['id']) }}</strong>
+                    <span class="muted-line">{{ documento['descripcion'] or documento['mime_type'] or '-' }}</span>
+                </summary>
+                {% with
+                    src=url_for('ver_documento_lesion', documento_id=documento['id']),
+                    nombre=documento['nombre'],
+                    preview_tipo=documento['preview_tipo']
+                %}
+                    {% include "_embedded_file_preview.html" %}
+                {% endwith %}
+                <form method="post" action="{{ url_for('eliminar_documento_lesion', documento_id=documento['id']) }}" class="actions-row top-gap" onsubmit="return confirm('Eliminar este adjunto?');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button danger" type="submit">Eliminar adjunto</button>
+                </form>
+            </details>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

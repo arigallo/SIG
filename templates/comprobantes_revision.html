@@ -89,6 +89,16 @@
                 <td>
                     <a class="button secondary" href="{{ url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) }}">Ver</a>
                     <span class="muted-line">{{ cuota['comprobante_nombre'] or '-' }}</span>
+                    <details class="embedded-preview-card top-gap">
+                        <summary>Vista previa</summary>
+                        {% with
+                            src=url_for('descargar_comprobante_cuota', cuota_id=cuota['id']),
+                            nombre=cuota['comprobante_nombre'],
+                            preview_tipo='pdf' if cuota['comprobante_mime_type'] == 'application/pdf' else 'image' if cuota['comprobante_mime_type'] and cuota['comprobante_mime_type'].startswith('image/') else 'other'
+                        %}
+                            {% include "_embedded_file_preview.html" %}
+                        {% endwith %}
+                    </details>
                 </td>
                 <td>
                     {{ cuota['comprobante_revisado_en'] or '-' }}
