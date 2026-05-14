@@ -25,27 +25,29 @@
             </div>
 
             <nav class="main-nav" aria-label="Navegacion principal">
-                <a class="nav-link" href="{{ url_for('index') }}">Panel</a>
+                {% set endpoint = request.endpoint or '' %}
+                <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
 
                 {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
+                {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario'] %}
                 {% if mostrar_club %}
-                <details class="nav-group">
+                <details class="nav-group {% if club_actual %}current{% endif %}" {% if club_actual %}open{% endif %}>
                     <summary>Club</summary>
                     <div class="nav-menu">
                         {% if puede('jugadores_ver') %}
-                            <a href="{{ url_for('listar_jugadores') }}">Jugadores</a>
+                            <a class="{% if endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador'] %}active{% endif %}" href="{{ url_for('listar_jugadores') }}">Jugadores</a>
                         {% endif %}
                         {% if puede('aspirantes_ver') %}
-                            <a href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+                            <a class="{% if endpoint in ['listar_aspirantes', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
                         {% endif %}
                         {% if puede('asistencia_ver') %}
-                            <a href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+                            <a class="{% if endpoint in ['listar_eventos_asistencia', 'tomar_asistencia', 'nuevo_evento_asistencia', 'editar_evento_asistencia'] %}active{% endif %}" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
                         {% endif %}
                         {% if puede('tests_ver') %}
-                            <a href="{{ url_for('listar_tests') }}">Tests</a>
+                            <a class="{% if endpoint in ['listar_tests', 'graficos_tests', 'cargar_test_resultados', 'nuevo_test_tipo'] %}active{% endif %}" href="{{ url_for('listar_tests') }}">Tests</a>
                         {% endif %}
                         {% if puede('calendario_ver') %}
-                            <a href="{{ url_for('ver_calendario') }}">Calendario</a>
+                            <a class="{% if endpoint in ['ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario'] %}active{% endif %}" href="{{ url_for('ver_calendario') }}">Calendario</a>
                         {% endif %}
                         {% if puede('jugadores_gestionar') %}
                             <a href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
@@ -56,58 +58,61 @@
                 {% endif %}
 
                 {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('presupuesto_ver') or puede('reportes_ver') %}
+                {% set finanzas_actual = endpoint in ['generar_cuotas', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'ver_caja', 'ver_presupuesto', 'ver_reportes', 'ver_comunicaciones', 'ver_notificaciones'] %}
                 {% if mostrar_finanzas %}
-                <details class="nav-group">
+                <details class="nav-group {% if finanzas_actual %}current{% endif %}" {% if finanzas_actual %}open{% endif %}>
                     <summary>Finanzas</summary>
                     <div class="nav-menu">
                         {% if puede('cuotas_gestionar') %}
-                            <a href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
-                            <a href="{{ url_for('listar_comprobantes_revision') }}">Comprobantes</a>
-                            <a href="{{ url_for('conciliar_pagos') }}">Conciliacion</a>
+                            <a class="{% if endpoint == 'generar_cuotas' %}active{% endif %}" href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
+                            <a class="{% if endpoint == 'listar_comprobantes_revision' %}active{% endif %}" href="{{ url_for('listar_comprobantes_revision') }}">Comprobantes</a>
+                            <a class="{% if endpoint == 'conciliar_pagos' %}active{% endif %}" href="{{ url_for('conciliar_pagos') }}">Conciliacion</a>
                         {% endif %}
                         {% if puede('planes_pago_ver') %}
-                            <a href="{{ url_for('listar_planes_pago') }}">Planes</a>
+                            <a class="{% if endpoint in ['listar_planes_pago', 'nuevo_plan_pago', 'editar_plan_pago'] %}active{% endif %}" href="{{ url_for('listar_planes_pago') }}">Planes</a>
                         {% endif %}
                         {% if puede('caja_ver') %}
-                            <a href="{{ url_for('ver_caja') }}">Caja</a>
+                            <a class="{% if endpoint in ['ver_caja', 'nuevo_movimiento', 'editar_movimiento'] %}active{% endif %}" href="{{ url_for('ver_caja') }}">Caja</a>
                         {% endif %}
                         {% if puede('presupuesto_ver', 'caja_ver') %}
-                            <a href="{{ url_for('ver_presupuesto') }}">Presupuesto</a>
+                            <a class="{% if endpoint == 'ver_presupuesto' %}active{% endif %}" href="{{ url_for('ver_presupuesto') }}">Presupuesto</a>
                         {% endif %}
                         {% if puede('reportes_ver') %}
-                            <a href="{{ url_for('ver_reportes') }}">Reportes</a>
+                            <a class="{% if endpoint == 'ver_reportes' %}active{% endif %}" href="{{ url_for('ver_reportes') }}">Reportes</a>
                         {% endif %}
                     </div>
                 </details>
                 {% endif %}
 
                 {% set mostrar_salud = puede('salud_ver') or puede('salud_gestionar') or puede('documentos_ver') or puede('alertas_finanzas', 'alertas_salud') %}
+                {% set salud_actual = endpoint in ['panel_salud', 'ver_documentos_vencidos', 'ver_alertas', 'cargar_fichas_medicas_batch', 'ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] %}
                 {% if mostrar_salud %}
-                <details class="nav-group">
+                <details class="nav-group {% if salud_actual %}current{% endif %}" {% if salud_actual %}open{% endif %}>
                     <summary>Salud</summary>
                     <div class="nav-menu">
                         {% if puede('salud_ver') %}
-                            <a href="{{ url_for('panel_salud') }}">Panel salud</a>
+                            <a class="{% if endpoint == 'panel_salud' %}active{% endif %}" href="{{ url_for('panel_salud') }}">Panel salud</a>
                         {% endif %}
                         {% if puede('salud_gestionar') %}
-                            <a href="{{ url_for('cargar_fichas_medicas_batch') }}">Fichas batch</a>
+                            <a class="{% if endpoint == 'cargar_fichas_medicas_batch' %}active{% endif %}" href="{{ url_for('cargar_fichas_medicas_batch') }}">Fichas batch</a>
                         {% endif %}
                         {% if puede('documentos_ver', 'salud_ver') %}
-                            <a href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
+                            <a class="{% if endpoint == 'ver_documentos_vencidos' %}active{% endif %}" href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
                         {% endif %}
                         {% if puede('alertas_finanzas', 'alertas_salud') %}
-                            <a href="{{ url_for('ver_alertas') }}">Alertas</a>
+                            <a class="{% if endpoint == 'ver_alertas' %}active{% endif %}" href="{{ url_for('ver_alertas') }}">Alertas</a>
                         {% endif %}
                     </div>
                 </details>
                 {% endif %}
 
                 {% if puede('comunicaciones_ver') %}
-                <details class="nav-group">
+                {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_notificaciones'] %}
+                <details class="nav-group {% if comunicacion_actual %}current{% endif %}" {% if comunicacion_actual %}open{% endif %}>
                     <summary>Comunicacion</summary>
                     <div class="nav-menu">
-                        <a href="{{ url_for('ver_comunicaciones') }}">Comunicacion</a>
-                        <a href="{{ url_for('ver_notificaciones') }}">
+                        <a class="{% if endpoint == 'ver_comunicaciones' %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicacion</a>
+                        <a class="{% if endpoint == 'ver_notificaciones' %}active{% endif %}" href="{{ url_for('ver_notificaciones') }}">
                             Notificaciones
                             {% if notificaciones_count %}
                                 <span class="nav-badge">{{ notificaciones_count }}</span>
@@ -118,31 +123,32 @@
                 {% endif %}
 
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') %}
+                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_mantenimiento', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
-                <details class="nav-group">
+                <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
                     <summary>Admin</summary>
                     <div class="nav-menu">
                         {% if session.get('rol') == 'admin' %}
-                            <a href="{{ url_for('listar_usuarios') }}">Usuarios</a>
-                            <a href="{{ url_for('listar_roles') }}">Roles</a>
-                            <a href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
-                            <a href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
+                            <a class="{% if endpoint == 'listar_usuarios' %}active{% endif %}" href="{{ url_for('listar_usuarios') }}">Usuarios</a>
+                            <a class="{% if endpoint == 'listar_roles' %}active{% endif %}" href="{{ url_for('listar_roles') }}">Roles</a>
+                            <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+                            <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
                         {% endif %}
                         {% if puede('auditoria_ver') %}
-                            <a href="{{ url_for('ver_auditoria') }}">Auditoria</a>
+                            <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditoria</a>
                         {% endif %}
                         {% if puede('seguridad_ver') %}
-                            <a href="{{ url_for('ver_seguridad') }}">Seguridad</a>
+                            <a class="{% if endpoint == 'ver_seguridad' %}active{% endif %}" href="{{ url_for('ver_seguridad') }}">Seguridad</a>
                         {% endif %}
                         {% if puede('backup_ver') %}
-                            <a href="{{ url_for('backup_db') }}">Backup</a>
+                            <a class="{% if endpoint == 'backup_db' %}active{% endif %}" href="{{ url_for('backup_db') }}">Backup</a>
                         {% endif %}
                     </div>
                 </details>
                 {% endif %}
 
                 <details class="nav-group nav-account">
-                    <summary>{{ session.get('username') or 'Cuenta' }}</summary>
+                    <summary>{{ session.get('username') or 'Cuenta' }}{% if session.get('rol') %}<span class="nav-role">{{ session.get('rol') }}</span>{% endif %}</summary>
                     <div class="nav-menu">
                         <a href="{{ url_for('cambiar_mi_password') }}">Mi clave</a>
                         <a href="{{ url_for('logout') }}">Salir</a>
