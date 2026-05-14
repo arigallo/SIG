@@ -5,12 +5,39 @@
 {% block content %}
 <div class="section-header">
     <h2>Asistencia - {{ evento['fecha'] }}</h2>
-    <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
+        {% if puede('asistencia_gestionar') %}
+            <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar evento</a>
+            {% if not evento['cerrado'] %}
+                <form method="post" action="{{ url_for('cerrar_evento_asistencia', evento_id=evento['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Cerrar evento</button>
+                </form>
+            {% elif puede_reabrir %}
+                <form method="post" action="{{ url_for('reabrir_evento_asistencia', evento_id=evento['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Reabrir evento</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
 </div>
 
 <div class="card spaced-small">
     <p><strong>Tipo:</strong> {{ evento['tipo'] }}</p>
     <p><strong>Descripcion:</strong> {{ evento['descripcion'] or '-' }}</p>
+    <p>
+        <strong>Estado:</strong>
+        {% if evento['cerrado'] %}
+            <span class="badge badge-muted">Cerrado</span>
+            {% if evento['cerrado_por'] or evento['cerrado_en'] %}
+                <span class="muted-line">por {{ evento['cerrado_por'] or '-' }}{% if evento['cerrado_en'] %} - {{ evento['cerrado_en'] }}{% endif %}</span>
+            {% endif %}
+        {% else %}
+            <span class="badge badge-success">Abierto</span>
+        {% endif %}
+    </p>
 </div>
 
 <form method="post">
@@ -49,7 +76,7 @@
                         </td>
                         <td>
                             {% set estado_actual = asistencia['estado_asistencia'] if asistencia and asistencia['estado_asistencia'] else ('a_tiempo' if asistencia and asistencia['presente'] else 'ausente') %}
-                            <select name="estado_{{ participante['form_key'] }}">
+                            <select name="estado_{{ participante['form_key'] }}" {% if evento['cerrado'] %}disabled{% endif %}>
                                 <option value="ausente" {% if estado_actual == 'ausente' %}selected{% endif %}>Ausente</option>
                                 <option value="a_tiempo" {% if estado_actual == 'a_tiempo' %}selected{% endif %}>A tiempo</option>
                                 <option value="tarde" {% if estado_actual == 'tarde' %}selected{% endif %}>Tarde</option>
@@ -58,7 +85,8 @@
                         <td>
                             <input type="text"
                                    name="obs_{{ participante['form_key'] }}"
-                                   value="{{ asistencia['observaciones'] if asistencia else '' }}">
+                                   value="{{ asistencia['observaciones'] if asistencia else '' }}"
+                                   {% if evento['cerrado'] %}disabled{% endif %}>
                         </td>
                     </tr>
                 {% else %}
@@ -70,11 +98,13 @@
         </table>
     </div>
 
-    {% if puede('asistencia_gestionar') %}
+    {% if puede('asistencia_gestionar') and not evento['cerrado'] %}
         <div class="actions-row stack-gap">
             <button class="button" type="submit">Guardar asistencia</button>
             <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Cancelar</a>
         </div>
+    {% elif evento['cerrado'] %}
+        <p class="muted-line">Este evento está cerrado y la asistencia quedó bloqueada. Solo un admin puede reabrirlo.</p>
     {% endif %}
 </form>
 {% endblock %}

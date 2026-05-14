@@ -3,6 +3,7 @@ import psycopg
 from psycopg.rows import dict_row
 from pathlib import Path
 import csv
+import html
 import io
 import json
 import os
@@ -14,6 +15,7 @@ import secrets
 import unicodedata
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from email.utils import formataddr, make_msgid
 from urllib.parse import quote
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -235,6 +237,7 @@ SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER).strip()
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
+SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Tesoreria - RMR").strip() or "Tesoreria - RMR"
 ASPIRANTE_ENTRENAMIENTOS_OBJETIVO = int(os.environ.get("ASPIRANTE_ENTRENAMIENTOS_OBJETIVO", "8"))
 ASPIRANTE_ESTADOS = {"Aspirante", "Ingresado", "Baja"}
 APP_VERSION = os.environ.get("APP_VERSION", "local")
@@ -5051,6 +5054,16 @@ def init_db():
         )
     """)
 
+    columnas_eventos_asistencia = get_columns(conn, "eventos_asistencia")
+    columnas_extra_eventos_asistencia = {
+        "cerrado": "INTEGER DEFAULT 0",
+        "cerrado_en": "TIMESTAMPTZ",
+        "cerrado_por": "TEXT",
+    }
+    for columna, definicion in columnas_extra_eventos_asistencia.items():
+        if columna not in columnas_eventos_asistencia:
+            conn.execute(f"ALTER TABLE eventos_asistencia ADD COLUMN {columna} {definicion}")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS calendario_eventos (
             id SERIAL PRIMARY KEY,
@@ -5732,15 +5745,51 @@ def smtp_configurado():
     return bool(SMTP_HOST and SMTP_FROM)
 
 
+def render_email_html(cuerpo, logo_cid=None):
+    cuerpo_html = "<br>".join(html.escape(linea) if linea else "" for linea in str(cuerpo or "").splitlines())
+    logo_html = ""
+    if logo_cid:
+        logo_html = (
+            f'<div style="margin-top:12px;">'
+            f'<img src="cid:{logo_cid}" alt="Ruda Macho Rugby Club" '
+            f'style="max-width:120px;height:auto;display:block;">'
+            f"</div>"
+        )
+    return (
+        "<html><body style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.5;\">"
+        f"<div>{cuerpo_html}</div>"
+        "<div style=\"margin-top:20px;\">"
+        "<strong>Tesoreria - Ruda Macho Rugby Club</strong>"
+        f"{logo_html}"
+        "</div>"
+        "</body></html>"
+    )
+
+
 def enviar_email(destinatario, asunto, cuerpo):
     if not smtp_configurado():
         return False
 
+    cuerpo = f"{str(cuerpo or '').rstrip()}\n\nTesoreria - Ruda Macho Rugby Club"
     mensaje = EmailMessage()
-    mensaje["From"] = SMTP_FROM
+    mensaje["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
     mensaje["To"] = destinatario
     mensaje["Subject"] = asunto
     mensaje.set_content(cuerpo)
+    logo_path = BASE_DIR / "static" / "img" / "logo.png"
+    logo_cid = None
+    if logo_path.exists():
+        logo_cid = make_msgid(domain="rudamachorugby.com")[1:-1]
+    mensaje.add_alternative(render_email_html(cuerpo, logo_cid=logo_cid), subtype="html")
+    if logo_cid and logo_path.exists():
+        with logo_path.open("rb") as fh:
+            mensaje.get_payload()[-1].add_related(
+                fh.read(),
+                maintype="image",
+                subtype="png",
+                cid=f"<{logo_cid}>",
+                filename="logo.png",
+            )
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
         if SMTP_USE_TLS:
@@ -14097,7 +14146,132 @@ def nuevo_evento_asistencia():
         flash("Evento de asistencia creado.", "ok")
         return redirect(url_for("listar_eventos_asistencia"))
 
-    return render_template("asistencia_evento_form.html")
+    return render_template("asistencia_evento_form.html", evento={})
+
+
+@app.route("/asistencia/<int:evento_id>/editar", methods=["GET", "POST"])
+def editar_evento_asistencia(evento_id):
+    check = permiso_requerido("asistencia_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("""
+        SELECT *
+        FROM eventos_asistencia
+        WHERE id = %s
+    """, (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    if request.method == "POST":
+        fecha = request.form.get("fecha", "").strip()
+        tipo = request.form.get("tipo", "").strip()
+        descripcion = request.form.get("descripcion", "").strip()
+        if not fecha or not tipo:
+            conn.close()
+            flash("Fecha y tipo son obligatorios.", "error")
+            return render_template("asistencia_evento_form.html", evento=request.form)
+        if evento.get("cerrado"):
+            conn.close()
+            flash("El evento está cerrado. Solo un admin puede reabrirlo para modificar asistencia o datos.", "error")
+            return redirect(url_for("tomar_asistencia", evento_id=evento_id))
+
+        conn.execute("""
+            UPDATE eventos_asistencia
+            SET fecha = %s,
+                tipo = %s,
+                descripcion = %s
+            WHERE id = %s
+        """, (fecha, tipo, descripcion or None, evento_id))
+        conn.commit()
+        conn.close()
+        flash("Evento de asistencia actualizado.", "ok")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    conn.close()
+    return render_template("asistencia_evento_form.html", evento=evento)
+
+
+@app.route("/asistencia/<int:evento_id>/cerrar", methods=["POST"])
+def cerrar_evento_asistencia(evento_id):
+    check = permiso_requerido("asistencia_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+    if evento.get("cerrado"):
+        conn.close()
+        flash("El evento ya estaba cerrado.", "warning")
+        return redirect(url_for("tomar_asistencia", evento_id=evento_id))
+
+    conn.execute("""
+        UPDATE eventos_asistencia
+        SET cerrado = 1,
+            cerrado_en = CURRENT_TIMESTAMP,
+            cerrado_por = %s
+        WHERE id = %s
+    """, (session.get("username"), evento_id))
+    conn.commit()
+    conn.close()
+    flash("Evento cerrado. La asistencia quedó bloqueada.", "ok")
+    return redirect(url_for("tomar_asistencia", evento_id=evento_id))
+
+
+@app.route("/asistencia/<int:evento_id>/reabrir", methods=["POST"])
+def reabrir_evento_asistencia(evento_id):
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    conn.execute("""
+        UPDATE eventos_asistencia
+        SET cerrado = 0,
+            cerrado_en = NULL,
+            cerrado_por = NULL
+        WHERE id = %s
+    """, (evento_id,))
+    conn.commit()
+    conn.close()
+    flash("Evento reabierto. Ya se puede volver a modificar la asistencia.", "ok")
+    return redirect(url_for("tomar_asistencia", evento_id=evento_id))
+
+
+@app.route("/asistencia/<int:evento_id>/eliminar", methods=["POST"])
+def eliminar_evento_asistencia(evento_id):
+    check = permiso_requerido("asistencia_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (evento_id,))
+    conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (evento_id,))
+    conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (evento_id,))
+    conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (evento_id,))
+    conn.commit()
+    conn.close()
+    flash("Evento de asistencia eliminado.", "ok")
+    return redirect(url_for("listar_eventos_asistencia"))
 
 
 @app.route("/asistencia/<int:evento_id>", methods=["GET", "POST"])
@@ -14139,6 +14313,10 @@ def tomar_asistencia(evento_id):
         if check:
             conn.close()
             return check
+        if evento.get("cerrado"):
+            conn.close()
+            flash("El evento está cerrado. Solo un admin puede reabrirlo.", "error")
+            return redirect(url_for("tomar_asistencia", evento_id=evento_id))
 
         for jugador in jugadores:
             estado_asistencia = request.form.get(
@@ -14256,7 +14434,8 @@ def tomar_asistencia(evento_id):
     return render_template(
         "tomar_asistencia.html",
         evento=evento,
-        participantes=participantes
+        participantes=participantes,
+        puede_reabrir=session.get("rol") == "admin",
     )
 
 if os.environ.get("INIT_DB", "true").lower() in {"1", "true", "yes", "on"}:

@@ -17,6 +17,7 @@
                 <th>Fecha</th>
                 <th>Tipo</th>
                 <th>Descripción</th>
+                <th>Estado</th>
                 <th>Acción</th>
             </tr>
         </thead>
@@ -27,14 +28,39 @@
                 <td>{{ evento['tipo'] }}</td>
                 <td>{{ evento['descripcion'] or '-' }}</td>
                 <td>
+                    {% if evento['cerrado'] %}
+                        <span class="badge badge-muted">Cerrado</span>
+                    {% else %}
+                        <span class="badge badge-success">Abierto</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
                     <a class="button secondary" href="{{ url_for('tomar_asistencia', evento_id=evento['id']) }}">
                         Ver / tomar asistencia
                     </a>
+                    {% if puede('asistencia_gestionar') %}
+                        <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar</a>
+                        {% if not evento['cerrado'] %}
+                            <form method="post" action="{{ url_for('cerrar_evento_asistencia', evento_id=evento['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button secondary" type="submit">Cerrar</button>
+                            </form>
+                        {% elif session.get('rol') == 'admin' %}
+                            <form method="post" action="{{ url_for('reabrir_evento_asistencia', evento_id=evento['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button secondary" type="submit">Reabrir</button>
+                            </form>
+                        {% endif %}
+                        <form method="post" action="{{ url_for('eliminar_evento_asistencia', evento_id=evento['id']) }}" onsubmit="return confirm('Eliminar este evento de asistencia?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button danger" type="submit">Eliminar</button>
+                        </form>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="4" class="empty">No hay eventos de asistencia cargados.</td>
+                <td colspan="5" class="empty">No hay eventos de asistencia cargados.</td>
             </tr>
             {% endfor %}
         </tbody>
