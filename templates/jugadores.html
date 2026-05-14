@@ -19,16 +19,16 @@
 <form method="post" action="{{ url_for('recalcular_numeros_socio_route') }}" class="card spaced-small inline-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
-        <label>Numeracion de socios</label>
-        <span class="field-hint">Regenera los numeros de socio del club segun fecha de ingreso. Si el afiliado de obra social esta vacio, se preserva ahi el numero previo antes de renumerar. Eduardo Del Valle queda como 00001.</span>
+        <label>Numeración de socios</label>
+        <span class="field-hint">Regenera los números de socio del club según fecha de ingreso. Si el afiliado de obra social está vacío, se preserva ahí el número previo antes de renumerar. Eduardo Del Valle queda como 00001.</span>
     </div>
-    <button class="button secondary" type="submit" onclick="return confirm('Regenerar todos los numeros de socio del club actuales?');">Regenerar numeros de socio</button>
+    <button class="button secondary" type="submit" onclick="return confirm('Regenerar todos los números de socio del club actuales?');">Regenerar números de socio</button>
 </form>
 {% endif %}
 
 <form method="get" class="search-form search-form-wide search-form-players">
     <div class="search-field search-field-primary">
-        <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoria o tipo" value="{{ busqueda }}">
+        <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoría o tipo" value="{{ busqueda }}">
     </div>
     <div class="search-field search-field-filter">
         <select name="tipo">
@@ -38,8 +38,26 @@
             {% endfor %}
         </select>
     </div>
+    <div class="search-field search-field-filter">
+        <select name="estado">
+            <option value="">Todos los estados</option>
+            {% for estado in estados_jugador %}
+                <option value="{{ estado }}" {% if estado_filtro == estado %}selected{% endif %}>{{ estado }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="search-field search-field-filter">
+        <input type="text" name="categoria" placeholder="Filtrar categoría" value="{{ categoria_filtro }}">
+    </div>
+    <div class="search-field search-field-filter">
+        <select name="orden">
+            <option value="apellido" {% if orden == 'apellido' %}selected{% endif %}>Orden alfabético</option>
+            <option value="fecha_ingreso_asc" {% if orden == 'fecha_ingreso_asc' %}selected{% endif %}>Ingreso más antiguo</option>
+            <option value="fecha_ingreso_desc" {% if orden == 'fecha_ingreso_desc' %}selected{% endif %}>Ingreso más reciente</option>
+        </select>
+    </div>
     <button type="submit">Buscar</button>
-    {% if busqueda or tipo_filtro %}
+    {% if busqueda or tipo_filtro or estado_filtro or categoria_filtro or orden != 'apellido' %}
         <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Limpiar</a>
     {% endif %}
 </form>
@@ -48,11 +66,11 @@
 <form id="bulk-form" method="post" action="{{ url_for('acciones_masivas_jugadores') }}" class="card bulk-actions spaced-small">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
-        <label>Accion masiva</label>
+        <label>Acción masiva</label>
         <select name="accion" required>
             <option value="">Seleccionar...</option>
             <option value="estado">Cambiar estado</option>
-            <option value="categoria">Cambiar categoria</option>
+            <option value="categoria">Cambiar categoría</option>
             {% if puede('portal_jugador_gestionar') %}
                 <option value="portal_activar">Activar portal</option>
             {% endif %}
@@ -70,7 +88,7 @@
     </div>
 
     <div>
-        <label>Categoria</label>
+        <label>Categoría</label>
         <input type="text" name="categoria" placeholder="Primera, Juveniles...">
     </div>
 
@@ -88,10 +106,10 @@
                 <th>Apellido y nombre</th>
                 <th>Tipo</th>
                 <th>DNI</th>
-                <th>Categoria</th>
+                <th>Categoría</th>
                 <th>Cuota</th>
                 <th>Beca</th>
-                <th>Fecha ingreso</th>
+                <th>Fecha de ingreso</th>
                 <th>Estado</th>
                 <th>Telefono</th>
                 <th>Acciones</th>
@@ -133,7 +151,7 @@
                         <a class="button" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
                     {% endif %}
                     {% if puede('salud_ver') and tipo_miembro == 'Jugador' %}
-                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha medica</a>
+                        <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha médica</a>
                         <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Lesiones</a>
                     {% endif %}
                     {% if puede('jugadores_gestionar') %}

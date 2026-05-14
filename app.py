@@ -7350,24 +7350,42 @@ def listar_jugadores():
 
     busqueda = request.args.get("q", "").strip()
     tipo_filtro = request.args.get("tipo", "").strip()
+    estado_filtro = request.args.get("estado", "").strip()
+    categoria_filtro = request.args.get("categoria", "").strip()
+    orden = request.args.get("orden", "apellido")
+
     if tipo_filtro not in TIPOS_MIEMBRO:
         tipo_filtro = ""
+    if estado_filtro not in ESTADOS_JUGADOR:
+        estado_filtro = ""
+
+    ordenes_validos = {
+        "apellido": "apellido ASC, nombre ASC",
+        "fecha_ingreso_asc": "fecha_ingreso ASC NULLS LAST, apellido ASC, nombre ASC",
+        "fecha_ingreso_desc": "fecha_ingreso DESC NULLS LAST, apellido ASC, nombre ASC",
+    }
+    if orden not in ordenes_validos:
+        orden = "apellido"
+
     conn = get_connection()
 
     filtros = []
-    parametros_base = []
+    parametros = []
     if tipo_filtro:
         filtros.append("COALESCE(tipo_miembro, 'Jugador') = %s")
-        parametros_base.append(tipo_filtro)
+        parametros.append(tipo_filtro)
+    if estado_filtro:
+        filtros.append("COALESCE(estado, 'Activo') = %s")
+        parametros.append(estado_filtro)
+    if categoria_filtro:
+        filtros.append("COALESCE(categoria, '') ILIKE %s")
+        parametros.append(f"%{categoria_filtro}%")
 
     if busqueda:
         terminos = [termino for termino in re.split(r"\s+", busqueda) if termino]
-        condiciones = []
-        parametros = list(parametros_base)
-
         for termino in terminos:
             like = f"%{termino}%"
-            condiciones.append("""
+            filtros.append("""
                 (
                     nombre ILIKE %s
                     OR apellido ILIKE %s
@@ -7383,20 +7401,15 @@ def listar_jugadores():
             """)
             parametros.extend([like] * 10)
 
-        filtros.extend(condiciones)
-
-        jugadores = conn.execute("""
+    where_sql = "WHERE " + " AND ".join(filtros) if filtros else ""
+    jugadores = conn.execute(
+        f"""
             SELECT * FROM jugadores
-            WHERE """ + " AND ".join(filtros) + """
-            ORDER BY apellido, nombre
-        """, parametros).fetchall()
-    else:
-        where_sql = "WHERE " + " AND ".join(filtros) if filtros else ""
-        jugadores = conn.execute("""
-            SELECT * FROM jugadores
-            """ + where_sql + """
-            ORDER BY apellido, nombre
-        """, parametros_base).fetchall()
+            {where_sql}
+            ORDER BY {ordenes_validos[orden]}
+        """,
+        parametros,
+    ).fetchall()
 
     conn.close()
     return render_template(
@@ -7404,7 +7417,11 @@ def listar_jugadores():
         jugadores=jugadores,
         busqueda=busqueda,
         tipo_filtro=tipo_filtro,
+        estado_filtro=estado_filtro,
+        categoria_filtro=categoria_filtro,
+        orden=orden,
         tipos_miembro=sorted(TIPOS_MIEMBRO),
+        estados_jugador=ESTADOS_JUGADOR,
     )
 
 

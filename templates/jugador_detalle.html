@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Detalle del jugador{% endblock %}
 
@@ -18,8 +18,8 @@
             <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Tests</a>
         {% endif %}
         {% if puede_ver_salud %}
-            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha mÃ©dica</a>
-            <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesiÃ³n</a>
+            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha médica</a>
+            <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
             <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver lesiones</a>
         {% endif %}
     </div>
@@ -37,7 +37,7 @@
     </div>
 
     <div class="card stat-card">
-        <h3>CategorÃ­a</h3>
+        <h3>Categoría</h3>
         <p class="stat-number compact">{{ jugador['categoria'] or '-' }}</p>
     </div>
 
@@ -95,11 +95,11 @@
             <h3>Resumen deportivo</h3>
         </div>
         <p><strong>Asistencia:</strong> {{ asistencia_porcentaje }}%</p>
-        <p><strong>PrÃ³ximo evento:</strong> {{ proximo_evento['titulo'] if proximo_evento else '-' }}</p>
+        <p><strong>Próximo evento:</strong> {{ proximo_evento['titulo'] if proximo_evento else '-' }}</p>
         {% if proximo_evento %}
             <p><strong>Fecha:</strong> {{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}</p>
         {% endif %}
-        <p><strong>Ãšltima asistencia:</strong> {{ ultimas_asistencias[0]['fecha'] if ultimas_asistencias else '-' }}</p>
+        <p><strong>Última asistencia:</strong> {{ ultimas_asistencias[0]['fecha'] if ultimas_asistencias else '-' }}</p>
     </div>
     {% endif %}
 
@@ -108,11 +108,11 @@
         <div class="section-header compact">
             <h3>Resumen de salud</h3>
         </div>
-        <p><strong>Ficha mÃ©dica:</strong> {{ ficha_estado }}</p>
+        <p><strong>Ficha médica:</strong> {{ ficha_estado }}</p>
         <p><strong>Lesiones activas:</strong> {{ lesiones_activas_count }}</p>
         <p><strong>Documentos por vencer:</strong> {{ documento_alertas }}</p>
         {% if lesiones %}
-            <p><strong>Ãšltima lesiÃ³n:</strong> {{ lesiones[0]['tipo_lesion'] or '-' }}</p>
+            <p><strong>Última lesión:</strong> {{ lesiones[0]['tipo_lesion'] or '-' }}</p>
         {% endif %}
     </div>
     {% endif %}
@@ -122,7 +122,7 @@
         <div class="section-header compact">
             <h3>Resumen de rendimiento</h3>
         </div>
-        <p><strong>Ãšltimo test:</strong> {{ ultimo_test_resumen['test_nombre'] if ultimo_test_resumen else '-' }}</p>
+        <p><strong>Último test:</strong> {{ ultimo_test_resumen['test_nombre'] if ultimo_test_resumen else '-' }}</p>
         {% if ultimo_test_resumen %}
             <p><strong>Puntaje:</strong> {{ ultimo_test_resumen['puntaje'] }} {{ ultimo_test_resumen['unidad'] or '' }}</p>
             <p><strong>Fecha:</strong> {{ ultimo_test_resumen['fecha'] }}</p>
@@ -137,9 +137,9 @@
         <h3>Datos personales</h3>
         <p><strong>DNI:</strong> {{ jugador['dni'] or '-' }}</p>
         <p><strong>Fecha de nacimiento:</strong> {{ jugador['fecha_nacimiento'] or '-' }}</p>
-        <p><strong>TelÃ©fono:</strong> {{ jugador['telefono'] or '-' }}</p>
+        <p><strong>Teléfono:</strong> {{ jugador['telefono'] or '-' }}</p>
         <p><strong>Email:</strong> {{ jugador['email'] or '-' }}</p>
-        <p><strong>DirecciÃ³n:</strong> {{ jugador['direccion'] or '-' }}</p>
+        <p><strong>Dirección:</strong> {{ jugador['direccion'] or '-' }}</p>
         <p><strong>Numero de socio del club:</strong> {{ jugador['numero_socio'] or '-' }}</p>
         <p><strong>Obra social:</strong> {{ jugador['obra_social'] or '-' }}</p>
         <p><strong>Nro. afiliado obra social:</strong> {{ jugador['numero_afiliado_obra_social'] or '-' }}</p>
@@ -149,16 +149,16 @@
     {% if puede_ver_salud %}
     <div class="card {% if ficha_vencida %}card-alert{% endif %}">
         <div class="section-header compact">
-            <h3>Ficha mÃ©dica</h3>
+            <h3>Ficha médica</h3>
             <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar</a>
         </div>
 
         {% if ficha %}
-            <p><strong>Presentada:</strong> {% if ficha['presentada'] %}SÃ­{% else %}No{% endif %}</p>
+            <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
             <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
-            <p><strong>Apto fÃ­sico:</strong> {% if ficha['apto_fisico'] %}SÃ­{% else %}No{% endif %}</p>
+            <p><strong>Apto físico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
             <p><strong>Contacto de emergencia:</strong> {{ ficha['contacto_emergencia'] or '-' }}</p>
-            <p><strong>TelÃ©fono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
+            <p><strong>Teléfono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
             <p><strong>Observaciones:</strong> {{ ficha['observaciones'] or '-' }}</p>
             {% if ficha['documento_drive_file_id'] %}
                 <p>
@@ -169,7 +169,7 @@
                 </p>
             {% endif %}
         {% else %}
-            <p>No hay ficha mÃ©dica cargada.</p>
+            <p>No hay ficha médica cargada.</p>
         {% endif %}
     </div>
     {% endif %}
@@ -218,7 +218,7 @@
 
         <p><strong>Nombre:</strong> {{ jugador['contacto_tutor'] or '-' }}</p>
         <p><strong>Parentesco:</strong> {{ jugador['parentesco_tutor'] or '-' }}</p>
-        <p><strong>TelÃ©fono:</strong> {{ jugador['telefono_tutor'] or '-' }}</p>
+        <p><strong>Teléfono:</strong> {{ jugador['telefono_tutor'] or '-' }}</p>
         <p><strong>Email:</strong> {{ jugador['email_tutor'] or '-' }}</p>
     </div>
 
@@ -422,7 +422,7 @@
 
     <div class="card">
         <div class="section-header compact">
-            <h3>Ãšltimas cuotas</h3>
+            <h3>Últimas cuotas</h3>
             <div class="actions">
                 <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
                 <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver todas</a>
@@ -433,13 +433,13 @@
             <table>
                 <thead>
                     <tr>
-                        <th>PerÃ­odo</th>
+                        <th>Período</th>
                         <th>Importe</th>
                         <th>Beca</th>
                         <th>Estado</th>
                         <th>Vencimiento</th>
-                        <th>MÃ©todo</th>
-                        <th>AcciÃ³n</th>
+                        <th>Método</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -500,10 +500,10 @@
         <div class="section-header compact">
             <h3>Lesiones recientes</h3>
             {% if lesiones_activas_count > 0 %}
-                <p class="alert-text">Hay {{ lesiones_activas_count }} lesiÃ³n(es) activa(s) o en recuperaciÃ³n.</p>
+                <p class="alert-text">Hay {{ lesiones_activas_count }} lesión(es) activa(s) o en recuperación.</p>
             {% endif %}
             <div class="actions">
-                <a class="button" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesiÃ³n</a>
+                <a class="button" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
                 <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver todas</a>
             </div>
         </div>
