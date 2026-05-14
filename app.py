@@ -3965,6 +3965,11 @@ def mapear_fila_jugador(headers, row):
         "email_tutor": "email_tutor",
         "direccion": "direccion",
         "obra_social": "obra_social",
+        "numero_afiliado_obra_social": "numero_afiliado_obra_social",
+        "nro_afiliado_obra_social": "numero_afiliado_obra_social",
+        "numero_obra_social": "numero_afiliado_obra_social",
+        "nro_obra_social": "numero_afiliado_obra_social",
+        "numero_socio_obra_social": "numero_afiliado_obra_social",
         "numero_socio": "numero_socio",
         "nro_socio": "numero_socio",
         "documentos": "documentos",
@@ -3989,6 +3994,7 @@ def mapear_fila_jugador(headers, row):
         "email_tutor": "",
         "direccion": "",
         "obra_social": "",
+        "numero_afiliado_obra_social": "",
         "numero_socio": "",
         "documentos": "",
         "observaciones": "",
@@ -4448,6 +4454,7 @@ def init_db():
         "parentesco_tutor": "TEXT",
         "direccion": "TEXT",
         "obra_social": "TEXT",
+        "numero_afiliado_obra_social": "TEXT",
         "numero_socio": "TEXT",
         "documentos": "TEXT",
         "beca_activa": "INTEGER DEFAULT 0",
@@ -5792,6 +5799,75 @@ def normalizar_username(username):
 
 def normalizar_email(email):
     return (email or "").strip().lower()
+
+
+def formatear_numero_socio(numero):
+    try:
+        return f"{int(numero):05d}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def siguiente_numero_socio(conn):
+    fila = conn.execute("""
+        SELECT COALESCE(
+            MAX(
+                CASE
+                    WHEN NULLIF(REGEXP_REPLACE(COALESCE(numero_socio, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                    THEN CAST(REGEXP_REPLACE(numero_socio, '[^0-9]', '', 'g') AS INTEGER)
+                    ELSE NULL
+                END
+            ),
+            0
+        ) AS maximo
+        FROM jugadores
+    """).fetchone()
+    return formatear_numero_socio((fila["maximo"] or 0) + 1)
+
+
+def recalcular_numeros_socio(conn):
+    jugadores = conn.execute("""
+        SELECT id, nombre, apellido, fecha_ingreso, numero_socio, numero_afiliado_obra_social
+        FROM jugadores
+        ORDER BY id ASC
+        FOR UPDATE
+    """).fetchall()
+
+    ordenados = sorted(
+        jugadores,
+        key=lambda jugador: (
+            0 if normalizar_texto_match(jugador.get("apellido")) == "del valle" and normalizar_texto_match(jugador.get("nombre")) == "eduardo" else 1,
+            1 if not validar_fecha_movimiento(jugador.get("fecha_ingreso")) else 0,
+            validar_fecha_movimiento(jugador.get("fecha_ingreso")) or "9999-12-31",
+            jugador["id"],
+        ),
+    )
+
+    migrados_obra_social = 0
+    for indice, jugador in enumerate(ordenados, start=1):
+        numero_socio_anterior = (jugador["numero_socio"] or "").strip()
+        numero_afiliado_actual = (jugador["numero_afiliado_obra_social"] or "").strip()
+        if numero_socio_anterior and not numero_afiliado_actual:
+            conn.execute(
+                "UPDATE jugadores SET numero_afiliado_obra_social = %s WHERE id = %s",
+                (numero_socio_anterior, jugador["id"]),
+            )
+            migrados_obra_social += 1
+        conn.execute(
+            "UPDATE jugadores SET numero_socio = %s WHERE id = %s",
+            (formatear_numero_socio(indice), jugador["id"]),
+        )
+
+    primero = ordenados[0] if ordenados else None
+    return {
+        "cantidad": len(ordenados),
+        "primero": {
+            "id": primero["id"],
+            "nombre": primero["nombre"],
+            "apellido": primero["apellido"],
+        } if primero else None,
+        "migrados_obra_social": migrados_obra_social,
+    }
 
 
 def smtp_configurado():
@@ -7753,6 +7829,7 @@ def nuevo_jugador():
             "email_tutor": request.form.get("email_tutor", "").strip(),
             "direccion": request.form.get("direccion", "").strip(),
             "obra_social": request.form.get("obra_social", "").strip(),
+            "numero_afiliado_obra_social": request.form.get("numero_afiliado_obra_social", "").strip(),
             "numero_socio": request.form.get("numero_socio", "").strip(),
             "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
             "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
@@ -7776,23 +7853,27 @@ def nuevo_jugador():
             return render_template("jugador_form.html", jugador=data, modo="nuevo")
 
         conn = get_connection()
+        if not data["numero_socio"]:
+            data["numero_socio"] = siguiente_numero_socio(conn)
+        else:
+            data["numero_socio"] = formatear_numero_socio(re.sub(r"\D+", "", data["numero_socio"]) or data["numero_socio"])
         creado = conn.execute("""
             INSERT INTO jugadores
             (
                 nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                 fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
-                email_tutor, direccion, obra_social, numero_socio, documentos, observaciones,
+                email_tutor, direccion, obra_social, numero_afiliado_obra_social, numero_socio, documentos, observaciones,
                 beca_activa, beca_porcentaje, beca_desde, beca_hasta, beca_motivo,
                 tipo_miembro, cobra_cuota
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
             data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
             data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
-            data["obra_social"], data["numero_socio"], data["documentos"], data["observaciones"],
+            data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["documentos"], data["observaciones"],
             data["beca_activa"], data["beca_porcentaje"], data["beca_desde"],
             data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"]
         )).fetchone()
@@ -7873,20 +7954,25 @@ def importar_jugadores():
                     errores.append(f"Fila {numero_fila}: DNI ya existente ({data['dni']}).")
                     continue
 
+            if not data["numero_socio"]:
+                data["numero_socio"] = siguiente_numero_socio(conn)
+            else:
+                data["numero_socio"] = formatear_numero_socio(re.sub(r"\D+", "", data["numero_socio"]) or data["numero_socio"])
+
             conn.execute("""
                 INSERT INTO jugadores (
                     nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                     fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
-                    email_tutor, direccion, obra_social, numero_socio, documentos, observaciones,
-                    tipo_miembro, cobra_cuota
+                    email_tutor, direccion, obra_social, numero_afiliado_obra_social, numero_socio,
+                    documentos, observaciones, tipo_miembro, cobra_cuota
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
                 data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
                 data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
                 data["telefono_tutor"], data["email_tutor"], data["direccion"],
-                data["obra_social"], data["numero_socio"], data["documentos"],
+                data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["documentos"],
                 data["observaciones"], data["tipo_miembro"], data["cobra_cuota"],
             ))
             creados += 1
@@ -8018,6 +8104,42 @@ def acciones_masivas_jugadores():
     return redirect(url_for("listar_jugadores"))
 
 
+@app.route("/jugadores/recalcular-numeros-socio", methods=["POST"])
+def recalcular_numeros_socio_route():
+    check = permiso_requerido("jugadores_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    resultado = recalcular_numeros_socio(conn)
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "recalcular",
+        "numero_socio",
+        None,
+        resultado,
+    )
+
+    if resultado["cantidad"]:
+        primero = resultado["primero"]
+        detalle_migracion = ""
+        if resultado.get("migrados_obra_social"):
+            detalle_migracion = (
+                f" Se preservaron {resultado['migrados_obra_social']} numeros previos como afiliado de obra social."
+            )
+        flash(
+            f"Numeros de socio del club regenerados para {resultado['cantidad']} registro(s). "
+            f"El numero 00001 quedo asignado a {primero['apellido']}, {primero['nombre']}."
+            f"{detalle_migracion}",
+            "ok",
+        )
+    else:
+        flash("No habia registros para numerar.", "warning")
+    return redirect(url_for("listar_jugadores"))
+
+
 @app.route("/jugadores/<int:jugador_id>/editar", methods=["GET", "POST"])
 def editar_jugador(jugador_id):
     check = permiso_requerido("jugadores_gestionar")
@@ -8049,6 +8171,7 @@ def editar_jugador(jugador_id):
             "email_tutor": request.form.get("email_tutor", "").strip(),
             "direccion": request.form.get("direccion", "").strip(),
             "obra_social": request.form.get("obra_social", "").strip(),
+            "numero_afiliado_obra_social": request.form.get("numero_afiliado_obra_social", "").strip(),
             "numero_socio": request.form.get("numero_socio", "").strip(),
             "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
             "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
@@ -8077,13 +8200,15 @@ def editar_jugador(jugador_id):
             jugador_dict["id"] = jugador_id
             return render_template("jugador_form.html", jugador=jugador_dict, modo="editar")
 
+        if data["numero_socio"]:
+            data["numero_socio"] = formatear_numero_socio(re.sub(r"\D+", "", data["numero_socio"]) or data["numero_socio"])
         registro_beca = beca_modificada(jugador, data)
         conn.execute("""
             UPDATE jugadores
             SET nombre = %s, apellido = %s, dni = %s, fecha_nacimiento = %s, telefono = %s,
                 email = %s, categoria = %s, fecha_ingreso = %s, estado = %s,
                 contacto_tutor = %s, parentesco_tutor = %s, telefono_tutor = %s,
-                email_tutor = %s, direccion = %s, obra_social = %s, numero_socio = %s,
+                email_tutor = %s, direccion = %s, obra_social = %s, numero_afiliado_obra_social = %s, numero_socio = %s,
                 tipo_miembro = %s, cobra_cuota = %s, documentos = %s, observaciones = %s,
                 beca_activa = %s, beca_porcentaje = %s, beca_desde = %s,
                 beca_hasta = %s, beca_motivo = %s
@@ -8093,7 +8218,7 @@ def editar_jugador(jugador_id):
             data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
             data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
-            data["obra_social"], data["numero_socio"], data["tipo_miembro"], data["cobra_cuota"],
+            data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["tipo_miembro"], data["cobra_cuota"],
             data["documentos"], data["observaciones"], data["beca_activa"], data["beca_porcentaje"],
             data["beca_desde"], data["beca_hasta"], data["beca_motivo"], jugador_id
         ))
@@ -10288,7 +10413,7 @@ def portal_buscar():
     if request.method == "POST":
         identificador = normalizar_identificador_portal(request.form.get("identificador", ""))
         if not identificador:
-            flash("Ingresa tu DNI, email o numero de socio.", "error")
+            flash("Ingresa tu DNI, email o numero de socio del club.", "error")
             return render_template("portal_buscar.html", identificador=identificador)
 
         identificador_lower = identificador.lower()
@@ -10672,6 +10797,7 @@ def portal_actualizar_contacto(token):
         "email": request.form.get("email", "").strip(),
         "direccion": request.form.get("direccion", "").strip(),
         "obra_social": request.form.get("obra_social", "").strip(),
+        "numero_afiliado_obra_social": request.form.get("numero_afiliado_obra_social", "").strip(),
         "contacto_tutor": request.form.get("contacto_tutor", "").strip(),
         "parentesco_tutor": request.form.get("parentesco_tutor", "").strip(),
         "telefono_tutor": request.form.get("telefono_tutor", "").strip(),
@@ -10708,6 +10834,7 @@ def portal_actualizar_contacto(token):
         "email": "Email",
         "direccion": "Direccion",
         "obra_social": "Obra social",
+        "numero_afiliado_obra_social": "Numero de afiliado de obra social",
         "contacto_tutor": "Contacto familiar",
         "parentesco_tutor": "Parentesco",
         "telefono_tutor": "Telefono familiar",
@@ -10732,6 +10859,7 @@ def portal_actualizar_contacto(token):
             email = %s,
             direccion = %s,
             obra_social = %s,
+            numero_afiliado_obra_social = %s,
             contacto_tutor = %s,
             parentesco_tutor = %s,
             telefono_tutor = %s,
@@ -10747,6 +10875,7 @@ def portal_actualizar_contacto(token):
         data["email"],
         data["direccion"],
         data["obra_social"],
+        data["numero_afiliado_obra_social"],
         data["contacto_tutor"],
         data["parentesco_tutor"],
         data["telefono_tutor"],
@@ -10971,7 +11100,7 @@ def portal_descargar_constancia(token):
     y -= 8 * mm
     pdf.drawString(25 * mm, y, f"Categoria: {jugador.get('categoria') or '-'}")
     y -= 8 * mm
-    pdf.drawString(25 * mm, y, f"Numero de socio: {jugador.get('numero_socio') or '-'}")
+    pdf.drawString(25 * mm, y, f"Numero de socio del club: {jugador.get('numero_socio') or '-'}")
     y -= 16 * mm
 
     pdf.drawString(

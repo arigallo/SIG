@@ -15,6 +15,17 @@
     {% endif %}
 </div>
 
+{% if puede('jugadores_gestionar') %}
+<form method="post" action="{{ url_for('recalcular_numeros_socio_route') }}" class="card spaced-small inline-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label>Numeracion de socios</label>
+        <span class="field-hint">Regenera los numeros de socio del club segun fecha de ingreso. Si el afiliado de obra social esta vacio, se preserva ahi el numero previo antes de renumerar. Eduardo Del Valle queda como 00001.</span>
+    </div>
+    <button class="button secondary" type="submit" onclick="return confirm('Regenerar todos los numeros de socio del club actuales?');">Regenerar numeros de socio</button>
+</form>
+{% endif %}
+
 <form method="get" class="search-form search-form-wide search-form-players">
     <div class="search-field search-field-primary">
         <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoria o tipo" value="{{ busqueda }}">

@@ -29,7 +29,7 @@
                 <div class="portal-hero-meta">
                     <span><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</span>
                     <span><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</span>
-                    <span><strong>Socio:</strong> {{ jugador['numero_socio'] or '-' }}</span>
+                    <span><strong>Socio club:</strong> {{ jugador['numero_socio'] or '-' }}</span>
                 </div>
             </div>
             <div class="portal-hero-actions">
@@ -565,6 +565,7 @@
                     <div class="field"><label>Email</label><input type="email" name="email" value="{{ jugador['email'] or '' }}"></div>
                     <div class="field"><label>Direccion</label><input type="text" name="direccion" value="{{ jugador['direccion'] or '' }}"></div>
                     <div class="field"><label>Obra social</label><input type="text" name="obra_social" value="{{ jugador['obra_social'] or '' }}"></div>
+                    <div class="field"><label>Nro. afiliado obra social</label><input type="text" name="numero_afiliado_obra_social" value="{{ jugador['numero_afiliado_obra_social'] or '' }}"></div>
                     <div class="field"><label>Contacto familiar</label><input type="text" name="contacto_tutor" value="{{ jugador['contacto_tutor'] or '' }}"></div>
                     <div class="field"><label>Parentesco</label><input type="text" name="parentesco_tutor" value="{{ jugador['parentesco_tutor'] or '' }}"></div>
                     <div class="field"><label>Telefono familiar</label><input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] or '' }}"></div>
@@ -581,7 +582,9 @@
                 <p><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</p>
                 <p><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</p>
                 <p><strong>Fecha de ingreso:</strong> {{ jugador['fecha_ingreso'] or '-' }}</p>
-                <p><strong>Numero de socio:</strong> {{ jugador['numero_socio'] or '-' }}</p>
+                <p><strong>Numero de socio del club:</strong> {{ jugador['numero_socio'] or '-' }}</p>
+                <p><strong>Obra social:</strong> {{ jugador['obra_social'] or '-' }}</p>
+                <p><strong>Nro. afiliado obra social:</strong> {{ jugador['numero_afiliado_obra_social'] or '-' }}</p>
                 <p><strong>Beca:</strong> {% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}-{% endif %}</p>
             </article>
 

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}{% if modo == 'editar' %}Editar jugador{% else %}Nuevo jugador{% endif %}{% endblock %}
 
 {% block content %}
@@ -27,7 +27,7 @@
     </div>
 
     <div>
-        <label>Teléfono</label>
+        <label>Telefono</label>
         <input type="text" name="telefono" value="{{ jugador['telefono'] if jugador else '' }}">
     </div>
 
@@ -37,12 +37,12 @@
     </div>
 
     <div>
-        <label>Dirección</label>
+        <label>Direccion</label>
         <input type="text" name="direccion" value="{{ jugador['direccion'] if jugador else '' }}">
     </div>
 
     <div>
-        <label>Categoría</label>
+        <label>Categoria</label>
         <input type="text" name="categoria" value="{{ jugador['categoria'] if jugador else '' }}" placeholder="Primera, Juveniles, etc.">
     </div>
 
@@ -81,13 +81,18 @@
     </div>
 
     <div>
-        <label>Número de socio</label>
+        <label>Numero de socio del club</label>
         <input type="text" name="numero_socio" value="{{ jugador['numero_socio'] if jugador else '' }}">
     </div>
 
     <div>
         <label>Obra social</label>
         <input type="text" name="obra_social" value="{{ jugador['obra_social'] if jugador else '' }}">
+    </div>
+
+    <div>
+        <label>Nro. afiliado obra social</label>
+        <input type="text" name="numero_afiliado_obra_social" value="{{ jugador['numero_afiliado_obra_social'] if jugador else '' }}">
     </div>
 
     <div class="full form-subtitle">
@@ -143,7 +148,7 @@
     </div>
 
     <div>
-        <label>Teléfono del contacto</label>
+        <label>Telefono del contacto</label>
         <input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] if jugador else '' }}">
     </div>
 
@@ -154,7 +159,7 @@
 
     <div class="full">
         <label>Documentos / enlaces</label>
-        <textarea name="documentos" rows="3" placeholder="Un documento o enlace por línea">{{ jugador['documentos'] if jugador else '' }}</textarea>
+        <textarea name="documentos" rows="3" placeholder="Un documento o enlace por linea">{{ jugador['documentos'] if jugador else '' }}</textarea>
     </div>
 
     <div class="full">

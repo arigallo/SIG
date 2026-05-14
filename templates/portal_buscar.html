@@ -18,12 +18,12 @@
         </div>
 
         <h1>Portal del jugador</h1>
-        <h2>Ingresa con DNI, email o numero de socio</h2>
+        <h2>Ingresa con DNI, email o numero de socio del club</h2>
 
         <form method="post">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label>DNI, email o numero de socio</label>
+                <label>DNI, email o numero de socio del club</label>
                 <input type="text" name="identificador" value="{{ identificador or '' }}" autocomplete="username" required>
             </div>
 
