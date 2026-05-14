@@ -47,6 +47,26 @@
     </div>
 
     <div>
+        <label>Etapa de recuperacion</label>
+        <input type="text" name="etapa_recuperacion" value="{{ lesion['etapa_recuperacion'] if lesion else '' }}" placeholder="Diagnostico, rehabilitacion, campo, alta">
+    </div>
+
+    <div>
+        <label>Proximo control</label>
+        <input type="date" name="proximo_control" value="{{ lesion['proximo_control'] if lesion else '' }}">
+    </div>
+
+    <div>
+        <label>Retorno estimado</label>
+        <input type="date" name="fecha_retorno_estimada" value="{{ lesion['fecha_retorno_estimada'] if lesion else '' }}">
+    </div>
+
+    <div>
+        <label>Tratamiento hasta</label>
+        <input type="date" name="tratamiento_hasta" value="{{ lesion['tratamiento_hasta'] if lesion else '' }}">
+    </div>
+
+    <div>
         <label>Fecha de alta</label>
         <input type="date" name="fecha_alta" value="{{ lesion['fecha_alta'] if lesion else '' }}">
     </div>

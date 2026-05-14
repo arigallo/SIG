@@ -38,6 +38,7 @@
                     <a class="button secondary" href="{{ url_for('tomar_asistencia', evento_id=evento['id']) }}">
                         Ver / tomar asistencia
                     </a>
+                    <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar CSV</a>
                     {% if puede('asistencia_gestionar') %}
                         <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar</a>
                         {% if not evento['cerrado'] %}

@@ -36,6 +36,22 @@
             </div>
         </div>
 
+        {% if portal_alertas %}
+        <div class="page-section">
+            <div class="section-header">
+                <h3>Notificaciones</h3>
+            </div>
+            <div class="dashboard-cards spaced">
+                {% for alerta in portal_alertas %}
+                    <div class="card stat-card {% if alerta['nivel'] == 'danger' %}alert-card-critical{% elif alerta['nivel'] == 'warning' %}alert-card-warning{% else %}alert-card-info{% endif %}">
+                        <h3>{{ alerta['titulo'] }}</h3>
+                        <p class="muted-line">{{ alerta['detalle'] }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="page-section">
             <div class="section-header">
                 <h3>Calendario deportivo</h3>
@@ -67,6 +83,15 @@
                                 {% if evento['descripcion'] %}
                                     <span class="muted-line">{{ evento['descripcion'] }}</span>
                                  {% endif %}
+                                {% if evento['convocatoria_texto'] %}
+                                    <span class="muted-line">Convocatoria: {{ evento['convocatoria_texto'] }}</span>
+                                {% endif %}
+                                {% if evento['convocatoria_cierre'] %}
+                                    <span class="muted-line">Confirmar antes de {{ evento['convocatoria_cierre'] }}</span>
+                                {% endif %}
+                                {% if evento['minuta_post_evento'] %}
+                                    <span class="muted-line">Minuta: {{ evento['minuta_post_evento'] }}</span>
+                                {% endif %}
                              </td>
                              <td>{{ evento['ubicacion'] or '-' }}</td>
                              <td>
@@ -104,6 +129,68 @@
                          {% endfor %}
                      </tbody>
                  </table>
+            </div>
+        </div>
+
+        <div class="detail-grid page-section">
+            <div class="card">
+                <div class="section-header compact">
+                    <h3>Historial de asistencia</h3>
+                </div>
+                {% if historial_asistencia %}
+                    <div class="table-wrapper flush">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Evento</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in historial_asistencia %}
+                                <tr>
+                                    <td>{{ item['fecha'] }}</td>
+                                    <td>{{ item['tipo'] }}{% if item['descripcion'] %}<span class="muted-line">{{ item['descripcion'] }}</span>{% endif %}</td>
+                                    <td>
+                                        {% if item['estado_asistencia'] == 'a_tiempo' %}
+                                            <span class="badge badge-success">A tiempo</span>
+                                        {% elif item['estado_asistencia'] == 'tarde' %}
+                                            <span class="badge badge-warning">Tarde</span>
+                                        {% else %}
+                                            <span class="badge badge-danger">Ausente</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p>No hay asistencias registradas todavia.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <div class="section-header compact">
+                    <h3>Salud y disponibilidad</h3>
+                    <span class="badge {% if ficha_portal['nivel'] == 'danger' %}badge-danger{% elif ficha_portal['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ ficha_portal['label'] }}</span>
+                </div>
+                {% if lesiones_activas_portal %}
+                    <div class="stack-list">
+                        {% for lesion in lesiones_activas_portal %}
+                            <div class="mini-stat">
+                                <p><strong>{{ lesion['tipo_lesion'] or 'Lesion' }}</strong> - {{ lesion['zona_cuerpo'] or '-' }}</p>
+                                <p><span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span></p>
+                                {% if lesion['etapa_recuperacion'] %}<p><strong>Etapa:</strong> {{ lesion['etapa_recuperacion'] }}</p>{% endif %}
+                                {% if lesion['proximo_control'] %}<p><strong>Proximo control:</strong> {{ lesion['proximo_control'] }}</p>{% endif %}
+                                {% if lesion['fecha_retorno_estimada'] %}<p><strong>Retorno estimado:</strong> {{ lesion['fecha_retorno_estimada'] }}</p>{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No hay lesiones activas o en recuperacion.</p>
+                {% endif %}
             </div>
         </div>
 
@@ -488,7 +575,10 @@
             </div>
 
             <div class="card">
-                <h3>Datos del club</h3>
+                <div class="section-header compact">
+                    <h3>Datos del club</h3>
+                    <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
+                </div>
                 <p><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</p>
                 <p><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</p>
                 <p><strong>Fecha de ingreso:</strong> {{ jugador['fecha_ingreso'] or '-' }}</p>

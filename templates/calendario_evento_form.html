@@ -55,6 +55,21 @@
             <textarea name="descripcion" rows="4">{{ evento['descripcion'] if evento else '' }}</textarea>
         </div>
 
+        <div class="full">
+            <label>Convocatoria / indicaciones para jugadores</label>
+            <textarea name="convocatoria_texto" rows="3" placeholder="Que llevar, horario de encuentro, observaciones previas">{{ evento['convocatoria_texto'] if evento else '' }}</textarea>
+        </div>
+
+        <div>
+            <label>Cierre de convocatoria</label>
+            <input type="datetime-local" name="convocatoria_cierre" value="{{ evento['convocatoria_cierre'] if evento else '' }}">
+        </div>
+
+        <div class="full">
+            <label>Minuta post evento</label>
+            <textarea name="minuta_post_evento" rows="3" placeholder="Resumen, resultado, conclusiones">{{ evento['minuta_post_evento'] if evento else '' }}</textarea>
+        </div>
+
         <label class="checkbox-field">
             <input type="checkbox" name="publicar_portal" {% if not evento or evento.get('publicar_portal', 1) %}checked{% endif %}>
             <span>Publicar en el portal del jugador y calendario suscribible</span>

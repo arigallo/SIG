@@ -5,7 +5,14 @@
 {% block content %}
 <div class="section-header">
     <h2>Comunicación</h2>
-    <a class="button secondary" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+    <div class="actions">
+        <form method="post" action="{{ url_for('enviar_email_comunicacion_morosos_lote') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="mensaje" value="{{ template }}">
+            <button class="button secondary" type="submit">Enviar emails</button>
+        </form>
+        <a class="button secondary" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+    </div>
 </div>
 
 <form method="get" class="card spaced-small">
@@ -60,6 +67,11 @@
                 <td class="communication-message">{{ item['mensaje'] }}</td>
                 <td class="actions">
                     <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                    <form method="post" action="{{ url_for('enviar_email_comunicacion_moroso', jugador_id=jugador['id']) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="mensaje" value="{{ template }}">
+                        <button class="button secondary" type="submit" {% if not item['email'] %}disabled{% endif %}>Email</button>
+                    </form>
                     <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
                 </td>
             </tr>

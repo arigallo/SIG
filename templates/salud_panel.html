@@ -152,7 +152,7 @@
                     <th>Categoria</th>
                     <th>Lesion</th>
                     <th>Estado</th>
-                    <th>Alta estimada</th>
+                    <th>Control / retorno</th>
                     <th>Accion</th>
                 </tr>
             </thead>
@@ -165,8 +165,11 @@
                         {{ lesion['tipo_lesion'] or 'Lesion' }}
                         <span class="muted-line">{{ lesion['zona_cuerpo'] or '-' }} - {{ lesion['fecha_lesion'] or '-' }}</span>
                     </td>
-                    <td><span class="badge badge-warning">{{ lesion['estado'] }}</span></td>
-                    <td>{{ lesion['fecha_alta'] or '-' }}</td>
+                    <td><span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>{% if lesion['etapa_recuperacion'] %}<span class="muted-line">{{ lesion['etapa_recuperacion'] }}</span>{% endif %}</td>
+                    <td>
+                        {% if lesion['proximo_control'] %}<span class="muted-line">Control: {{ lesion['proximo_control'] }}</span>{% endif %}
+                        {% if lesion['fecha_retorno_estimada'] %}<span class="muted-line">Retorno: {{ lesion['fecha_retorno_estimada'] }}</span>{% elif lesion['fecha_alta'] %}<span class="muted-line">Alta: {{ lesion['fecha_alta'] }}</span>{% endif %}
+                    </td>
                     <td><a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a></td>
                 </tr>
                 {% else %}

@@ -16,6 +16,7 @@
                 <th>Tipo</th>
                 <th>Zona</th>
                 <th>Estado</th>
+                <th>Etapa</th>
                 <th>Fecha alta</th>
                 <th>Acciones</th>
             </tr>
@@ -26,7 +27,10 @@
                 <td>{{ lesion['fecha_lesion'] or '-' }}</td>
                 <td>{{ lesion['tipo_lesion'] or '-' }}</td>
                 <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
-                <td>{{ lesion['estado'] }}</td>
+                <td>
+                    <span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>
+                </td>
+                <td>{{ lesion['etapa_recuperacion'] or '-' }}</td>
                 <td>{{ lesion['fecha_alta'] or '-' }}</td>
                 <td class="actions">
                     <a class="button secondary" href="{{ url_for('editar_lesion', lesion_id=lesion['id']) }}">Editar</a>
@@ -37,11 +41,14 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="6" class="cell-expanded">
+                <td colspan="7" class="cell-expanded">
                     <div class="inline-detail-stack">
                         <div class="inline-detail-text">
                             <p><strong>Diagnostico:</strong> {{ lesion['diagnostico'] or '-' }}</p>
                             <p><strong>Tratamiento:</strong> {{ lesion['tratamiento'] or '-' }}</p>
+                            <p><strong>Proximo control:</strong> {{ lesion['proximo_control'] or '-' }}</p>
+                            <p><strong>Retorno estimado:</strong> {{ lesion['fecha_retorno_estimada'] or '-' }}</p>
+                            <p><strong>Tratamiento hasta:</strong> {{ lesion['tratamiento_hasta'] or '-' }}</p>
                             <p><strong>Observaciones:</strong> {{ lesion['observaciones'] or '-' }}</p>
                         </div>
                         <div class="inline-detail-docs">
@@ -75,7 +82,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="empty">No hay lesiones cargadas.</td>
+                <td colspan="7" class="empty">No hay lesiones cargadas.</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -2741,6 +2741,10 @@ def obtener_panel_salud():
             l.jugador_id,
             l.fecha_lesion,
             l.fecha_alta,
+            l.etapa_recuperacion,
+            l.proximo_control,
+            l.fecha_retorno_estimada,
+            l.tratamiento_hasta,
             l.tipo_lesion,
             l.zona_cuerpo,
             l.estado,
@@ -2783,6 +2787,10 @@ def obtener_panel_salud():
     """).fetchall()
 
     conn.close()
+
+    seguimiento_retorno = [dict(lesion) for lesion in seguimiento_retorno]
+    for lesion in seguimiento_retorno:
+        lesion["semaforo"] = semaforo_lesion(lesion)
 
     return {
         "resumen": resumen,
@@ -3090,7 +3098,10 @@ def obtener_calendario(mes):
             hora_inicio,
             duracion_minutos,
             publicar_portal,
-            asistencia_evento_id
+            asistencia_evento_id,
+            convocatoria_texto,
+            convocatoria_cierre,
+            minuta_post_evento
         FROM calendario_eventos
         WHERE fecha >= %s AND fecha < %s
         ORDER BY fecha ASC, id ASC
@@ -3153,6 +3164,21 @@ def obtener_calendario(mes):
         LIMIT 80
     """, (desde, hasta)).fetchall()
 
+    confirmaciones_resumen = {}
+    asistencia_evento_ids = [evento["asistencia_evento_id"] for evento in eventos_manuales if evento.get("asistencia_evento_id")]
+    if asistencia_evento_ids:
+        rows = conn.execute("""
+            SELECT
+                evento_id,
+                SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) AS confirmados,
+                SUM(CASE WHEN estado = 'dudoso' THEN 1 ELSE 0 END) AS dudosos,
+                SUM(CASE WHEN estado = 'no_asiste' THEN 1 ELSE 0 END) AS no_asisten
+            FROM portal_asistencia_confirmaciones
+            WHERE evento_id = ANY(%s)
+            GROUP BY evento_id
+        """, (asistencia_evento_ids,)).fetchall()
+        confirmaciones_resumen = {row["evento_id"]: row for row in rows}
+
     conn.close()
 
     eventos = []
@@ -3172,8 +3198,20 @@ def obtener_calendario(mes):
             "url": url_for("tomar_asistencia", evento_id=evento["asistencia_evento_id"]) if evento.get("asistencia_evento_id") else None,
             "edit_url": url_for("editar_evento_calendario", evento_id=evento["id"]),
             "delete_url": url_for("eliminar_evento_calendario", evento_id=evento["id"]),
+            "convocatoria_texto": evento.get("convocatoria_texto") or "",
+            "convocatoria_cierre": evento.get("convocatoria_cierre") or "",
+            "minuta_post_evento": evento.get("minuta_post_evento") or "",
             "prioridad": "normal",
         })
+        resumen_confirmacion = confirmaciones_resumen.get(evento.get("asistencia_evento_id"))
+        if resumen_confirmacion:
+            eventos[-1]["disponibilidad_resumen"] = (
+                f"{resumen_confirmacion['confirmados'] or 0} conf. / "
+                f"{resumen_confirmacion['dudosos'] or 0} dud. / "
+                f"{resumen_confirmacion['no_asisten'] or 0} no asisten"
+            )
+        else:
+            eventos[-1]["disponibilidad_resumen"] = ""
 
     for evento in eventos_asistencia:
         eventos.append({
@@ -4793,6 +4831,17 @@ def init_db():
         )
     """)
 
+    columnas_lesiones = get_columns(conn, "lesiones")
+    columnas_extra_lesiones = {
+        "etapa_recuperacion": "TEXT",
+        "proximo_control": "TEXT",
+        "fecha_retorno_estimada": "TEXT",
+        "tratamiento_hasta": "TEXT",
+    }
+    for columna, definicion in columnas_extra_lesiones.items():
+        if columna not in columnas_lesiones:
+            conn.execute(f"ALTER TABLE lesiones ADD COLUMN {columna} {definicion}")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS lesiones_documentos (
             id SERIAL PRIMARY KEY,
@@ -5087,6 +5136,9 @@ def init_db():
         "duracion_minutos": "INTEGER DEFAULT 90",
         "publicar_portal": "INTEGER DEFAULT 1",
         "asistencia_evento_id": "INTEGER",
+        "convocatoria_texto": "TEXT",
+        "convocatoria_cierre": "TEXT",
+        "minuta_post_evento": "TEXT",
     }
     for columna, definicion in columnas_extra_calendario.items():
         if columna not in columnas_calendario_eventos:
@@ -5592,6 +5644,7 @@ def proteger_rutas():
         "portal_subir_comprobante",
         "portal_ver_comprobante",
         "portal_descargar_recibo",
+        "portal_descargar_constancia",
         "portal_confirmar_asistencia",
         "portal_calendario_ics",
     }
@@ -5770,17 +5823,18 @@ def enviar_email(destinatario, asunto, cuerpo):
     if not smtp_configurado():
         return False
 
-    cuerpo = f"{str(cuerpo or '').rstrip()}\n\nTesoreria - Ruda Macho Rugby Club"
+    cuerpo_base = str(cuerpo or "").rstrip()
+    cuerpo_texto = f"{cuerpo_base}\n\nTesoreria - Ruda Macho Rugby Club"
     mensaje = EmailMessage()
     mensaje["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
     mensaje["To"] = destinatario
     mensaje["Subject"] = asunto
-    mensaje.set_content(cuerpo)
+    mensaje.set_content(cuerpo_texto)
     logo_path = BASE_DIR / "static" / "img" / "logo.png"
     logo_cid = None
     if logo_path.exists():
         logo_cid = make_msgid(domain="rudamachorugby.com")[1:-1]
-    mensaje.add_alternative(render_email_html(cuerpo, logo_cid=logo_cid), subtype="html")
+    mensaje.add_alternative(render_email_html(cuerpo_base, logo_cid=logo_cid), subtype="html")
     if logo_cid and logo_path.exists():
         with logo_path.open("rb") as fh:
             mensaje.get_payload()[-1].add_related(
@@ -5875,6 +5929,38 @@ def construir_texto_rechazo_comprobante(cuota, observaciones=None, portal_url=No
     if portal_url:
         cuerpo += f"\n\nPodés volver a cargarlo desde tu portal:\n{portal_url}"
     return cuerpo + "\n\nGracias."
+
+
+def semaforo_lesion(lesion):
+    estado = (lesion.get("estado") or "").strip()
+    if estado == "Activa":
+        return "rojo"
+    if estado.lower().startswith("en recuperaci"):
+        return "amarillo"
+    if estado.lower().startswith("alta"):
+        return "verde"
+    return "gris"
+
+
+def estado_ficha_portal(ficha):
+    if not ficha:
+        return {"label": "Sin ficha medica", "nivel": "warning"}
+    if not ficha.get("presentada"):
+        return {"label": "Ficha pendiente", "nivel": "warning"}
+    fecha_vencimiento = validar_fecha_movimiento(ficha.get("fecha_vencimiento"))
+    if fecha_vencimiento:
+        try:
+            fecha = datetime.strptime(fecha_vencimiento, "%Y-%m-%d").date()
+            hoy = datetime.now().date()
+            if fecha < hoy:
+                return {"label": "Ficha vencida", "nivel": "danger"}
+            if fecha <= hoy + timedelta(days=30):
+                return {"label": "Ficha por vencer", "nivel": "warning"}
+        except ValueError:
+            pass
+    if ficha.get("apto_fisico"):
+        return {"label": "Apto fisico vigente", "nivel": "success"}
+    return {"label": "Ficha presentada sin apto", "nivel": "warning"}
 
 
 def crear_token_recuperacion(conn, usuario_id):
@@ -9247,6 +9333,10 @@ def ver_lesiones(jugador_id):
 
     conn.close()
 
+    lesiones = [dict(lesion) for lesion in lesiones]
+    for lesion in lesiones:
+        lesion["semaforo"] = semaforo_lesion(lesion)
+
     documentos_por_lesion = {}
     for documento in documentos:
         documento = dict(documento)
@@ -9280,19 +9370,27 @@ def nueva_lesion(jugador_id):
         diagnostico = request.form.get("diagnostico", "").strip()
         tratamiento = request.form.get("tratamiento", "").strip()
         estado = request.form.get("estado", "").strip() or "Activa"
+        etapa_recuperacion = request.form.get("etapa_recuperacion", "").strip()
+        proximo_control = request.form.get("proximo_control", "").strip()
+        fecha_retorno_estimada = request.form.get("fecha_retorno_estimada", "").strip()
+        tratamiento_hasta = request.form.get("tratamiento_hasta", "").strip()
         fecha_alta = request.form.get("fecha_alta", "").strip()
         observaciones = request.form.get("observaciones", "").strip()
 
         lesion_id = conn.execute("""
             INSERT INTO lesiones (
                 jugador_id, fecha_lesion, tipo_lesion, zona_cuerpo,
-                diagnostico, tratamiento, estado, fecha_alta, observaciones
+                diagnostico, tratamiento, estado, etapa_recuperacion,
+                proximo_control, fecha_retorno_estimada, tratamiento_hasta,
+                fecha_alta, observaciones
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             jugador_id, fecha_lesion, tipo_lesion, zona_cuerpo,
-            diagnostico, tratamiento, estado, fecha_alta, observaciones
+            diagnostico, tratamiento, estado, etapa_recuperacion,
+            proximo_control, fecha_retorno_estimada, tratamiento_hasta,
+            fecha_alta, observaciones
         )).fetchone()["id"]
 
         archivos = request.files.getlist("documentos_adjuntos")
@@ -9309,7 +9407,7 @@ def nueva_lesion(jugador_id):
             conn.rollback()
             conn.close()
             flash(str(error), "error")
-            return render_template("lesion_form.html", jugador=jugador)
+            return render_template("lesion_form.html", jugador=jugador, lesion=request.form, documentos=[])
         except Exception as error:
             conn.rollback()
             conn.close()
@@ -9322,7 +9420,7 @@ def nueva_lesion(jugador_id):
                 ),
                 "error",
             )
-            return render_template("lesion_form.html", jugador=jugador)
+            return render_template("lesion_form.html", jugador=jugador, lesion=request.form, documentos=[])
 
         conn.commit()
         conn.close()
@@ -9369,6 +9467,10 @@ def editar_lesion(lesion_id):
         diagnostico = request.form.get("diagnostico", "").strip()
         tratamiento = request.form.get("tratamiento", "").strip()
         estado = request.form.get("estado", "").strip() or "Activa"
+        etapa_recuperacion = request.form.get("etapa_recuperacion", "").strip()
+        proximo_control = request.form.get("proximo_control", "").strip()
+        fecha_retorno_estimada = request.form.get("fecha_retorno_estimada", "").strip()
+        tratamiento_hasta = request.form.get("tratamiento_hasta", "").strip()
         fecha_alta = request.form.get("fecha_alta", "").strip()
         observaciones = request.form.get("observaciones", "").strip()
 
@@ -9376,12 +9478,15 @@ def editar_lesion(lesion_id):
             UPDATE lesiones
             SET fecha_lesion = %s, tipo_lesion = %s, zona_cuerpo = %s,
                 diagnostico = %s, tratamiento = %s, estado = %s,
+                etapa_recuperacion = %s, proximo_control = %s,
+                fecha_retorno_estimada = %s, tratamiento_hasta = %s,
                 fecha_alta = %s, observaciones = %s
             WHERE id = %s
         """, (
             fecha_lesion, tipo_lesion, zona_cuerpo,
             diagnostico, tratamiento, estado,
-            fecha_alta, observaciones, lesion_id
+            etapa_recuperacion, proximo_control, fecha_retorno_estimada,
+            tratamiento_hasta, fecha_alta, observaciones, lesion_id
         ))
 
         archivos = request.files.getlist("documentos_adjuntos")
@@ -9406,6 +9511,10 @@ def editar_lesion(lesion_id):
                 "diagnostico": diagnostico,
                 "tratamiento": tratamiento,
                 "estado": estado,
+                "etapa_recuperacion": etapa_recuperacion,
+                "proximo_control": proximo_control,
+                "fecha_retorno_estimada": fecha_retorno_estimada,
+                "tratamiento_hasta": tratamiento_hasta,
                 "fecha_alta": fecha_alta,
                 "observaciones": observaciones,
             })
@@ -9431,6 +9540,10 @@ def editar_lesion(lesion_id):
                 "diagnostico": diagnostico,
                 "tratamiento": tratamiento,
                 "estado": estado,
+                "etapa_recuperacion": etapa_recuperacion,
+                "proximo_control": proximo_control,
+                "fecha_retorno_estimada": fecha_retorno_estimada,
+                "tratamiento_hasta": tratamiento_hasta,
                 "fecha_alta": fecha_alta,
                 "observaciones": observaciones,
             })
@@ -10256,6 +10369,43 @@ def portal_jugador(token):
         ORDER BY fecha_vencimiento DESC NULLS LAST, id DESC
     """, (jugador["id"],)).fetchall()
 
+    historial_asistencia = conn.execute("""
+        SELECT
+            e.fecha,
+            e.tipo,
+            e.descripcion,
+            a.estado_asistencia,
+            a.presente,
+            a.observaciones
+        FROM asistencias a
+        JOIN eventos_asistencia e ON e.id = a.evento_id
+        WHERE a.jugador_id = %s
+        ORDER BY e.fecha DESC, e.id DESC
+        LIMIT 12
+    """, (jugador["id"],)).fetchall()
+
+    lesiones_activas_portal = conn.execute("""
+        SELECT
+            id,
+            fecha_lesion,
+            tipo_lesion,
+            zona_cuerpo,
+            estado,
+            etapa_recuperacion,
+            proximo_control,
+            fecha_retorno_estimada,
+            tratamiento_hasta,
+            observaciones
+        FROM lesiones
+        WHERE jugador_id = %s
+          AND (
+              estado = 'Activa'
+              OR estado ILIKE 'En recuperaci%%'
+          )
+        ORDER BY fecha_lesion DESC, id DESC
+        LIMIT 6
+    """, (jugador["id"],)).fetchall()
+
     planes_pago = conn.execute("""
         SELECT *
         FROM planes_pago
@@ -10331,6 +10481,49 @@ def portal_jugador(token):
     if evento_ids_confirmables:
         confirmaciones_portal = obtener_confirmaciones_portal(conn, evento_ids_confirmables, jugador["id"])
     conn.close()
+
+    documentos_por_vencer = 0
+    hoy = datetime.now().date()
+    for documento in documentos:
+        fecha_vencimiento = validar_fecha_movimiento(documento.get("fecha_vencimiento"))
+        if not fecha_vencimiento:
+            continue
+        try:
+            fecha = datetime.strptime(fecha_vencimiento, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if fecha <= hoy + timedelta(days=30):
+            documentos_por_vencer += 1
+
+    portal_alertas = []
+    if deuda > 0:
+        portal_alertas.append({
+            "nivel": "danger",
+            "titulo": "Tenes deuda pendiente",
+            "detalle": f"Actualmente tenes {formato_moneda(deuda)} pendientes de pago.",
+        })
+    ficha_portal = estado_ficha_portal(ficha)
+    if ficha_portal["nivel"] != "success":
+        portal_alertas.append({
+            "nivel": ficha_portal["nivel"],
+            "titulo": "Estado de ficha medica",
+            "detalle": ficha_portal["label"],
+        })
+    if documentos_por_vencer:
+        portal_alertas.append({
+            "nivel": "warning",
+            "titulo": "Documentacion por revisar",
+            "detalle": f"Tenes {documentos_por_vencer} documento(s) con vencimiento cercano.",
+        })
+    if lesiones_activas_portal:
+        portal_alertas.append({
+            "nivel": "warning",
+            "titulo": "Seguimiento de salud activo",
+            "detalle": f"Hay {len(lesiones_activas_portal)} lesion(es) activa(s) o en recuperacion.",
+        })
+
+    for lesion in lesiones_activas_portal:
+        lesion["semaforo"] = semaforo_lesion(lesion)
     for evento in eventos_deportivos:
         confirmacion = None
         if evento.get("asistencia_evento_id"):
@@ -10354,6 +10547,10 @@ def portal_jugador(token):
         deuda=deuda,
         ficha=ficha,
         documentos=documentos,
+        historial_asistencia=historial_asistencia,
+        lesiones_activas_portal=lesiones_activas_portal,
+        portal_alertas=portal_alertas,
+        ficha_portal=ficha_portal,
         planes_pago=planes_pago,
         tests_recientes=tests_recientes,
         resumen_tests=resumir_resultados_tests(tests_recientes),
@@ -10738,6 +10935,67 @@ def portal_descargar_recibo(token, cuota_id):
     )
 
 
+@app.route("/portal/<token>/constancia")
+def portal_descargar_constancia(token):
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT *
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    conn.close()
+
+    if jugador is None:
+        abort(404)
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
+    y = alto - 30 * mm
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(25 * mm, y, "Constancia de jugador activo")
+    y -= 14 * mm
+
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(25 * mm, y, f"Club: Ruda Macho Rugby Club")
+    y -= 8 * mm
+    pdf.drawString(25 * mm, y, f"Fecha de emision: {datetime.now().strftime('%Y-%m-%d')}")
+    y -= 14 * mm
+
+    nombre_completo = f"{jugador.get('apellido') or ''}, {jugador.get('nombre') or ''}".strip(", ")
+    pdf.drawString(25 * mm, y, f"Jugador/a: {nombre_completo or '-'}")
+    y -= 8 * mm
+    pdf.drawString(25 * mm, y, f"DNI: {jugador.get('dni') or '-'}")
+    y -= 8 * mm
+    pdf.drawString(25 * mm, y, f"Categoria: {jugador.get('categoria') or '-'}")
+    y -= 8 * mm
+    pdf.drawString(25 * mm, y, f"Numero de socio: {jugador.get('numero_socio') or '-'}")
+    y -= 16 * mm
+
+    pdf.drawString(
+        25 * mm,
+        y,
+        "Se deja constancia de que la persona indicada posee portal activo en el sistema del club.",
+    )
+    y -= 24 * mm
+
+    pdf.line(25 * mm, y, 90 * mm, y)
+    pdf.drawString(25 * mm, y - 7 * mm, "Tesoreria / Administracion")
+    pdf.setFont("Helvetica-Oblique", 9)
+    pdf.drawString(25 * mm, 20 * mm, "Ruda Macho Rugby Club - Sistema Integral de Gestion")
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="constancia_jugador.pdf",
+    )
+
+
 @app.route("/calendario")
 def ver_calendario():
     check = permiso_requerido("calendario_ver")
@@ -10783,6 +11041,9 @@ def nuevo_evento_calendario():
             "descripcion": request.form.get("descripcion", "").strip(),
             "ubicacion": request.form.get("ubicacion", "").strip(),
             "categoria": request.form.get("categoria", "").strip(),
+            "convocatoria_texto": request.form.get("convocatoria_texto", "").strip(),
+            "convocatoria_cierre": request.form.get("convocatoria_cierre", "").strip(),
+            "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
         }
@@ -10809,12 +11070,14 @@ def nuevo_evento_calendario():
         if data["crear_asistencia"]:
             asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
 
-        conn.execute("""
+        evento_id = conn.execute("""
             INSERT INTO calendario_eventos (
                 fecha, tipo, titulo, descripcion, ubicacion, categoria,
-                hora_inicio, duracion_minutos, publicar_portal, asistencia_evento_id
+                hora_inicio, duracion_minutos, publicar_portal, asistencia_evento_id,
+                convocatoria_texto, convocatoria_cierre, minuta_post_evento
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
         """, (
             data["fecha"],
             data["tipo"],
@@ -10826,9 +11089,18 @@ def nuevo_evento_calendario():
             data["duracion_minutos"],
             data["publicar_portal"],
             asistencia_evento_id,
-        ))
+            data["convocatoria_texto"] or None,
+            data["convocatoria_cierre"] or None,
+            data["minuta_post_evento"] or None,
+        )).fetchone()["id"]
         conn.commit()
         conn.close()
+
+        registrar_auditoria("crear", "calendario_evento", str(evento_id), {
+            "tipo": data["tipo"],
+            "fecha": data["fecha"],
+            "asistencia_evento_id": asistencia_evento_id,
+        })
 
         if asistencia_evento_id:
             flash("Evento agregado al calendario y listo para tomar asistencia.", "ok")
@@ -10869,6 +11141,9 @@ def editar_evento_calendario(evento_id):
             "descripcion": request.form.get("descripcion", "").strip(),
             "ubicacion": request.form.get("ubicacion", "").strip(),
             "categoria": request.form.get("categoria", "").strip(),
+            "convocatoria_texto": request.form.get("convocatoria_texto", "").strip(),
+            "convocatoria_cierre": request.form.get("convocatoria_cierre", "").strip(),
+            "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
         }
@@ -10931,7 +11206,10 @@ def editar_evento_calendario(evento_id):
                 hora_inicio = %s,
                 duracion_minutos = %s,
                 publicar_portal = %s,
-                asistencia_evento_id = %s
+                asistencia_evento_id = %s,
+                convocatoria_texto = %s,
+                convocatoria_cierre = %s,
+                minuta_post_evento = %s
             WHERE id = %s
         """, (
             data["fecha"],
@@ -10944,10 +11222,19 @@ def editar_evento_calendario(evento_id):
             data["duracion_minutos"],
             data["publicar_portal"],
             asistencia_evento_id,
+            data["convocatoria_texto"] or None,
+            data["convocatoria_cierre"] or None,
+            data["minuta_post_evento"] or None,
             evento_id,
         ))
         conn.commit()
         conn.close()
+
+        registrar_auditoria("editar", "calendario_evento", str(evento_id), {
+            "tipo": data["tipo"],
+            "fecha": data["fecha"],
+            "asistencia_evento_id": asistencia_evento_id,
+        })
 
         flash("Evento actualizado.", "ok")
         return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
@@ -10985,6 +11272,13 @@ def eliminar_evento_calendario(evento_id):
     conn.execute("DELETE FROM calendario_eventos WHERE id = %s", (evento_id,))
     conn.commit()
     conn.close()
+
+    registrar_auditoria("eliminar", "calendario_evento", str(evento_id), {
+        "fecha": evento.get("fecha"),
+        "tipo": evento.get("tipo"),
+        "titulo": evento.get("titulo"),
+        "asistencia_evento_id": asistencia_evento_id,
+    })
 
     flash("Evento eliminado.", "ok")
     return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
@@ -11650,6 +11944,7 @@ def ver_comunicaciones():
         comunicaciones.append({
             "jugador": jugador,
             "mensaje": mensaje,
+            "email": email_jugador_preferido(jugador),
             "telefono_whatsapp": telefono_whatsapp,
             "whatsapp_url": whatsapp_url,
         })
@@ -11659,6 +11954,60 @@ def ver_comunicaciones():
         template=template,
         comunicaciones=comunicaciones,
     )
+
+
+@app.route("/comunicaciones/<int:jugador_id>/email", methods=["POST"])
+def enviar_email_comunicacion_moroso(jugador_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    template_default = (
+        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
+        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
+    )
+    template = request.form.get("mensaje", template_default).strip() or template_default
+    jugadores = obtener_morosos_para_comunicacion()
+    jugador = next((item for item in jugadores if item["id"] == jugador_id), None)
+    if jugador is None:
+        flash("Jugador no encontrado en el listado de deuda.", "error")
+        return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+    mensaje = mensaje_moroso(template, jugador)
+    asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
+    enviado, destinatario = enviar_email_jugador(jugador, asunto, mensaje)
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "moroso", str(jugador_id), {"destinatario": destinatario, "tipo": "comunicacion_moroso"})
+        flash("Email enviado.", "ok")
+    else:
+        flash("No se pudo enviar el email. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+    return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+
+@app.route("/comunicaciones/email-lote", methods=["POST"])
+def enviar_email_comunicacion_morosos_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    template_default = (
+        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
+        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
+    )
+    template = request.form.get("mensaje", template_default).strip() or template_default
+    jugadores = obtener_morosos_para_comunicacion()
+    enviados = 0
+    for jugador in jugadores:
+        mensaje = mensaje_moroso(template, jugador)
+        asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
+        enviado, _ = enviar_email_jugador(jugador, asunto, mensaje)
+        enviados += 1 if enviado else 0
+
+    registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos"})
+    flash(f"Se enviaron {enviados} emails de comunicación.", "ok" if enviados else "error")
+    return redirect(url_for("ver_comunicaciones", mensaje=template))
 
 
 @app.route("/notificaciones")
@@ -14188,6 +14537,10 @@ def editar_evento_asistencia(evento_id):
         """, (fecha, tipo, descripcion or None, evento_id))
         conn.commit()
         conn.close()
+        registrar_auditoria("editar", "asistencia_evento", str(evento_id), {
+            "fecha": fecha,
+            "tipo": tipo,
+        })
         flash("Evento de asistencia actualizado.", "ok")
         return redirect(url_for("listar_eventos_asistencia"))
 
@@ -14272,6 +14625,77 @@ def eliminar_evento_asistencia(evento_id):
     conn.close()
     flash("Evento de asistencia eliminado.", "ok")
     return redirect(url_for("listar_eventos_asistencia"))
+
+
+@app.route("/asistencia/<int:evento_id>/exportar")
+def exportar_evento_asistencia(evento_id):
+    check = permiso_requerido("asistencia_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    jugadores = conn.execute("""
+        SELECT
+            'Jugador' AS tipo_persona,
+            j.apellido,
+            j.nombre,
+            j.categoria,
+            a.estado_asistencia,
+            a.presente,
+            a.observaciones
+        FROM asistencias a
+        JOIN jugadores j ON j.id = a.jugador_id
+        WHERE a.evento_id = %s
+    """, (evento_id,)).fetchall()
+
+    aspirantes = conn.execute("""
+        SELECT
+            'Ahijadx' AS tipo_persona,
+            a2.apellido,
+            a2.nombre,
+            NULL::TEXT AS categoria,
+            aa.estado_asistencia,
+            aa.presente,
+            aa.observaciones
+        FROM aspirante_asistencias aa
+        JOIN aspirantes a2 ON a2.id = aa.aspirante_id
+        WHERE aa.evento_id = %s
+    """, (evento_id,)).fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Fecha", "Tipo evento", "Descripcion", "Persona", "Tipo persona", "Categoria", "Estado", "Presente", "Observaciones"])
+    for fila in list(jugadores) + list(aspirantes):
+        writer.writerow([
+            evento.get("fecha") or "",
+            evento.get("tipo") or "",
+            evento.get("descripcion") or "",
+            f"{fila['apellido']}, {fila['nombre']}",
+            fila["tipo_persona"],
+            fila.get("categoria") or "",
+            fila.get("estado_asistencia") or "",
+            "Si" if fila.get("presente") else "No",
+            fila.get("observaciones") or "",
+        ])
+
+    registrar_auditoria("exportar", "asistencia_evento", str(evento_id), {
+        "filas": len(jugadores) + len(aspirantes),
+        "fecha": evento.get("fecha"),
+        "tipo": evento.get("tipo"),
+    })
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=asistencia_{evento_id}.csv"},
+    )
 
 
 @app.route("/asistencia/<int:evento_id>", methods=["GET", "POST"])
@@ -14378,6 +14802,11 @@ def tomar_asistencia(evento_id):
 
         conn.commit()
         conn.close()
+
+        registrar_auditoria("guardar", "asistencia_evento", str(evento_id), {
+            "jugadores": len(jugadores),
+            "aspirantes": len(aspirantes),
+        })
 
         flash("Asistencia guardada.", "ok")
         return redirect(url_for("listar_eventos_asistencia"))

@@ -74,7 +74,21 @@
                 <td><strong>{{ evento['titulo'] }}</strong></td>
                 <td>{{ evento['categoria'] or '-' }}</td>
                 <td>{{ evento['ubicacion'] or '-' }}</td>
-                <td>{{ evento['detalle'] or '-' }}</td>
+                <td>
+                    {{ evento['detalle'] or '-' }}
+                    {% if evento['disponibilidad_resumen'] %}
+                        <span class="muted-line">Portal: {{ evento['disponibilidad_resumen'] }}</span>
+                    {% endif %}
+                    {% if evento['convocatoria_texto'] %}
+                        <span class="muted-line">Convocatoria: {{ evento['convocatoria_texto'] }}</span>
+                    {% endif %}
+                    {% if evento['convocatoria_cierre'] %}
+                        <span class="muted-line">Cierre: {{ evento['convocatoria_cierre'] }}</span>
+                    {% endif %}
+                    {% if evento['minuta_post_evento'] %}
+                        <span class="muted-line">Minuta: {{ evento['minuta_post_evento'] }}</span>
+                    {% endif %}
+                </td>
                 <td class="actions">
                     {% if evento['url'] %}
                         <a class="button secondary" href="{{ evento['url'] }}">{% if evento['origen'] == 'calendario' %}Tomar asistencia{% else %}Ver{% endif %}</a>
