@@ -16,13 +16,17 @@
 </div>
 
 <form method="get" class="search-form search-form-wide search-form-players">
-    <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoria o tipo" value="{{ busqueda }}">
-    <select name="tipo">
-        <option value="">Todos los tipos</option>
-        {% for tipo in tipos_miembro %}
-            <option value="{{ tipo }}" {% if tipo_filtro == tipo %}selected{% endif %}>{{ tipo }}</option>
-        {% endfor %}
-    </select>
+    <div class="search-field search-field-primary">
+        <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoria o tipo" value="{{ busqueda }}">
+    </div>
+    <div class="search-field search-field-filter">
+        <select name="tipo">
+            <option value="">Todos los tipos</option>
+            {% for tipo in tipos_miembro %}
+                <option value="{{ tipo }}" {% if tipo_filtro == tipo %}selected{% endif %}>{{ tipo }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <button type="submit">Buscar</button>
     {% if busqueda or tipo_filtro %}
         <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Limpiar</a>

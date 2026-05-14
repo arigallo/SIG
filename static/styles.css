@@ -730,10 +730,24 @@ button:disabled {
 
 .search-form.search-form-players {
     max-width: 100%;
+    grid-template-columns: minmax(420px, 2.2fr) minmax(220px, 280px) auto auto;
 }
 
-.search-form.search-form-players input[name="q"] {
+.search-form.search-form-players .search-field {
     min-width: 0;
+}
+
+.search-form.search-form-players .search-field-primary {
+    min-width: 420px;
+}
+
+.search-form.search-form-players .search-field-filter {
+    min-width: 220px;
+}
+
+.search-form.search-form-players input[name="q"],
+.search-form.search-form-players select[name="tipo"] {
+    width: 100%;
     min-height: 48px;
     padding-inline: 15px;
     font-size: 15px;
@@ -1936,6 +1950,13 @@ tbody tr:hover {
     .search-form.search-form-wide {
         grid-template-columns: 1fr;
         padding: 14px;
+    }
+
+    .search-form.search-form-players,
+    .search-form.search-form-players .search-field-primary,
+    .search-form.search-form-players .search-field-filter {
+        grid-template-columns: 1fr;
+        min-width: 0;
     }
 
     .dashboard-cards {
