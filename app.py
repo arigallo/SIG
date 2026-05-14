@@ -5753,8 +5753,8 @@ def enviar_email(destinatario, asunto, cuerpo):
 
 def email_jugador_preferido(jugador):
     return normalizar_email(
-        (jugador or {}).get("email_tutor")
-        or (jugador or {}).get("email")
+        (jugador or {}).get("email")
+        or (jugador or {}).get("email_tutor")
         or ""
     )
 
