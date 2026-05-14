@@ -17,88 +17,101 @@
             {% endif %}
         {% endwith %}
 
-        <div class="section-header">
-            <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
-        </div>
+        {% set proximo_evento = eventos_deportivos[0] if eventos_deportivos else None %}
 
-        <div class="dashboard-cards spaced">
-            <div class="card stat-card">
-                <h3>Estado</h3>
-                <p class="stat-number compact">{{ jugador['estado'] }}</p>
+        <section class="portal-hero">
+            <div class="portal-hero-copy">
+                <span class="badge badge-info">Portal del jugador</span>
+                <h1>{{ jugador['nombre'] }}, {{ jugador['apellido'] }}</h1>
+                <p class="portal-hero-text">
+                    Tu espacio personal para seguir entrenamientos, pagos, salud y evolucion deportiva en un solo lugar.
+                </p>
+                <div class="portal-hero-meta">
+                    <span><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</span>
+                    <span><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</span>
+                    <span><strong>Socio:</strong> {{ jugador['numero_socio'] or '-' }}</span>
+                </div>
             </div>
-            <div class="card stat-card">
-                <h3>Categoria</h3>
-                <p class="stat-number compact">{{ jugador['categoria'] or '-' }}</p>
+            <div class="portal-hero-actions">
+                <a class="button" href="{{ calendario_webcal_url }}">iPhone</a>
+                <a class="button secondary" href="{{ calendario_android_url }}">Android</a>
+                <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
+                <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
+                <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
             </div>
-            <div class="card stat-card">
-                <h3>Deuda</h3>
-                <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</p>
-            </div>
-        </div>
+        </section>
+
+        <section class="portal-summary-grid">
+            <article class="card portal-summary-card">
+                <span class="portal-summary-label">Deuda actual</span>
+                <strong class="portal-summary-value {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</strong>
+                <span class="muted-line">{% if deuda > 0 %}Tenes saldo pendiente para regularizar.{% else %}No hay deuda pendiente.{% endif %}</span>
+            </article>
+            <article class="card portal-summary-card">
+                <span class="portal-summary-label">Ficha medica</span>
+                <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
+                <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revisa el estado de tu documentacion.{% endif %}</span>
+            </article>
+            <article class="card portal-summary-card">
+                <span class="portal-summary-label">Proximo evento</span>
+                <strong class="portal-summary-value">{% if proximo_evento %}{{ proximo_evento['titulo'] }}{% else %}Sin agenda cercana{% endif %}</strong>
+                <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todavia no hay eventos publicados.{% endif %}</span>
+            </article>
+            <article class="card portal-summary-card">
+                <span class="portal-summary-label">Tests registrados</span>
+                <strong class="portal-summary-value">{{ tests_recientes | length }}</strong>
+                <span class="muted-line">{% if resumen_tests %}Tu evolucion deportiva ya esta disponible.{% else %}Todavia no hay mediciones cargadas.{% endif %}</span>
+            </article>
+        </section>
 
         {% if portal_alertas %}
-        <div class="page-section">
+        <section class="page-section">
             <div class="section-header">
                 <h3>Notificaciones</h3>
             </div>
-            <div class="dashboard-cards spaced">
+            <div class="portal-alert-grid">
                 {% for alerta in portal_alertas %}
-                    <div class="card stat-card {% if alerta['nivel'] == 'danger' %}alert-card-critical{% elif alerta['nivel'] == 'warning' %}alert-card-warning{% else %}alert-card-info{% endif %}">
+                    <article class="card portal-alert-card portal-alert-{{ alerta['nivel'] }}">
                         <h3>{{ alerta['titulo'] }}</h3>
-                        <p class="muted-line">{{ alerta['detalle'] }}</p>
-                    </div>
+                        <p>{{ alerta['detalle'] }}</p>
+                    </article>
                 {% endfor %}
             </div>
-        </div>
+        </section>
         {% endif %}
 
-        <div class="page-section">
-            <div class="section-header">
-                <h3>Calendario deportivo</h3>
-                <div class="actions">
-                    <a class="button" href="{{ calendario_webcal_url }}">Suscribirme en iPhone</a>
-                    <a class="button secondary" href="{{ calendario_android_url }}">Suscribirme en Android</a>
-                    <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
-                    <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
+        <section class="portal-overview-grid page-section">
+            <article class="card portal-panel portal-panel-large">
+                <div class="section-header compact">
+                    <div>
+                        <h3>Calendario deportivo</h3>
+                        <span class="muted-line">Eventos publicados para tu categoria</span>
+                    </div>
                 </div>
-            </div>
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Evento</th>
-                            <th>Lugar</th>
-                            <th>Asistencia</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for evento in eventos_deportivos %}
-                        <tr>
-                            <td>{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</td>
-                            <td><span class="badge badge-info">{{ evento['tipo'] }}</span></td>
-                            <td>
-                                <strong>{{ evento['titulo'] }}</strong>
+                <div class="portal-event-list">
+                    {% for evento in eventos_deportivos %}
+                        <div class="portal-event-item">
+                            <div class="portal-event-main">
+                                <div class="portal-event-meta">
+                                    <span class="badge badge-info">{{ evento['tipo'] }}</span>
+                                    <span class="muted-line">{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
+                                </div>
+                                <h4>{{ evento['titulo'] }}</h4>
                                 {% if evento['descripcion'] %}
-                                    <span class="muted-line">{{ evento['descripcion'] }}</span>
-                                 {% endif %}
-                                {% if evento['convocatoria_texto'] %}
-                                    <span class="muted-line">Convocatoria: {{ evento['convocatoria_texto'] }}</span>
+                                    <p class="muted-line">{{ evento['descripcion'] }}</p>
                                 {% endif %}
-                                {% if evento['convocatoria_cierre'] %}
-                                    <span class="muted-line">Confirmar antes de {{ evento['convocatoria_cierre'] }}</span>
-                                {% endif %}
-                                {% if evento['minuta_post_evento'] %}
-                                    <span class="muted-line">Minuta: {{ evento['minuta_post_evento'] }}</span>
-                                {% endif %}
-                             </td>
-                             <td>{{ evento['ubicacion'] or '-' }}</td>
-                             <td>
+                                <div class="portal-chip-row">
+                                    {% if evento['ubicacion'] %}<span>{{ evento['ubicacion'] }}</span>{% endif %}
+                                    {% if evento['convocatoria_texto'] %}<span>{{ evento['convocatoria_texto'] }}</span>{% endif %}
+                                    {% if evento['convocatoria_cierre'] %}<span>Confirmar antes de {{ evento['convocatoria_cierre'] }}</span>{% endif %}
+                                    {% if evento['minuta_post_evento'] %}<span>{{ evento['minuta_post_evento'] }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="portal-event-side">
                                 {% if evento['asistencia_evento_id'] %}
                                     {% set confirmacion = evento['confirmacion_portal'] %}
                                     {% if confirmacion %}
-                                        <span class="muted-line">
+                                        <span class="badge {% if confirmacion['estado'] == 'confirmado' %}badge-success{% elif confirmacion['estado'] == 'dudoso' %}badge-warning{% else %}badge-danger{% endif %}">
                                             {% if confirmacion['estado'] == 'confirmado' %}
                                                 Confirmado
                                             {% elif confirmacion['estado'] == 'dudoso' %}
@@ -108,32 +121,76 @@
                                             {% endif %}
                                         </span>
                                     {% endif %}
-                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="top-gap">
+                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
                                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                         <select name="estado">
                                             <option value="confirmado" {% if confirmacion and confirmacion['estado'] == 'confirmado' %}selected{% endif %}>Confirmo</option>
                                             <option value="dudoso" {% if confirmacion and confirmacion['estado'] == 'dudoso' %}selected{% endif %}>Dudoso</option>
                                             <option value="no_asiste" {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}selected{% endif %}>No puedo</option>
                                         </select>
-                                        <button class="button secondary top-gap" type="submit">Guardar</button>
+                                        <button class="button secondary" type="submit">Guardar</button>
                                     </form>
                                 {% else %}
-                                    -
+                                    <span class="muted-line">Sin confirmacion</span>
                                 {% endif %}
-                             </td>
-                         </tr>
-                         {% else %}
-                         <tr>
-                            <td colspan="5" class="empty">No hay eventos deportivos publicados.</td>
-                         </tr>
-                         {% endfor %}
-                     </tbody>
-                 </table>
-            </div>
-        </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="empty">No hay eventos deportivos publicados.</p>
+                    {% endfor %}
+                </div>
+            </article>
 
-        <div class="detail-grid page-section">
-            <div class="card">
+            <article class="card portal-panel">
+                <div class="section-header compact">
+                    <h3>Salud y disponibilidad</h3>
+                    <span class="badge {% if ficha_portal['nivel'] == 'danger' %}badge-danger{% elif ficha_portal['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ ficha_portal['label'] }}</span>
+                </div>
+                {% if lesiones_activas_portal %}
+                    <div class="stack-list">
+                        {% for lesion in lesiones_activas_portal %}
+                            <div class="mini-stat portal-health-item">
+                                <strong>{{ lesion['tipo_lesion'] or 'Lesion' }}</strong>
+                                <span>{{ lesion['zona_cuerpo'] or '-' }}</span>
+                                <span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>
+                                {% if lesion['etapa_recuperacion'] %}<span class="muted-line">Etapa: {{ lesion['etapa_recuperacion'] }}</span>{% endif %}
+                                {% if lesion['proximo_control'] %}<span class="muted-line">Proximo control: {{ lesion['proximo_control'] }}</span>{% endif %}
+                                {% if lesion['fecha_retorno_estimada'] %}<span class="muted-line">Retorno estimado: {{ lesion['fecha_retorno_estimada'] }}</span>{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No hay lesiones activas o en recuperacion.</p>
+                {% endif %}
+            </article>
+        </section>
+
+        <section class="portal-overview-grid page-section">
+            <article class="card portal-panel">
+                <div class="section-header compact">
+                    <h3>Resumen economico</h3>
+                </div>
+                <div class="mini-stat-grid">
+                    <div class="mini-stat">
+                        <strong>Planes de pago</strong>
+                        <span>{{ planes_pago | length }}</span>
+                    </div>
+                    <div class="mini-stat">
+                        <strong>Cuotas visibles</strong>
+                        <span>{{ cuotas | length }}</span>
+                    </div>
+                    <div class="mini-stat">
+                        <strong>Beca</strong>
+                        <span>{% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="mini-stat">
+                        <strong>Estado de deuda</strong>
+                        <span>{% if deuda > 0 %}Pendiente{% else %}Al dia{% endif %}</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="card portal-panel">
                 <div class="section-header compact">
                     <h3>Historial de asistencia</h3>
                 </div>
@@ -169,32 +226,10 @@
                 {% else %}
                     <p>No hay asistencias registradas todavia.</p>
                 {% endif %}
-            </div>
+            </article>
+        </section>
 
-            <div class="card">
-                <div class="section-header compact">
-                    <h3>Salud y disponibilidad</h3>
-                    <span class="badge {% if ficha_portal['nivel'] == 'danger' %}badge-danger{% elif ficha_portal['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ ficha_portal['label'] }}</span>
-                </div>
-                {% if lesiones_activas_portal %}
-                    <div class="stack-list">
-                        {% for lesion in lesiones_activas_portal %}
-                            <div class="mini-stat">
-                                <p><strong>{{ lesion['tipo_lesion'] or 'Lesion' }}</strong> - {{ lesion['zona_cuerpo'] or '-' }}</p>
-                                <p><span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span></p>
-                                {% if lesion['etapa_recuperacion'] %}<p><strong>Etapa:</strong> {{ lesion['etapa_recuperacion'] }}</p>{% endif %}
-                                {% if lesion['proximo_control'] %}<p><strong>Proximo control:</strong> {{ lesion['proximo_control'] }}</p>{% endif %}
-                                {% if lesion['fecha_retorno_estimada'] %}<p><strong>Retorno estimado:</strong> {{ lesion['fecha_retorno_estimada'] }}</p>{% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p>No hay lesiones activas o en recuperacion.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="page-section">
+        <section class="page-section">
             <div class="section-header">
                 <h3>Planes de pago</h3>
             </div>
@@ -236,11 +271,11 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        <div class="page-section">
+        <section class="page-section">
             <div class="section-header">
-                <h3>Cuotas</h3>
+                <h3>Cuotas y comprobantes</h3>
             </div>
             <div class="table-wrapper">
                 <table>
@@ -337,9 +372,9 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        <div class="page-section">
+        <section class="page-section">
             <div class="section-header">
                 <h3>Evolucion de tests</h3>
             </div>
@@ -383,9 +418,9 @@
             {% else %}
                 <p>No hay tests cargados todavia.</p>
             {% endif %}
-        </div>
+        </section>
 
-        <div class="page-section">
+        <section class="page-section">
             <div class="section-header">
                 <h3>Analisis de tests</h3>
                 {% if portal_test_actual %}
@@ -515,66 +550,30 @@
             {% else %}
                 <p>No hay tests cargados todavia.</p>
             {% endif %}
-        </div>
+        </section>
 
-        <div class="detail-grid page-section">
-            <div class="card">
+        <section class="detail-grid page-section">
+            <article class="card portal-panel">
                 <h3>Datos personales</h3>
                 <form method="post" action="{{ url_for('portal_actualizar_contacto', token=token) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <div class="field">
-                        <label>Nombre</label>
-                        <input type="text" name="nombre" value="{{ jugador['nombre'] or '' }}" required>
-                    </div>
-                    <div class="field">
-                        <label>Apellido</label>
-                        <input type="text" name="apellido" value="{{ jugador['apellido'] or '' }}" required>
-                    </div>
-                    <div class="field">
-                        <label>DNI</label>
-                        <input type="text" name="dni" value="{{ jugador['dni'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Fecha de nacimiento</label>
-                        <input type="date" name="fecha_nacimiento" value="{{ jugador['fecha_nacimiento'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Telefono</label>
-                        <input type="text" name="telefono" value="{{ jugador['telefono'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Email</label>
-                        <input type="email" name="email" value="{{ jugador['email'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Direccion</label>
-                        <input type="text" name="direccion" value="{{ jugador['direccion'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Obra social</label>
-                        <input type="text" name="obra_social" value="{{ jugador['obra_social'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Contacto familiar</label>
-                        <input type="text" name="contacto_tutor" value="{{ jugador['contacto_tutor'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Parentesco</label>
-                        <input type="text" name="parentesco_tutor" value="{{ jugador['parentesco_tutor'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Telefono familiar</label>
-                        <input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] or '' }}">
-                    </div>
-                    <div class="field">
-                        <label>Email familiar</label>
-                        <input type="email" name="email_tutor" value="{{ jugador['email_tutor'] or '' }}">
-                    </div>
+                    <div class="field"><label>Nombre</label><input type="text" name="nombre" value="{{ jugador['nombre'] or '' }}" required></div>
+                    <div class="field"><label>Apellido</label><input type="text" name="apellido" value="{{ jugador['apellido'] or '' }}" required></div>
+                    <div class="field"><label>DNI</label><input type="text" name="dni" value="{{ jugador['dni'] or '' }}"></div>
+                    <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fecha_nacimiento" value="{{ jugador['fecha_nacimiento'] or '' }}"></div>
+                    <div class="field"><label>Telefono</label><input type="text" name="telefono" value="{{ jugador['telefono'] or '' }}"></div>
+                    <div class="field"><label>Email</label><input type="email" name="email" value="{{ jugador['email'] or '' }}"></div>
+                    <div class="field"><label>Direccion</label><input type="text" name="direccion" value="{{ jugador['direccion'] or '' }}"></div>
+                    <div class="field"><label>Obra social</label><input type="text" name="obra_social" value="{{ jugador['obra_social'] or '' }}"></div>
+                    <div class="field"><label>Contacto familiar</label><input type="text" name="contacto_tutor" value="{{ jugador['contacto_tutor'] or '' }}"></div>
+                    <div class="field"><label>Parentesco</label><input type="text" name="parentesco_tutor" value="{{ jugador['parentesco_tutor'] or '' }}"></div>
+                    <div class="field"><label>Telefono familiar</label><input type="text" name="telefono_tutor" value="{{ jugador['telefono_tutor'] or '' }}"></div>
+                    <div class="field"><label>Email familiar</label><input type="email" name="email_tutor" value="{{ jugador['email_tutor'] or '' }}"></div>
                     <button class="button secondary" type="submit">Actualizar datos</button>
                 </form>
-            </div>
+            </article>
 
-            <div class="card">
+            <article class="card portal-panel">
                 <div class="section-header compact">
                     <h3>Datos del club</h3>
                     <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
@@ -583,16 +582,10 @@
                 <p><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</p>
                 <p><strong>Fecha de ingreso:</strong> {{ jugador['fecha_ingreso'] or '-' }}</p>
                 <p><strong>Numero de socio:</strong> {{ jugador['numero_socio'] or '-' }}</p>
-                <p><strong>Beca:</strong>
-                    {% if jugador['beca_activa'] %}
-                        {{ jugador['beca_porcentaje'] or 0 }}%
-                    {% else %}
-                        -
-                    {% endif %}
-                </p>
-            </div>
+                <p><strong>Beca:</strong> {% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}-{% endif %}</p>
+            </article>
 
-            <div class="card">
+            <article class="card portal-panel">
                 <h3>Ficha medica</h3>
                 {% if ficha %}
                     <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Si{% else %}No{% endif %}</p>
@@ -601,9 +594,9 @@
                 {% else %}
                     <p>No hay ficha medica cargada.</p>
                 {% endif %}
-            </div>
+            </article>
 
-            <div class="card">
+            <article class="card portal-panel">
                 <h3>Documentos</h3>
                 {% if documentos %}
                     <ul class="document-list">
@@ -623,8 +616,8 @@
                 {% else %}
                     <p>No hay documentos cargados.</p>
                 {% endif %}
-            </div>
-        </div>
+            </article>
+        </section>
     </main>
     <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
