@@ -5876,7 +5876,7 @@ def recalcular_numeros_socio(conn):
 
 def enviar_recibo_cuota_por_email(cuota, archivo_recibo):
     if not archivo_recibo or not Path(archivo_recibo).exists():
-        return False, None
+        return False, None, "sin_archivo"
     asunto = f"Recibo de cuota {cuota.get('periodo') or '-'}"
     cuerpo = construir_texto_recibo_cuota(cuota)
     return enviar_email_jugador_con_adjuntos(
@@ -5907,22 +5907,22 @@ def render_email_html(cuerpo, logo_cid=None):
             f"</div>"
         )
     return (
-        "<html><body style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.5;\">"
-        f"<div>{cuerpo_html}</div>"
-        "<div style=\"margin-top:20px;\">"
-        "<strong>Tesorería - Ruda Macho Rugby Club</strong>"
-        f"{logo_html}"
-        "</div>"
-        "</body></html>"
+        '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.5;">'
+        f'<div>{cuerpo_html}</div>'
+        '<div style="margin-top:20px;">'
+        '<strong>Tesorer\u00eda - Ruda Macho Rugby Club</strong>'
+        f'{logo_html}'
+        '</div>'
+        '</body></html>'
     )
 
 
 def enviar_email(destinatario, asunto, cuerpo, adjuntos=None):
     if not smtp_configurado():
-        return False
+        return False, "smtp"
 
     cuerpo_base = str(cuerpo or "").rstrip()
-    cuerpo_texto = f"{cuerpo_base}\n\nTesorería - Ruda Macho Rugby Club"
+    cuerpo_texto = cuerpo_base + "\n\nTesorer\u00eda - Ruda Macho Rugby Club"
     mensaje = EmailMessage()
     mensaje["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
     mensaje["To"] = destinatario
@@ -5966,7 +5966,7 @@ def enviar_email(destinatario, asunto, cuerpo, adjuntos=None):
         if SMTP_USER:
             smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(mensaje)
-    return True
+    return True, None
 
 
 def email_jugador_preferido(jugador):
@@ -5984,15 +5984,17 @@ def nombre_jugador_corto(jugador):
 def enviar_email_jugador(jugador, asunto, cuerpo):
     destinatario = email_jugador_preferido(jugador)
     if not destinatario:
-        return False, None
-    return enviar_email(destinatario, asunto, cuerpo), destinatario
+        return False, None, "sin_email"
+    enviado, motivo = enviar_email(destinatario, asunto, cuerpo)
+    return enviado, destinatario, motivo
 
 
 def enviar_email_jugador_con_adjuntos(jugador, asunto, cuerpo, adjuntos=None):
     destinatario = email_jugador_preferido(jugador)
     if not destinatario:
-        return False, None
-    return enviar_email(destinatario, asunto, cuerpo, adjuntos=adjuntos), destinatario
+        return False, None, "sin_email"
+    enviado, motivo = enviar_email(destinatario, asunto, cuerpo, adjuntos=adjuntos)
+    return enviado, destinatario, motivo
 
 
 def construir_texto_recibo_cuota(cuota):
@@ -9080,9 +9082,11 @@ def pagar_cuota(cuota_id):
 
         archivo_recibo = generar_recibo_pdf(cuota_id)
         recibo_enviado = False
+        motivo_envio = None
         try:
-            recibo_enviado, _ = enviar_recibo_cuota_por_email(cuota, archivo_recibo)
+            recibo_enviado, _, motivo_envio = enviar_recibo_cuota_por_email(cuota, archivo_recibo)
         except Exception:
+            motivo_envio = "error"
             app.logger.exception("No se pudo enviar por email el recibo de cuota %s.", cuota_id)
 
         if comprobante_info:
@@ -9091,8 +9095,12 @@ def pagar_cuota(cuota_id):
             flash("Cuota marcada como pagada y registrada en caja.", "ok")
         if recibo_enviado:
             flash("Recibo enviado por email al jugador.", "ok")
+        elif motivo_envio == "sin_email":
+            flash("El recibo se gener\u00f3, pero el jugador no tiene email cargado.", "warning")
+        elif motivo_envio == "smtp":
+            flash("El recibo se gener\u00f3, pero el email no est\u00e1 configurado en el sistema.", "warning")
         else:
-            flash("El recibo se genero, pero no se pudo enviar por email automaticamente.", "warning")
+            flash("El recibo se gener\u00f3, pero no se pudo enviar por email autom\u00e1ticamente.", "warning")
         return redirect(url_for("ver_cuotas", jugador_id=cuota["jugador_id"]))
 
     conn.close()
@@ -9382,16 +9390,22 @@ def revisar_comprobante_cuota(cuota_id):
 
     archivo_recibo = generar_recibo_pdf(cuota_id)
     recibo_enviado = False
+    motivo_envio = None
     try:
-        recibo_enviado, _ = enviar_recibo_cuota_por_email(cuota, archivo_recibo)
+        recibo_enviado, _, motivo_envio = enviar_recibo_cuota_por_email(cuota, archivo_recibo)
     except Exception:
+        motivo_envio = "error"
         app.logger.exception("No se pudo enviar por email el recibo de cuota %s tras validar comprobante.", cuota_id)
 
     flash("Comprobante aceptado. Cuota marcada como pagada y recibo generado.", "ok")
     if recibo_enviado:
         flash("Recibo enviado por email al jugador.", "ok")
+    elif motivo_envio == "sin_email":
+        flash("El recibo se gener\u00f3, pero el jugador no tiene email cargado.", "warning")
+    elif motivo_envio == "smtp":
+        flash("El recibo se gener\u00f3, pero el email no est\u00e1 configurado en el sistema.", "warning")
     else:
-        flash("El recibo se genero, pero no se pudo enviar por email automaticamente.", "warning")
+        flash("El recibo se gener\u00f3, pero no se pudo enviar por email autom\u00e1ticamente.", "warning")
     return redirect(next_url)
 
 
@@ -13341,7 +13355,6 @@ def generar_recibo_pdf(cuota_id):
 
     recibos_dir = BASE_DIR / "recibos"
     recibos_dir.mkdir(exist_ok=True)
-
     archivo = recibos_dir / f"recibo_cuota_{cuota_id}.pdf"
 
     pdf = canvas.Canvas(str(archivo), pagesize=A4)
@@ -13381,23 +13394,15 @@ def generar_recibo_pdf(cuota_id):
 
     pdf.setFillColor(colors.HexColor("#475569"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawString(texto_x, height - 29 * mm, "Recibo interno no válido como factura")
+    pdf.drawString(texto_x, height - 29 * mm, "Recibo interno no v\u00e1lido como factura")
 
     pdf.setFillColor(colors.HexColor("#10231e"))
     pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawRightString(
-        margen_derecho,
-        height - 22 * mm,
-        f"Nro. {datos['numero_recibo'] or datos['cuota_id']}"
-    )
+    pdf.drawRightString(margen_derecho, height - 22 * mm, f"Nro. {datos['numero_recibo'] or datos['cuota_id']}")
 
     pdf.setFillColor(colors.HexColor("#475569"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawRightString(
-        margen_derecho,
-        height - 29 * mm,
-        f"Emitido: {datetime.now().strftime('%d/%m/%Y')}"
-    )
+    pdf.drawRightString(margen_derecho, height - 29 * mm, f"Emitido: {datetime.now().strftime('%d/%m/%Y')}")
 
     pdf.setStrokeColor(colors.HexColor("#d6dee8"))
     pdf.setLineWidth(1)
@@ -13407,46 +13412,46 @@ def generar_recibo_pdf(cuota_id):
     pdf.setFont("Helvetica-Bold", 16)
     pdf.drawString(margen_izquierdo, height - 66 * mm, "RECIBO DE CUOTA")
 
-    pdf.setFillColor(colors.white)
-    pdf.roundRect(18 * mm, height - 156 * mm, 174 * mm, 82 * mm, 6 * mm, stroke=0, fill=1)
-    pdf.setStrokeColor(colors.HexColor("#d6dee8"))
-    pdf.roundRect(18 * mm, height - 156 * mm, 174 * mm, 82 * mm, 6 * mm, stroke=1, fill=0)
-
-    pdf.setFont("Helvetica", 12)
-    y = height - 84 * mm
-    importe_formateado = f"${int(float(datos['importe'])):,}".replace(",", ".")
-
-    def linea_detalle(label, valor):
-        nonlocal y
-        pdf.setFillColor(colors.HexColor("#64748b"))
-        pdf.setFont("Helvetica-Bold", 10)
-        pdf.drawString(margen_izquierdo, y, label)
-        pdf.setFillColor(colors.HexColor("#17212f"))
-        pdf.setFont("Helvetica", 12)
-        pdf.drawString(62 * mm, y, valor)
-        y -= 9 * mm
-
-    linea_detalle("Jugador", f"{datos['apellido']}, {datos['nombre']}")
-    linea_detalle("DNI", str(datos['dni'] or "-"))
-    linea_detalle("Categoría", str(datos['categoria'] or "-"))
-    linea_detalle("Periodo abonado", str(datos['periodo']))
-    linea_detalle("Importe abonado", importe_formateado)
-
+    filas = [
+        ("Jugador", f"{datos['apellido']}, {datos['nombre']}"),
+        ("DNI", str(datos['dni'] or "-")),
+        ("Categor\u00eda", str(datos['categoria'] or "-")),
+        ("Per\u00edodo abonado", str(datos['periodo'])),
+        ("Importe abonado", f"${int(float(datos['importe'])):,}".replace(",", ".")),
+    ]
     if datos["becada"]:
         original = f"${int(float(datos['importe_original'] or datos['importe'])):,}".replace(",", ".")
         descuento = f"${int(float(datos['descuento_beca'] or 0)):,}".replace(",", ".")
         porcentaje_beca_pdf = float(datos["beca_porcentaje"] or 0)
-        linea_detalle(
-            "Beca aplicada",
-            f"{porcentaje_beca_pdf:g}% - Original {original} - Descuento {descuento}"
-        )
+        filas.append(("Beca aplicada", f"{porcentaje_beca_pdf:g}% - Original {original} - Descuento {descuento}"))
+    filas.extend([
+        ("Fecha de pago", str(datos['fecha_pago'] or "-")),
+        ("Vencimiento original", str(datos['fecha_vencimiento'] or "-")),
+        ("M\u00e9todo de pago", str(datos['metodo_pago'] or "-")),
+        ("Referencia", str(datos['referencia_pago'] or "-")),
+    ])
 
-    linea_detalle("Fecha de pago", str(datos['fecha_pago'] or "-"))
-    linea_detalle("Vencimiento original", str(datos['fecha_vencimiento'] or "-"))
-    linea_detalle("Método de pago", str(datos['metodo_pago'] or "-"))
-    linea_detalle("Referencia", str(datos['referencia_pago'] or "-"))
+    fila_alto = 8 * mm
+    card_top = height - 74 * mm
+    card_height = (len(filas) * fila_alto) + (18 * mm)
+    card_bottom = card_top - card_height
 
-    firma_y = 52 * mm
+    pdf.setFillColor(colors.white)
+    pdf.roundRect(18 * mm, card_bottom, 174 * mm, card_height, 6 * mm, stroke=0, fill=1)
+    pdf.setStrokeColor(colors.HexColor("#d6dee8"))
+    pdf.roundRect(18 * mm, card_bottom, 174 * mm, card_height, 6 * mm, stroke=1, fill=0)
+
+    y = card_top - 12 * mm
+    for label_texto, valor_texto in filas:
+        pdf.setFillColor(colors.HexColor("#64748b"))
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(margen_izquierdo, y, label_texto)
+        pdf.setFillColor(colors.HexColor("#17212f"))
+        pdf.setFont("Helvetica", 12)
+        pdf.drawString(62 * mm, y, valor_texto)
+        y -= fila_alto
+
+    firma_y = card_bottom - 18 * mm
     pdf.setStrokeColor(colors.HexColor("#94a3b8"))
     pdf.line(margen_izquierdo, firma_y, 94 * mm, firma_y)
     if firma_path.exists():
@@ -13467,10 +13472,9 @@ def generar_recibo_pdf(cuota_id):
     pdf.drawString(margen_izquierdo, firma_y - 27 * mm, f"{TESORERO_FIRMA_CARGO} - Ruda Macho Rugby Club")
 
     pdf.setFont("Helvetica-Oblique", 9)
-    pdf.drawString(margen_izquierdo, 18 * mm, "Ruda Macho Rugby Club - Sistema Integral de Gestión")
+    pdf.drawString(margen_izquierdo, max(12 * mm, firma_y - 40 * mm), "Ruda Macho Rugby Club - Sistema Integral de Gesti\u00f3n")
 
     pdf.save()
-
     return archivo
 
 @app.route("/cuotas/<int:cuota_id>/recibo")
