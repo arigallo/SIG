@@ -251,6 +251,7 @@ CALENDARIO_DEPORTIVO_TIPOS = {"Entrenamiento", "Partido", "Evento", "Otro"}
 CALENDARIO_ASISTENCIA_TIPOS = {"Entrenamiento", "Partido"}
 CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
 TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
+ESTADOS_JUGADOR = ["Activo", "Inactivo", "Suspendido", "Baja"]
 
 BITACORA_TIPOS = {
     "general": "General",
