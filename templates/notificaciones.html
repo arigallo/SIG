@@ -7,10 +7,21 @@
     <h2>Notificaciones</h2>
 </div>
 
-{% macro tabla_notificaciones(titulo, items, tipo) %}
+{% macro tabla_notificaciones(titulo, items, tipo, lote_url=None, lote_label=None) %}
 <div class="page-section">
     <div class="section-header">
         <h3>{{ titulo }}</h3>
+        {% if lote_url %}
+            <form method="post" action="{{ lote_url }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                {% if tipo == 'cuota' and lote_label == 'vencidas' %}
+                    <input type="hidden" name="modo" value="vencidas">
+                {% elif tipo == 'cuota' and lote_label == 'por_vencer' %}
+                    <input type="hidden" name="modo" value="por_vencer">
+                {% endif %}
+                <button class="button secondary" type="submit">Enviar emails</button>
+            </form>
+        {% endif %}
     </div>
     <div class="table-wrapper">
         <table>
@@ -42,6 +53,17 @@
                     <td class="communication-message">{{ item['mensaje'] }}</td>
                     <td class="actions">
                         <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                        {% if tipo == 'cuota' %}
+                            <form method="post" action="{{ url_for('enviar_recordatorio_cuota', cuota_id=fila['cuota_id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button secondary" type="submit">Email</button>
+                            </form>
+                        {% elif tipo == 'ficha' %}
+                            <form method="post" action="{{ url_for('enviar_recordatorio_ficha', jugador_id=fila['jugador_id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button secondary" type="submit">Email</button>
+                            </form>
+                        {% endif %}
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=fila['jugador_id']) }}">Jugador</a>
                     </td>
                 </tr>
@@ -56,8 +78,8 @@
 </div>
 {% endmacro %}
 
-{{ tabla_notificaciones('Cuotas vencidas', cuotas_vencidas, 'cuota') }}
-{{ tabla_notificaciones('Cuotas por vencer', cuotas_por_vencer, 'cuota') }}
+{{ tabla_notificaciones('Cuotas vencidas', cuotas_vencidas, 'cuota', url_for('enviar_recordatorios_cuotas_lote'), 'vencidas') }}
+{{ tabla_notificaciones('Cuotas por vencer', cuotas_por_vencer, 'cuota', url_for('enviar_recordatorios_cuotas_lote'), 'por_vencer') }}
 
 {% if cambios_portal is defined %}
 <div class="page-section">
@@ -179,6 +201,6 @@
     </div>
 </div>
 
-{{ tabla_notificaciones('Fichas medicas', fichas, 'ficha') }}
+{{ tabla_notificaciones('Fichas medicas', fichas, 'ficha', url_for('enviar_recordatorios_fichas_lote'), 'fichas') }}
 {{ tabla_notificaciones('Asistencia baja', asistencia_baja, 'asistencia') }}
 {% endblock %}

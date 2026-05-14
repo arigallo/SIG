@@ -22,6 +22,7 @@
                     <th>Persona</th>
                     <th>Tipo</th>
                     <th>Categoria</th>
+                    <th>Confirmacion portal</th>
                     <th>Asistencia</th>
                     <th>Observaciones</th>
                 </tr>
@@ -33,6 +34,19 @@
                         <td>{{ participante['apellido'] }}, {{ participante['nombre'] }}</td>
                         <td>{{ participante['tipo_label'] }}</td>
                         <td>{{ participante['categoria'] or '-' }}</td>
+                        <td>
+                            {% if participante['confirmacion_portal'] %}
+                                {% if participante['confirmacion_portal']['estado'] == 'confirmado' %}
+                                    <span class="badge badge-success">Confirmado</span>
+                                {% elif participante['confirmacion_portal']['estado'] == 'dudoso' %}
+                                    <span class="badge badge-warning">Dudoso</span>
+                                {% else %}
+                                    <span class="badge badge-danger">No asiste</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                         <td>
                             {% set estado_actual = asistencia['estado_asistencia'] if asistencia and asistencia['estado_asistencia'] else ('a_tiempo' if asistencia and asistencia['presente'] else 'ausente') %}
                             <select name="estado_{{ participante['form_key'] }}">
@@ -49,7 +63,7 @@
                     </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="empty">No hay jugadores activos ni ahijadxs en seguimiento.</td>
+                    <td colspan="6" class="empty">No hay jugadores activos ni ahijadxs en seguimiento.</td>
                 </tr>
                 {% endfor %}
             </tbody>

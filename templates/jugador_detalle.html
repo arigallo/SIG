@@ -74,6 +74,64 @@
     {% endif %}
 </div>
 
+<div class="detail-grid page-section">
+    {% if puede_ver_finanzas %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Resumen financiero</h3>
+        </div>
+        <p><strong>Deuda:</strong> {{ deuda | moneda }}</p>
+        <p><strong>Cuotas pendientes:</strong> {{ cuotas_pendientes_count }}</p>
+        <p><strong>Plan activo:</strong> {{ plan_activo['descripcion'] if plan_activo else '-' }}</p>
+        {% if plan_activo %}
+            <p><strong>Cuota plan:</strong> {{ plan_activo['monto_cuota'] | moneda }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if puede_ver_asistencia %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Resumen deportivo</h3>
+        </div>
+        <p><strong>Asistencia:</strong> {{ asistencia_porcentaje }}%</p>
+        <p><strong>Próximo evento:</strong> {{ proximo_evento['titulo'] if proximo_evento else '-' }}</p>
+        {% if proximo_evento %}
+            <p><strong>Fecha:</strong> {{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}</p>
+        {% endif %}
+        <p><strong>Última asistencia:</strong> {{ ultimas_asistencias[0]['fecha'] if ultimas_asistencias else '-' }}</p>
+    </div>
+    {% endif %}
+
+    {% if puede_ver_salud %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Resumen de salud</h3>
+        </div>
+        <p><strong>Ficha médica:</strong> {{ ficha_estado }}</p>
+        <p><strong>Lesiones activas:</strong> {{ lesiones_activas_count }}</p>
+        <p><strong>Documentos por vencer:</strong> {{ documento_alertas }}</p>
+        {% if lesiones %}
+            <p><strong>Última lesión:</strong> {{ lesiones[0]['tipo_lesion'] or '-' }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if puede_ver_tests %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Resumen de rendimiento</h3>
+        </div>
+        <p><strong>Último test:</strong> {{ ultimo_test_resumen['test_nombre'] if ultimo_test_resumen else '-' }}</p>
+        {% if ultimo_test_resumen %}
+            <p><strong>Puntaje:</strong> {{ ultimo_test_resumen['puntaje'] }} {{ ultimo_test_resumen['unidad'] or '' }}</p>
+            <p><strong>Fecha:</strong> {{ ultimo_test_resumen['fecha'] }}</p>
+        {% endif %}
+        <p><strong>Registros recientes:</strong> {{ tests_recientes | length }}</p>
+    </div>
+    {% endif %}
+</div>
+
 <div class="detail-grid">
     <div class="card">
         <h3>Datos personales</h3>

@@ -54,6 +54,7 @@
                             <th>Tipo</th>
                             <th>Evento</th>
                             <th>Lugar</th>
+                            <th>Asistencia</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,17 +66,44 @@
                                 <strong>{{ evento['titulo'] }}</strong>
                                 {% if evento['descripcion'] %}
                                     <span class="muted-line">{{ evento['descripcion'] }}</span>
+                                 {% endif %}
+                             </td>
+                             <td>{{ evento['ubicacion'] or '-' }}</td>
+                             <td>
+                                {% if evento['asistencia_evento_id'] %}
+                                    {% set confirmacion = evento['confirmacion_portal'] %}
+                                    {% if confirmacion %}
+                                        <span class="muted-line">
+                                            {% if confirmacion['estado'] == 'confirmado' %}
+                                                Confirmado
+                                            {% elif confirmacion['estado'] == 'dudoso' %}
+                                                Dudoso
+                                            {% else %}
+                                                No asiste
+                                            {% endif %}
+                                        </span>
+                                    {% endif %}
+                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="top-gap">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        <select name="estado">
+                                            <option value="confirmado" {% if confirmacion and confirmacion['estado'] == 'confirmado' %}selected{% endif %}>Confirmo</option>
+                                            <option value="dudoso" {% if confirmacion and confirmacion['estado'] == 'dudoso' %}selected{% endif %}>Dudoso</option>
+                                            <option value="no_asiste" {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}selected{% endif %}>No puedo</option>
+                                        </select>
+                                        <button class="button secondary top-gap" type="submit">Guardar</button>
+                                    </form>
+                                {% else %}
+                                    -
                                 {% endif %}
-                            </td>
-                            <td>{{ evento['ubicacion'] or '-' }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="empty">No hay eventos deportivos publicados.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                             </td>
+                         </tr>
+                         {% else %}
+                         <tr>
+                            <td colspan="5" class="empty">No hay eventos deportivos publicados.</td>
+                         </tr>
+                         {% endfor %}
+                     </tbody>
+                 </table>
             </div>
         </div>
 

@@ -2955,6 +2955,26 @@ def obtener_eventos_deportivos_portal(jugador, limit=8):
     return filtrados
 
 
+def obtener_confirmaciones_portal(conn, evento_ids, jugador_id=None):
+    if not evento_ids:
+        return {}
+    filtros = ["evento_id = ANY(%s)"]
+    params = [evento_ids]
+    if jugador_id is not None:
+        filtros.append("jugador_id = %s")
+        params.append(jugador_id)
+    where = " AND ".join(filtros)
+    rows = conn.execute(f"""
+        SELECT *
+        FROM portal_asistencia_confirmaciones
+        WHERE {where}
+    """, params).fetchall()
+    confirmaciones = {}
+    for row in rows:
+        confirmaciones[(row["evento_id"], row["jugador_id"])] = row
+    return confirmaciones
+
+
 def obtener_eventos_deportivos_ics(token):
     conn = get_connection()
     jugador = conn.execute("""
@@ -5113,6 +5133,20 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS portal_asistencia_confirmaciones (
+            id SERIAL PRIMARY KEY,
+            evento_id INTEGER NOT NULL,
+            jugador_id INTEGER NOT NULL,
+            estado TEXT NOT NULL,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (evento_id) REFERENCES eventos_asistencia(id),
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id),
+            UNIQUE(evento_id, jugador_id)
+        )
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS test_tipos (
             id SERIAL PRIMARY KEY,
             nombre TEXT UNIQUE NOT NULL,
@@ -5543,7 +5577,9 @@ def proteger_rutas():
         "portal_jugador",
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
+        "portal_ver_comprobante",
         "portal_descargar_recibo",
+        "portal_confirmar_asistencia",
         "portal_calendario_ics",
     }
 
@@ -5713,6 +5749,83 @@ def enviar_email(destinatario, asunto, cuerpo):
             smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(mensaje)
     return True
+
+
+def email_jugador_preferido(jugador):
+    return normalizar_email(
+        (jugador or {}).get("email_tutor")
+        or (jugador or {}).get("email")
+        or ""
+    )
+
+
+def nombre_jugador_corto(jugador):
+    return ((jugador or {}).get("nombre") or "").strip() or ((jugador or {}).get("apellido") or "").strip() or "jugador"
+
+
+def enviar_email_jugador(jugador, asunto, cuerpo):
+    destinatario = email_jugador_preferido(jugador)
+    if not destinatario:
+        return False, None
+    return enviar_email(destinatario, asunto, cuerpo), destinatario
+
+
+def construir_texto_recordatorio_cuota(cuota):
+    nombre = nombre_jugador_corto(cuota)
+    estado = "venció" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
+    fecha = cuota.get("fecha_vencimiento") or "-"
+    return (
+        f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
+        f"La cuota {cuota.get('periodo') or '-'} por {formato_moneda(cuota.get('importe') or 0)} {estado} el {fecha}.\n"
+        "Si ya realizaste el pago, podés responder este correo o cargar el comprobante desde tu portal.\n\n"
+        "Gracias."
+    )
+
+
+def construir_texto_recordatorio_ficha(ficha):
+    nombre = nombre_jugador_corto(ficha)
+    if ficha.get("estado_documento") == "vencida":
+        estado = f"venció el {ficha.get('fecha_vencimiento') or '-'}"
+    elif ficha.get("estado_documento") == "por_vencer":
+        estado = f"vence el {ficha.get('fecha_vencimiento') or '-'}"
+    else:
+        estado = "figura pendiente de carga"
+    return (
+        f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
+        f"La ficha médica {estado}. Cuando puedas, acercanos la actualización o cargala por los canales habituales.\n\n"
+        "Gracias."
+    )
+
+
+def construir_texto_recordatorio_evento(jugador, evento, portal_url=None):
+    nombre = nombre_jugador_corto(jugador)
+    cuerpo = (
+        f"Hola {nombre}, te recordamos el evento {evento.get('titulo') or evento.get('tipo') or 'del club'} "
+        f"del {evento.get('fecha') or '-'}"
+    )
+    if evento.get("hora_inicio"):
+        cuerpo += f" a las {evento['hora_inicio']}"
+    cuerpo += "."
+    if evento.get("ubicacion"):
+        cuerpo += f"\nLugar: {evento['ubicacion']}."
+    if evento.get("descripcion"):
+        cuerpo += f"\nDetalle: {evento['descripcion']}"
+    if portal_url:
+        cuerpo += f"\n\nPodés confirmar asistencia desde tu portal:\n{portal_url}"
+    return cuerpo + "\n\nGracias."
+
+
+def construir_texto_rechazo_comprobante(cuota, observaciones=None, portal_url=None):
+    nombre = nombre_jugador_corto(cuota)
+    cuerpo = (
+        f"Hola {nombre}, revisamos el comprobante de la cuota {cuota.get('periodo') or '-'} "
+        f"por {formato_moneda(cuota.get('importe') or 0)} y quedó rechazado para corrección."
+    )
+    if observaciones:
+        cuerpo += f"\nMotivo: {observaciones}"
+    if portal_url:
+        cuerpo += f"\n\nPodés volver a cargarlo desde tu portal:\n{portal_url}"
+    return cuerpo + "\n\nGracias."
 
 
 def crear_token_recuperacion(conn, usuario_id):
@@ -8830,7 +8943,11 @@ def revisar_comprobante_cuota(cuota_id):
         SELECT
             c.*,
             j.apellido,
-            j.nombre
+            j.nombre,
+            j.email,
+            j.email_tutor,
+            j.portal_token,
+            j.portal_activo
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.id = %s
@@ -8866,6 +8983,11 @@ def revisar_comprobante_cuota(cuota_id):
         """, (revisado_en, revisado_por, observaciones or None, cuota_id))
         conn.commit()
         conn.close()
+        portal_url = None
+        if cuota.get("portal_token") and cuota.get("portal_activo"):
+            portal_url = url_for("portal_jugador", token=cuota["portal_token"], _external=True)
+        cuerpo = construir_texto_rechazo_comprobante(cuota, observaciones=observaciones, portal_url=portal_url)
+        enviar_email_jugador(cuota, f"Comprobante rechazado - cuota {cuota['periodo']}", cuerpo)
         flash("Comprobante rechazado.", "ok")
         return redirect(next_url)
 
@@ -9805,6 +9927,40 @@ def detalle_jugador(jugador_id):
             LIMIT 8
         """, (jugador_id,)).fetchall()
 
+    proximo_evento = None
+    eventos_candidatos = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE fecha >= CURRENT_DATE::text
+        ORDER BY fecha ASC, COALESCE(hora_inicio, '') ASC, id ASC
+        LIMIT 40
+    """).fetchall()
+    for evento in eventos_candidatos:
+        if categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
+            proximo_evento = evento
+            break
+
+    plan_activo = next((plan for plan in planes_pago if (plan.get("estado") or "").strip() == "Activo"), None)
+    ultimo_test_resumen = tests_recientes[0] if tests_recientes else None
+    documento_alertas = conn.execute("""
+        SELECT COUNT(*) AS total
+        FROM documentos_jugadores
+        WHERE jugador_id = %s
+          AND fecha_vencimiento IS NOT NULL
+          AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+          AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+    """, (jugador_id,)).fetchone()["total"]
+
+    ficha_estado = "Sin ficha"
+    if ficha and validar_fecha_movimiento(ficha.get("fecha_vencimiento")):
+        if ficha_vencida:
+            ficha_estado = "Vencida"
+        else:
+            ficha_estado = "Vigente"
+    elif ficha and ficha.get("presentada"):
+        ficha_estado = "Presentada"
+
     cambios_portal = []
     if puede_ver_cambios_portal:
         cambios_portal = conn.execute("""
@@ -9869,6 +10025,11 @@ def detalle_jugador(jugador_id):
         puede_ver_asistencia=puede_ver_asistencia,
         puede_ver_tests=puede_ver_tests,
         tests_recientes=tests_recientes,
+        proximo_evento=proximo_evento,
+        plan_activo=plan_activo,
+        ultimo_test_resumen=ultimo_test_resumen,
+        documento_alertas=documento_alertas,
+        ficha_estado=ficha_estado,
         puede_gestionar_portal=puede_gestionar_portal,
         puede_ver_cambios_portal=puede_ver_cambios_portal,
         cambios_portal=cambios_portal
@@ -10115,9 +10276,18 @@ def portal_jugador(token):
 
     portal_test_grafico = construir_grafico_tests(portal_test_resultados)
     portal_test_comparativo = construir_comparativo_tests(portal_test_resultados, portal_test_actual)
-    conn.close()
-
     eventos_deportivos = obtener_eventos_deportivos_portal(jugador)
+    confirmaciones_portal = {}
+    evento_ids_confirmables = [evento["asistencia_evento_id"] for evento in eventos_deportivos if evento.get("asistencia_evento_id")]
+    if evento_ids_confirmables:
+        confirmaciones_portal = obtener_confirmaciones_portal(conn, evento_ids_confirmables, jugador["id"])
+    conn.close()
+    for evento in eventos_deportivos:
+        confirmacion = None
+        if evento.get("asistencia_evento_id"):
+            confirmacion = confirmaciones_portal.get((evento["asistencia_evento_id"], jugador["id"]))
+        evento["confirmacion_portal"] = confirmacion
+
     calendario_ics_url = url_for("portal_calendario_ics", token=token, _external=True)
     calendario_webcal_url = calendario_ics_url.replace("https://", "webcal://", 1).replace("http://", "webcal://", 1)
     calendario_google_url = "https://calendar.google.com/calendar/r?cid=" + quote(calendario_webcal_url, safe="")
@@ -10153,6 +10323,68 @@ def portal_jugador(token):
         calendario_android_url=calendario_android_url,
         token=token,
     )
+
+
+@app.route("/portal/<token>/eventos/<int:evento_id>/confirmar", methods=["POST"])
+def portal_confirmar_asistencia(token, evento_id):
+    estado = request.form.get("estado", "").strip()
+    if estado not in {"confirmado", "dudoso", "no_asiste"}:
+        flash("La confirmación no es válida.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT *
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        abort(404)
+
+    evento = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE id = %s
+          AND COALESCE(publicar_portal, 0) = 1
+    """, (evento_id,)).fetchone()
+    if evento is None or not evento.get("asistencia_evento_id"):
+        conn.close()
+        flash("Ese evento no admite confirmación desde el portal.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    if not categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
+        conn.close()
+        abort(404)
+
+    conn.execute("""
+        INSERT INTO portal_asistencia_confirmaciones (
+            evento_id, jugador_id, estado, creado_en, actualizado_en
+        )
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (evento_id, jugador_id)
+        DO UPDATE SET
+            estado = excluded.estado,
+            actualizado_en = CURRENT_TIMESTAMP
+    """, (evento["asistencia_evento_id"], jugador["id"], estado))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "confirmar_asistencia",
+        "portal_jugador",
+        str(jugador["id"]),
+        {
+            "evento_id": evento["id"],
+            "asistencia_evento_id": evento["asistencia_evento_id"],
+            "estado": estado,
+        },
+        username="portal",
+        rol="portal",
+    )
+    flash("Confirmación de asistencia guardada.", "ok")
+    return redirect(url_for("portal_jugador", token=token))
 
 
 @app.route("/portal/<token>/calendario.ics")
@@ -10633,6 +10865,7 @@ def editar_evento_calendario(evento_id):
             else:
                 asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
         elif asistencia_evento_id:
+            conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (asistencia_evento_id,))
             conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
             conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
             conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
@@ -10695,6 +10928,7 @@ def eliminar_evento_calendario(evento_id):
 
     asistencia_evento_id = evento.get("asistencia_evento_id")
     if asistencia_evento_id:
+        conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (asistencia_evento_id,))
         conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
         conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
         conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
@@ -10704,6 +10938,48 @@ def eliminar_evento_calendario(evento_id):
     conn.close()
 
     flash("Evento eliminado.", "ok")
+    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
+
+
+@app.route("/calendario/<int:evento_id>/recordatorio", methods=["POST"])
+def enviar_recordatorio_evento_calendario(evento_id):
+    check = permiso_requerido("comunicaciones_ver", "calendario_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    evento = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE id = %s
+    """, (evento_id,)).fetchone()
+    if evento is None:
+        conn.close()
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for("ver_calendario"))
+
+    jugadores = conn.execute("""
+        SELECT *
+        FROM jugadores
+        WHERE estado = 'Activo'
+          AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'
+        ORDER BY apellido, nombre
+    """).fetchall()
+    conn.close()
+
+    enviados = 0
+    for jugador in jugadores:
+        if not categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
+            continue
+        portal_url = None
+        if jugador.get("portal_token") and jugador.get("portal_activo") and evento.get("asistencia_evento_id"):
+            portal_url = url_for("portal_jugador", token=jugador["portal_token"], _external=True)
+        cuerpo = construir_texto_recordatorio_evento(jugador, evento, portal_url=portal_url)
+        enviado, _ = enviar_email_jugador(jugador, f"Recordatorio: {evento['titulo']}", cuerpo)
+        enviados += 1 if enviado else 0
+
+    registrar_auditoria("enviar_recordatorio", "calendario_evento", str(evento_id), {"cantidad": enviados})
+    flash(f"Se enviaron {enviados} recordatorios del evento.", "ok" if enviados else "error")
     return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
 
 
@@ -11413,6 +11689,123 @@ def ver_notificaciones():
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
         cambios_portal=datos["cambios_portal"],
     )
+
+
+@app.route("/notificaciones/cuotas/<int:cuota_id>/email", methods=["POST"])
+def enviar_recordatorio_cuota(cuota_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    cuota = conn.execute("""
+        SELECT
+            c.id AS cuota_id,
+            c.jugador_id,
+            c.periodo,
+            c.importe,
+            c.fecha_vencimiento,
+            j.nombre,
+            j.apellido,
+            j.email,
+            j.email_tutor,
+            j.portal_token,
+            j.portal_activo
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.id = %s
+    """, (cuota_id,)).fetchone()
+    conn.close()
+    if cuota is None:
+        flash("Cuota no encontrada.", "error")
+        return redirect(url_for("ver_notificaciones"))
+
+    cuerpo = construir_texto_recordatorio_cuota(cuota)
+    enviado, destinatario = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "cuota", str(cuota_id), {"destinatario": destinatario, "tipo": "cuota"})
+        flash("Recordatorio de cuota enviado.", "ok")
+    else:
+        flash("No se pudo enviar el recordatorio. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
+@app.route("/notificaciones/fichas/<int:jugador_id>/email", methods=["POST"])
+def enviar_recordatorio_ficha(jugador_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    ficha = conn.execute("""
+        SELECT
+            j.id AS jugador_id,
+            j.nombre,
+            j.apellido,
+            j.email,
+            j.email_tutor,
+            j.portal_token,
+            j.portal_activo,
+            f.fecha_vencimiento,
+            CASE
+                WHEN f.id IS NULL OR f.fecha_vencimiento IS NULL OR NULLIF(f.fecha_vencimiento::text, '') IS NULL THEN 'faltante'
+                WHEN f.fecha_vencimiento::text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'faltante'
+                WHEN f.fecha_vencimiento::date < CURRENT_DATE THEN 'vencida'
+                WHEN f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'
+                ELSE 'vigente'
+            END AS estado_documento
+        FROM jugadores j
+        LEFT JOIN fichas_medicas f ON f.jugador_id = j.id
+        WHERE j.id = %s
+    """, (jugador_id,)).fetchone()
+    conn.close()
+    if ficha is None:
+        flash("Jugador no encontrado.", "error")
+        return redirect(url_for("ver_notificaciones"))
+
+    cuerpo = construir_texto_recordatorio_ficha(ficha)
+    enviado, destinatario = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "ficha_medica", str(jugador_id), {"destinatario": destinatario, "tipo": "ficha_medica"})
+        flash("Recordatorio de ficha médica enviado.", "ok")
+    else:
+        flash("No se pudo enviar el recordatorio. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
+@app.route("/notificaciones/cuotas/email-lote", methods=["POST"])
+def enviar_recordatorios_cuotas_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    modo = request.form.get("modo", "vencidas").strip()
+    datos = obtener_notificaciones_operativas()
+    cuotas = datos["cuotas_vencidas"] if modo == "vencidas" else datos["cuotas_por_vencer"]
+    enviados = 0
+    for cuota in cuotas:
+        cuerpo = construir_texto_recordatorio_cuota(cuota)
+        enviado, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
+        enviados += 1 if enviado else 0
+    flash(f"Se enviaron {enviados} recordatorios por email.", "ok" if enviados else "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
+@app.route("/notificaciones/fichas/email-lote", methods=["POST"])
+def enviar_recordatorios_fichas_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    datos = obtener_notificaciones_operativas()
+    enviados = 0
+    for ficha in datos["fichas"]:
+        cuerpo = construir_texto_recordatorio_ficha(ficha)
+        enviado, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
+        enviados += 1 if enviado else 0
+    flash(f"Se enviaron {enviados} recordatorios de ficha médica.", "ok" if enviados else "error")
+    return redirect(url_for("ver_notificaciones"))
+
 
 @app.route("/exportar/morosos")
 def exportar_morosos():
@@ -13823,6 +14216,12 @@ def tomar_asistencia(evento_id):
         WHERE evento_id = %s
     """, (evento_id,)).fetchall()
 
+    confirmaciones_portal = conn.execute("""
+        SELECT *
+        FROM portal_asistencia_confirmaciones
+        WHERE evento_id = %s
+    """, (evento_id,)).fetchall()
+
     conn.close()
 
     asistencias_por_jugador = {
@@ -13830,6 +14229,9 @@ def tomar_asistencia(evento_id):
     }
     asistencias_por_aspirante = {
         a["aspirante_id"]: a for a in aspirante_asistencias
+    }
+    confirmaciones_por_jugador = {
+        c["jugador_id"]: c for c in confirmaciones_portal
     }
 
     participantes = []
@@ -13839,6 +14241,7 @@ def tomar_asistencia(evento_id):
         item["tipo_label"] = "Jugador"
         item["form_key"] = f"jugador_{jugador['id']}"
         item["asistencia"] = asistencias_por_jugador.get(jugador["id"])
+        item["confirmacion_portal"] = confirmaciones_por_jugador.get(jugador["id"])
         participantes.append(item)
 
     for aspirante in aspirantes:
@@ -13847,6 +14250,7 @@ def tomar_asistencia(evento_id):
         item["tipo_label"] = "Ahijadx"
         item["form_key"] = f"aspirante_{aspirante['id']}"
         item["asistencia"] = asistencias_por_aspirante.get(aspirante["id"])
+        item["confirmacion_portal"] = None
         participantes.append(item)
 
     return render_template(
