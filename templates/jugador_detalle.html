@@ -3,9 +3,19 @@
 {% block title %}Detalle del jugador{% endblock %}
 
 {% block content %}
-<div class="section-header">
-    <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
-    <div class="actions">
+<div class="admin-page profile-page">
+<section class="admin-hero">
+    <div class="admin-hero-main">
+        <span class="badge badge-info">{{ jugador['tipo_miembro'] or 'Jugador' }}</span>
+        <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+        <p class="page-intro">Resumen integral del jugador con finanzas, salud, rendimiento y actividad del portal en una sola vista.</p>
+        <div class="admin-hero-meta">
+            <span><strong>Estado:</strong> {{ jugador['estado'] }}</span>
+            <span><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</span>
+            <span><strong>Socio club:</strong> {{ jugador['numero_socio'] or '-' }}</span>
+        </div>
+    </div>
+    <div class="admin-hero-actions actions">
         <a class="button secondary" href="{{ url_for('timeline_jugador', jugador_id=jugador['id']) }}">Historial</a>
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar jugador</a>
@@ -23,7 +33,7 @@
             <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver lesiones</a>
         {% endif %}
     </div>
-</div>
+</section>
 
 <div class="dashboard-cards spaced">
     <div class="card stat-card">
@@ -625,4 +635,5 @@
     </div>
 </div>
 {% endif %}
+</div>
 {% endblock %}

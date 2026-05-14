@@ -1991,6 +1991,116 @@ tbody tr:hover {
     width: 100%;
 }
 
+.admin-page {
+    display: grid;
+    gap: 24px;
+}
+
+.admin-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.85fr);
+    gap: 20px;
+    padding: 26px;
+    border: 1px solid rgba(15, 118, 110, 0.12);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 34%),
+        linear-gradient(135deg, rgba(16, 35, 30, 0.98) 0%, rgba(16, 35, 30, 0.94) 58%, rgba(15, 118, 110, 0.9) 100%);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+    color: #f8fafc;
+}
+
+.admin-hero h2 {
+    margin: 14px 0 10px;
+    color: #ffffff;
+}
+
+.admin-hero .page-intro {
+    margin: 0;
+    color: rgba(241, 245, 249, 0.86);
+}
+
+.admin-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.admin-hero-meta span {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5edf6;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-hero-actions {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+}
+
+.admin-hero-actions .button,
+.admin-hero-actions .button.secondary,
+.admin-hero-actions form {
+    width: 100%;
+}
+
+.admin-kpi-grid {
+    align-items: stretch;
+}
+
+.toolbar-card {
+    border-top: 3px solid var(--header-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 0.96) 100%);
+}
+
+.finance-summary-card,
+.attendance-summary-card {
+    display: grid;
+    gap: 8px;
+}
+
+.finance-summary-card p,
+.attendance-summary-card p {
+    margin: 0;
+}
+
+.attendance-form-shell,
+.communication-table {
+    display: grid;
+    gap: 18px;
+}
+
+.profile-page .detail-grid > .card,
+.finance-page .table-wrapper,
+.calendar-page .table-wrapper,
+.communication-page .table-wrapper,
+.attendance-page .table-wrapper {
+    border-radius: 16px;
+}
+
+.profile-page .detail-grid > .card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+}
+
+.profile-page .section-header.compact,
+.finance-page .section-header.compact,
+.calendar-page .section-header.compact {
+    align-items: flex-start;
+}
+
+.data-card p {
+    margin: 0 0 10px;
+}
+
+.data-card p:last-child {
+    margin-bottom: 0;
+}
+
 .onboarding-panel {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
@@ -2099,11 +2209,16 @@ tbody tr:hover {
     }
 
     .portal-hero,
-    .portal-overview-grid {
+    .portal-overview-grid,
+    .admin-hero {
         grid-template-columns: 1fr;
     }
 
     .portal-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-hero-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -2187,15 +2302,21 @@ tbody tr:hover {
         padding: 14px;
     }
 
-    .portal-hero {
+    .portal-hero,
+    .admin-hero {
         padding: 20px;
     }
 
-    .portal-hero h1 {
+    .portal-hero h1,
+    .admin-hero h2 {
         font-size: 28px;
     }
 
     .portal-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-hero-actions {
         grid-template-columns: 1fr;
     }
 

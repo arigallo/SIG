@@ -3,8 +3,12 @@
 {% block title %}Calendario{% endblock %}
 
 {% block content %}
+<div class="admin-page calendar-page">
 <div class="section-header">
-    <h2>Calendario del club</h2>
+    <div>
+        <h2>Calendario del club</h2>
+        <p class="page-intro">Vista operativa del mes con eventos, vencimientos y accesos rapidos a asistencia y comunicacion.</p>
+    </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_anterior) }}">Anterior</a>
         <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_siguiente) }}">Siguiente</a>
@@ -14,7 +18,7 @@
     </div>
 </div>
 
-<form method="get" class="card form-card form-card-narrow spaced-small">
+<form method="get" class="card form-card form-card-narrow spaced-small toolbar-card">
     <div class="field">
         <label>Mes</label>
         <input type="month" name="mes" value="{{ mes }}">
@@ -23,7 +27,7 @@
     <button class="button secondary" type="submit">Ver mes</button>
 </form>
 
-<div class="dashboard-cards report-cards spaced">
+<div class="dashboard-cards report-cards spaced admin-kpi-grid">
     <div class="card stat-card">
         <h3>Total de eventos</h3>
         <p class="stat-number compact">{{ calendario['resumen']['total'] }}</p>
@@ -120,5 +124,6 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
 </div>
 {% endblock %}

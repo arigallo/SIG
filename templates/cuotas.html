@@ -3,8 +3,12 @@
 {% block title %}Cuotas{% endblock %}
 
 {% block content %}
+<div class="admin-page finance-page">
 <div class="section-header">
-    <h2>Cuotas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <div>
+        <h2>Cuotas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+        <p class="page-intro">Gestion de deuda, becas, planes de pago y comprobantes del jugador en una sola pantalla.</p>
+    </div>
     <div class="actions">
         <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">+ Nueva cuota</a>
         {% if puede('planes_pago_gestionar') %}
@@ -13,8 +17,27 @@
     </div>
 </div>
 
-<div class="card spaced-small">
-    <p><strong>Deuda total:</strong> ${{ deuda }}</p>
+<div class="dashboard-cards spaced admin-kpi-grid">
+    <div class="card stat-card">
+        <h3>Deuda total</h3>
+        <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Cuotas</h3>
+        <p class="stat-number compact">{{ cuotas|length }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Planes</h3>
+        <p class="stat-number compact">{{ planes_pago|length }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Beca</h3>
+        <p class="stat-number compact">{% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}-{% endif %}</p>
+    </div>
+</div>
+
+<div class="card spaced-small finance-summary-card">
+    <p><strong>Deuda total:</strong> {{ deuda | moneda }}</p>
     {% if jugador['beca_activa'] %}
         <p>
             <strong>Beca activa:</strong>
@@ -27,7 +50,7 @@
 </div>
 
 {% if puede('cuotas_gestionar') %}
-<form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small">
+<form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small toolbar-card">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <h3>Recalcular becas en cuotas pendientes</h3>
     <div class="report-filter-grid">
@@ -287,4 +310,5 @@
     </div>
 </div>
 {% endif %}
+</div>
 {% endblock %}

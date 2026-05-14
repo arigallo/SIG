@@ -3,8 +3,12 @@
 {% block title %}Tomar asistencia{% endblock %}
 
 {% block content %}
+<div class="admin-page attendance-page">
 <div class="section-header">
-    <h2>Asistencia - {{ evento['fecha'] }}</h2>
+    <div>
+        <h2>Asistencia - {{ evento['fecha'] }}</h2>
+        <p class="page-intro">Control operativo de disponibilidad, asistencia real y observaciones del evento.</p>
+    </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
         <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar CSV</a>
@@ -25,7 +29,7 @@
     </div>
 </div>
 
-<div class="card spaced-small">
+<div class="card spaced-small attendance-summary-card">
     <p><strong>Tipo:</strong> {{ evento['tipo'] }}</p>
     <p><strong>Descripcion:</strong> {{ evento['descripcion'] or '-' }}</p>
     <p>
@@ -41,7 +45,7 @@
     </p>
 </div>
 
-<form method="post">
+<form method="post" class="attendance-form-shell">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrapper">
         <table>
@@ -108,4 +112,5 @@
         <p class="muted-line">Este evento está cerrado y la asistencia quedó bloqueada. Solo un admin puede reabrirlo.</p>
     {% endif %}
 </form>
+</div>
 {% endblock %}
