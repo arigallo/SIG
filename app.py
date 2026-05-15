@@ -10895,9 +10895,13 @@ def portal_jugador(token):
 def portal_confirmar_asistencia(token, evento_id):
     estado = request.form.get("estado", "").strip()
     if estado not in {"confirmado", "dudoso", "no_asiste"}:
-        flash("La confirmación no es válida.", "error")
+        flash("La confirmacion no es valida.", "error")
         return redirect(url_for("portal_jugador", token=token))
+    return redirect(url_for("portal_bienestar_asistencia", token=token, evento_id=evento_id, estado=estado))
 
+
+@app.route("/portal/<token>/eventos/<int:evento_id>/bienestar", methods=["GET", "POST"])
+def portal_bienestar_asistencia(token, evento_id):
     conn = get_connection()
     jugador = conn.execute("""
         SELECT *
@@ -10917,40 +10921,114 @@ def portal_confirmar_asistencia(token, evento_id):
     """, (evento_id,)).fetchone()
     if evento is None or not evento.get("asistencia_evento_id"):
         conn.close()
-        flash("Ese evento no admite confirmación desde el portal.", "error")
+        flash("Ese evento no admite confirmacion desde el portal.", "error")
         return redirect(url_for("portal_jugador", token=token))
 
     if not categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
         conn.close()
         abort(404)
 
-    conn.execute("""
-        INSERT INTO portal_asistencia_confirmaciones (
-            evento_id, jugador_id, estado, creado_en, actualizado_en
-        )
-        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        ON CONFLICT (evento_id, jugador_id)
-        DO UPDATE SET
-            estado = excluded.estado,
-            actualizado_en = CURRENT_TIMESTAMP
-    """, (evento["asistencia_evento_id"], jugador["id"], estado))
-    conn.commit()
-    conn.close()
+    actual = conn.execute("""
+        SELECT *
+        FROM portal_asistencia_confirmaciones
+        WHERE evento_id = %s AND jugador_id = %s
+    """, (evento["asistencia_evento_id"], jugador["id"])).fetchone()
+    actual = dict(actual) if actual else {}
+    try:
+        actual["dolor_zonas_lista"] = json.loads(actual.get("dolor_zonas") or "[]")
+    except (TypeError, ValueError):
+        actual["dolor_zonas_lista"] = []
 
-    registrar_auditoria(
-        "confirmar_asistencia",
-        "portal_jugador",
-        str(jugador["id"]),
-        {
-            "evento_id": evento["id"],
-            "asistencia_evento_id": evento["asistencia_evento_id"],
-            "estado": estado,
-        },
-        username="portal",
-        rol="portal",
+    estado = (request.form.get("estado") if request.method == "POST" else request.args.get("estado") or actual.get("estado") or "confirmado").strip()
+    if estado not in {"confirmado", "dudoso", "no_asiste"}:
+        estado = "confirmado"
+
+    if request.method == "POST":
+        campos = {
+            "sueno_calidad": request.form.get("sueno_calidad", "").strip(),
+            "horas_sueno": request.form.get("horas_sueno", "").strip(),
+            "doms": request.form.get("doms", "").strip(),
+            "fatiga": request.form.get("fatiga", "").strip(),
+            "estres": request.form.get("estres", "").strip(),
+            "animo": request.form.get("animo", "").strip(),
+            "motivacion": request.form.get("motivacion", "").strip(),
+            "recuperacion": request.form.get("recuperacion", "").strip(),
+        }
+        if not all(campos.values()):
+            conn.close()
+            flash("Completa todas las respuestas obligatorias del bienestar.", "error")
+            return render_template(
+                "portal_bienestar.html",
+                token=token,
+                jugador=jugador,
+                evento=evento,
+                estado=estado,
+                actual={**actual, **campos, "dolor_zonas_lista": request.form.getlist("dolor_zonas"), "dolor_otro": request.form.get("dolor_otro", "").strip(), "comentarios": request.form.get("comentarios", "").strip()},
+                horas_opciones=BIENESTAR_HORAS_OPCIONES,
+                dolor_zonas=BIENESTAR_DOLOR_ZONAS,
+            )
+
+        dolor_zonas = request.form.getlist("dolor_zonas") or ["No"]
+        dolor_otro = request.form.get("dolor_otro", "").strip()
+        comentarios = request.form.get("comentarios", "").strip()
+
+        conn.execute("""
+            INSERT INTO portal_asistencia_confirmaciones (
+                evento_id, jugador_id, estado, sueno_calidad, horas_sueno, doms, fatiga, estres, animo,
+                motivacion, recuperacion, dolor_zonas, dolor_otro, comentarios, creado_en, actualizado_en
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (evento_id, jugador_id)
+            DO UPDATE SET
+                estado = excluded.estado,
+                sueno_calidad = excluded.sueno_calidad,
+                horas_sueno = excluded.horas_sueno,
+                doms = excluded.doms,
+                fatiga = excluded.fatiga,
+                estres = excluded.estres,
+                animo = excluded.animo,
+                motivacion = excluded.motivacion,
+                recuperacion = excluded.recuperacion,
+                dolor_zonas = excluded.dolor_zonas,
+                dolor_otro = excluded.dolor_otro,
+                comentarios = excluded.comentarios,
+                actualizado_en = CURRENT_TIMESTAMP
+        """, (
+            evento["asistencia_evento_id"], jugador["id"], estado,
+            int(campos["sueno_calidad"]), campos["horas_sueno"], int(campos["doms"]), int(campos["fatiga"]),
+            int(campos["estres"]), int(campos["animo"]), int(campos["motivacion"]), int(campos["recuperacion"]),
+            json.dumps(dolor_zonas, ensure_ascii=False), dolor_otro or None, comentarios or None,
+        ))
+        conn.commit()
+        conn.close()
+
+        registrar_auditoria(
+            "confirmar_asistencia",
+            "portal_jugador",
+            str(jugador["id"]),
+            {
+                "evento_id": evento["id"],
+                "asistencia_evento_id": evento["asistencia_evento_id"],
+                "estado": estado,
+                "bienestar": True,
+            },
+            username="portal",
+            rol="portal",
+        )
+        flash("Confirmacion y bienestar guardados.", "ok")
+        return redirect(url_for("portal_jugador", token=token))
+
+    conn.close()
+    return render_template(
+        "portal_bienestar.html",
+        token=token,
+        jugador=jugador,
+        evento=evento,
+        estado=estado,
+        actual=actual,
+        horas_opciones=BIENESTAR_HORAS_OPCIONES,
+        dolor_zonas=BIENESTAR_DOLOR_ZONAS,
     )
-    flash("Confirmación de asistencia guardada.", "ok")
-    return redirect(url_for("portal_jugador", token=token))
 
 
 @app.route("/portal/<token>/calendario.ics")
