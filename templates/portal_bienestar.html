@@ -21,7 +21,7 @@
             <div class="portal-hero-copy">
                 <span class="badge badge-info">Bienestar previo</span>
                 <h1>{{ jugador['nombre'] }}, {{ jugador['apellido'] }}</h1>
-                <p class="portal-hero-text">Complet? este chequeo breve antes de guardar tu asistencia. Te va a llevar menos de un minuto.</p>
+                <p class="portal-hero-text">Complet&aacute; este chequeo breve antes de guardar tu asistencia. Te va a llevar menos de un minuto.</p>
                 <div class="portal-hero-meta">
                     <span><strong>Evento:</strong> {{ evento['titulo'] }}</span>
                     <span><strong>Fecha:</strong> {{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
@@ -39,11 +39,11 @@
 
             <div class="wellness-grid-two">
                 <div class="wellness-question">
-                    <label>?C?mo fue tu calidad de sue?o anoche?</label>
+                    <label>&iquest;C&oacute;mo fue tu calidad de sue&ntilde;o anoche?</label>
                     <div class="wellness-scale">{% for n,label in [(1,'Muy mala'),(2,'Mala'),(3,'Normal'),(4,'Buena'),(5,'Muy buena')] %}<label><input type="radio" name="sueno_calidad" value="{{ n }}" {% if actual.get('sueno_calidad')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
-                    <label>?Cu?ntas horas dormiste?</label>
+                    <label>&iquest;Cu&aacute;ntas horas dormiste?</label>
                     <div class="wellness-pills">{% for item in horas_opciones %}<label><input type="radio" name="horas_sueno" value="{{ item }}" {% if actual.get('horas_sueno') == item %}checked{% endif %}><span>{{ item }}</span></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
@@ -55,32 +55,32 @@
                     <div class="wellness-scale">{% for n,label in [(1,'Extremadamente fatigado'),(2,'Muy fatigado'),(3,'Fatiga moderada'),(4,'Fatiga baja'),(5,'Muy descansado')] %}<label><input type="radio" name="fatiga" value="{{ n }}" {% if actual.get('fatiga')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
-                    <label>Nivel de estr?s general</label>
+                    <label>Nivel de estr&eacute;s general</label>
                     <div class="wellness-scale">{% for n,label in [(1,'Muy alto'),(2,'Alto'),(3,'Medio'),(4,'Bajo'),(5,'Muy bajo')] %}<label><input type="radio" name="estres" value="{{ n }}" {% if actual.get('estres')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
-                    <label>Estado de ?nimo general</label>
+                    <label>Estado de &aacute;nimo general</label>
                     <div class="wellness-scale">{% for n,label in [(1,'Muy bajo'),(2,'Bajo'),(3,'Normal'),(4,'Bueno'),(5,'Muy bueno')] %}<label><input type="radio" name="animo" value="{{ n }}" {% if actual.get('animo')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
-                    <label>Motivaci?n para entrenar hoy</label>
+                    <label>Motivaci&oacute;n para entrenar hoy</label>
                     <div class="wellness-scale">{% for n,label in [(1,'Muy baja'),(2,'Baja'),(3,'Normal'),(4,'Alta'),(5,'Muy alta')] %}<label><input type="radio" name="motivacion" value="{{ n }}" {% if actual.get('motivacion')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
                 <div class="wellness-question">
-                    <label>Percepci?n de recuperaci?n f?sica</label>
+                    <label>Percepci&oacute;n de recuperaci&oacute;n f&iacute;sica</label>
                     <div class="wellness-scale">{% for n,label in [(1,'Nada recuperado'),(2,'Poco recuperado'),(3,'Moderado'),(4,'Bien'),(5,'Totalmente recuperado')] %}<label><input type="radio" name="recuperacion" value="{{ n }}" {% if actual.get('recuperacion')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
                 </div>
             </div>
 
             <div class="wellness-question">
-                <label>?Tuviste alg?n dolor, golpe o molestia puntual?</label>
+                <label>&iquest;Tuviste alg&uacute;n dolor, golpe o molestia puntual?</label>
                 <div class="wellness-check-grid">{% for item in dolor_zonas %}<label><input type="checkbox" name="dolor_zonas" value="{{ item }}" {% if item in actual.get('dolor_zonas_lista', []) %}checked{% endif %}><span>{{ item }}</span></label>{% endfor %}</div>
-                <input type="text" name="dolor_otro" placeholder="Si marcaste otro, detallalo" value="{{ actual.get('dolor_otro', '') }}">
+                <input type="text" name="dolor_otro" placeholder="Ej.: mu&ntilde;eca derecha, golpe en costilla, sobrecarga en gemelo" value="{{ actual.get('dolor_otro') or '' }}">
             </div>
 
             <div class="wellness-question">
-                <label>Comentarios importantes para el cuerpo t?cnico</label>
-                <textarea name="comentarios" rows="3" placeholder="Opcional">{{ actual.get('comentarios', '') }}</textarea>
+                <label>Comentarios importantes para el cuerpo t&eacute;cnico</label>
+                <textarea name="comentarios" rows="3" placeholder="Ej.: dorm&iacute; poco, sigo con dolor en rodilla, prefiero entrenar liviano">{{ actual.get('comentarios') or '' }}</textarea>
             </div>
 
             <div class="actions-row stack-gap">

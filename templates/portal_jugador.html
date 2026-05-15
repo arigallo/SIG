@@ -27,7 +27,7 @@
                     Tu espacio personal para seguir entrenamientos, pagos, salud y evolucion deportiva en un solo lugar.
                 </p>
                 <div class="portal-hero-meta">
-                    <span><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</span>
+                    <span><strong>Categor&iacute;a:</strong> {{ jugador['categoria'] or '-' }}</span>
                     <span><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</span>
                     <span><strong>Socio club:</strong> {{ jugador['numero_socio'] or '-' }}</span>
                 </div>
@@ -48,19 +48,19 @@
                 <span class="muted-line">{% if deuda > 0 %}Tenes saldo pendiente para regularizar.{% else %}No hay deuda pendiente.{% endif %}</span>
             </article>
             <article class="card portal-summary-card">
-                <span class="portal-summary-label">Ficha medica</span>
+                <span class="portal-summary-label">Ficha m&eacute;dica</span>
                 <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
                 <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revisa el estado de tu documentacion.{% endif %}</span>
             </article>
             <article class="card portal-summary-card">
-                <span class="portal-summary-label">Proximo evento</span>
+                <span class="portal-summary-label">Pr&oacute;ximo evento</span>
                 <strong class="portal-summary-value">{% if proximo_evento %}{{ proximo_evento['titulo'] }}{% else %}Sin agenda cercana{% endif %}</strong>
-                <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todavia no hay eventos publicados.{% endif %}</span>
+                <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todav&iacute;a no hay eventos publicados.{% endif %}</span>
             </article>
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Tests registrados</span>
                 <strong class="portal-summary-value">{{ tests_recientes | length }}</strong>
-                <span class="muted-line">{% if resumen_tests %}Tu evolucion deportiva ya esta disponible.{% else %}Todavia no hay mediciones cargadas.{% endif %}</span>
+                <span class="muted-line">{% if resumen_tests %}Tu evoluci&oacute;n deportiva ya est&aacute; disponible.{% else %}Todav&iacute;a no hay mediciones cargadas.{% endif %}</span>
             </article>
         </section>
 
@@ -85,7 +85,7 @@
                 <div class="section-header compact">
                     <div>
                         <h3>Calendario deportivo</h3>
-                        <span class="muted-line">Eventos publicados para tu categoria</span>
+                        <span class="muted-line">Eventos publicados para tu categor&iacute;a</span>
                     </div>
                 </div>
                 <div class="portal-event-list">
@@ -130,12 +130,12 @@
                                         <button class="button secondary" type="submit">Completar bienestar</button>
                                     </form>
                                     {% if confirmacion and confirmacion['bienestar_completo'] %}
-                                        <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} ? {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
+                                        <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} &middot; {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
                                     {% else %}
                                         <span class="muted-line">Falta cuestionario de bienestar</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="muted-line">Sin confirmacion</span>
+                                    <span class="muted-line">Sin confirmaci&oacute;n</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -158,7 +158,7 @@
                                 <span>{{ lesion['zona_cuerpo'] or '-' }}</span>
                                 <span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>
                                 {% if lesion['etapa_recuperacion'] %}<span class="muted-line">Etapa: {{ lesion['etapa_recuperacion'] }}</span>{% endif %}
-                                {% if lesion['proximo_control'] %}<span class="muted-line">Proximo control: {{ lesion['proximo_control'] }}</span>{% endif %}
+                                {% if lesion['proximo_control'] %}<span class="muted-line">Pr&oacute;ximo control: {{ lesion['proximo_control'] }}</span>{% endif %}
                                 {% if lesion['fecha_retorno_estimada'] %}<span class="muted-line">Retorno estimado: {{ lesion['fecha_retorno_estimada'] }}</span>{% endif %}
                             </div>
                         {% endfor %}
@@ -228,7 +228,7 @@
                         </table>
                     </div>
                 {% else %}
-                    <p>No hay asistencias registradas todavia.</p>
+                    <p>No hay asistencias registradas todav&iacute;a.</p>
                 {% endif %}
             </article>
         </section>
@@ -420,7 +420,7 @@
                     </table>
                 </div>
             {% else %}
-                <p>No hay tests cargados todavia.</p>
+                <p>No hay tests cargados todav&iacute;a.</p>
             {% endif %}
         </section>
 
@@ -502,7 +502,7 @@
                                 <thead>
                                     <tr>
                                         <th>Jugador</th>
-                                        <th>Categoria</th>
+                                        <th>Categor&iacute;a</th>
                                         {% for fecha in portal_test_comparativo['fechas'] %}
                                             <th>{{ fecha }}</th>
                                         {% endfor %}
@@ -552,7 +552,7 @@
                     <p class="top-gap">No hay mediciones para ese test con los filtros seleccionados.</p>
                 {% endif %}
             {% else %}
-                <p>No hay tests cargados todavia.</p>
+                <p>No hay tests cargados todav&iacute;a.</p>
             {% endif %}
         </section>
 
@@ -583,7 +583,7 @@
                     <h3>Datos del club</h3>
                     <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
                 </div>
-                <p><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</p>
+                <p><strong>Categor&iacute;a:</strong> {{ jugador['categoria'] or '-' }}</p>
                 <p><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</p>
                 <p><strong>Fecha de ingreso:</strong> {{ jugador['fecha_ingreso'] or '-' }}</p>
                 <p><strong>Numero de socio del club:</strong> {{ jugador['numero_socio'] or '-' }}</p>
@@ -593,13 +593,13 @@
             </article>
 
             <article class="card portal-panel">
-                <h3>Ficha medica</h3>
+                <h3>Ficha m&eacute;dica</h3>
                 {% if ficha %}
                     <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Si{% else %}No{% endif %}</p>
                     <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
                     <p><strong>Apto fisico:</strong> {% if ficha['apto_fisico'] %}Si{% else %}No{% endif %}</p>
                 {% else %}
-                    <p>No hay ficha medica cargada.</p>
+                    <p>No hay ficha m&eacute;dica cargada.</p>
                 {% endif %}
             </article>
 
