@@ -2398,3 +2398,115 @@ tbody tr:hover {
         padding: 24px 18px;
     }
 }
+
+
+.portal-wellness-page {
+    padding-bottom: 36px;
+}
+
+.compact-hero {
+    margin-bottom: 18px;
+}
+
+.portal-wellness-form {
+    display: grid;
+    gap: 18px;
+    padding: 20px;
+}
+
+.wellness-grid-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.wellness-question {
+    display: grid;
+    gap: 10px;
+}
+
+.wellness-question > label {
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.wellness-scale {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.wellness-scale label,
+.wellness-pills label,
+.wellness-check-grid label {
+    position: relative;
+}
+
+.wellness-scale input,
+.wellness-pills input,
+.wellness-check-grid input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.wellness-scale span,
+.wellness-pills span,
+.wellness-check-grid span {
+    display: block;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: #fff;
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--secondary);
+    transition: 160ms ease;
+}
+
+.wellness-scale small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.wellness-scale input:checked + span,
+.wellness-pills input:checked + span,
+.wellness-check-grid input:checked + span {
+    border-color: rgba(15, 118, 110, 0.55);
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--primary-strong);
+    box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.14);
+}
+
+.wellness-pills,
+.wellness-check-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.wellness-pills span,
+.wellness-check-grid span {
+    padding: 9px 12px;
+}
+
+.wellness-admin-summary {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+    .wellness-grid-two {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .wellness-scale {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

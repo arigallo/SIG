@@ -121,15 +121,19 @@
                                             {% endif %}
                                         </span>
                                     {% endif %}
-                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
-                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <form method="get" action="{{ url_for('portal_bienestar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
                                         <select name="estado">
                                             <option value="confirmado" {% if confirmacion and confirmacion['estado'] == 'confirmado' %}selected{% endif %}>Confirmo</option>
                                             <option value="dudoso" {% if confirmacion and confirmacion['estado'] == 'dudoso' %}selected{% endif %}>Dudoso</option>
                                             <option value="no_asiste" {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}selected{% endif %}>No puedo</option>
                                         </select>
-                                        <button class="button secondary" type="submit">Guardar</button>
+                                        <button class="button secondary" type="submit">Completar bienestar</button>
                                     </form>
+                                    {% if confirmacion and confirmacion['bienestar_completo'] %}
+                                        <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} ? {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
+                                    {% else %}
+                                        <span class="muted-line">Falta cuestionario de bienestar</span>
+                                    {% endif %}
                                 {% else %}
                                     <span class="muted-line">Sin confirmacion</span>
                                 {% endif %}

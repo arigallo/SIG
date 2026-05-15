@@ -75,6 +75,19 @@
                                 {% else %}
                                     <span class="badge badge-danger">No asiste</span>
                                 {% endif %}
+                                {% if participante['confirmacion_portal']['bienestar_resumen'] %}
+                                    <div class="wellness-admin-summary">
+                                        <span class="badge {% if participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'danger' %}badge-danger{% elif participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ participante['confirmacion_portal']['bienestar_resumen']['label'] }}</span>
+                                        <span class="muted-line">Promedio {{ participante['confirmacion_portal']['bienestar_resumen']['promedio'] }}/5</span>
+                                        <span class="muted-line">Sue?o {{ participante['confirmacion_portal']['sueno_calidad'] }}/5 ? Fatiga {{ participante['confirmacion_portal']['fatiga'] }}/5 ? Recuperaci?n {{ participante['confirmacion_portal']['recuperacion'] }}/5</span>
+                                        {% if participante['confirmacion_portal']['bienestar_resumen']['dolores'] %}
+                                            <span class="muted-line">Molestias: {{ participante['confirmacion_portal']['bienestar_resumen']['dolores'] | join(', ') }}</span>
+                                        {% endif %}
+                                        {% if participante['confirmacion_portal']['comentarios'] %}
+                                            <span class="muted-line">{{ participante['confirmacion_portal']['comentarios'] }}</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
                             {% else %}
                                 -
                             {% endif %}

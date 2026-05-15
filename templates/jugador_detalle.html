@@ -139,6 +139,38 @@
         {% endif %}
         <p><strong>Registros recientes:</strong> {{ tests_recientes | length }}</p>
     </div>
+    {% if puede_ver_salud and bienestar_reciente %}
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Bienestar reciente</h3>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Evento</th>
+                        <th>Estado</th>
+                        <th>Resumen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in bienestar_reciente %}
+                    <tr>
+                        <td>{{ item['fecha'] or '-' }}</td>
+                        <td>{{ item['tipo'] or 'Evento' }}{% if item['descripcion'] %}<span class="muted-line">{{ item['descripcion'] }}</span>{% endif %}</td>
+                        <td><span class="badge {% if item['bienestar_resumen']['nivel'] == 'danger' %}badge-danger{% elif item['bienestar_resumen']['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ item['bienestar_resumen']['label'] }}</span></td>
+                        <td>
+                            <span class="muted-line">Promedio {{ item['bienestar_resumen']['promedio'] }}/5</span>
+                            {% if item['bienestar_resumen']['dolores'] %}<span class="muted-line">Molestias: {{ item['bienestar_resumen']['dolores'] | join(', ') }}</span>{% endif %}
+                            {% if item['comentarios'] %}<span class="muted-line">{{ item['comentarios'] }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
     {% endif %}
 </div>
 

@@ -256,6 +256,10 @@ CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
 TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
 ESTADOS_JUGADOR = ["Activo", "Inactivo", "Suspendido", "Baja"]
 
+BIENESTAR_HORAS_OPCIONES = ["<5 h", "5-6 h", "6-7 h", "7-8 h", ">8 h"]
+BIENESTAR_HORAS_SCORE = {"<5 h": 1, "5-6 h": 2, "6-7 h": 3, "7-8 h": 4, ">8 h": 5}
+BIENESTAR_DOLOR_ZONAS = ["No", "Cuello", "Hombro", "Brazo", "Zona lumbar", "Cadera", "Muslo", "Rodilla", "Pantorrilla", "Tobillo", "Pie", "Otro"]
+
 BITACORA_TIPOS = {
     "general": "General",
     "finanzas": "Finanzas",
@@ -2970,6 +2974,44 @@ def obtener_eventos_deportivos_portal(jugador, limit=8):
     return filtrados
 
 
+def horas_sueno_score(valor):
+    return BIENESTAR_HORAS_SCORE.get((valor or "").strip(), 0)
+
+
+def resumen_bienestar_confirmacion(confirmacion):
+    if not confirmacion or confirmacion.get("sueno_calidad") is None:
+        return None
+    valores = []
+    for clave in ("sueno_calidad", "doms", "fatiga", "estres", "animo", "motivacion", "recuperacion"):
+        try:
+            valores.append(int(confirmacion.get(clave) or 0))
+        except (TypeError, ValueError):
+            valores.append(0)
+    horas_score = horas_sueno_score(confirmacion.get("horas_sueno"))
+    if horas_score:
+        valores.append(horas_score)
+    promedio = round(sum(valores) / len([v for v in valores if v]), 1) if any(valores) else 0
+    zonas = confirmacion.get("dolor_zonas_lista") or []
+    zonas_alerta = [zona for zona in zonas if zona and zona not in {"No", "Otro"}]
+    if confirmacion.get("dolor_otro"):
+        zonas_alerta.append("Otro")
+    if promedio and promedio < 2.6 or len(zonas_alerta) >= 2:
+        nivel = "danger"
+        label = "Alerta roja"
+    elif promedio and promedio < 3.6 or len(zonas_alerta) == 1:
+        nivel = "warning"
+        label = "Alerta amarilla"
+    else:
+        nivel = "success"
+        label = "Bienestar ok"
+    return {
+        "promedio": promedio,
+        "nivel": nivel,
+        "label": label,
+        "dolores": zonas_alerta,
+    }
+
+
 def obtener_confirmaciones_portal(conn, evento_ids, jugador_id=None):
     if not evento_ids:
         return {}
@@ -2986,7 +3028,14 @@ def obtener_confirmaciones_portal(conn, evento_ids, jugador_id=None):
     """, params).fetchall()
     confirmaciones = {}
     for row in rows:
-        confirmaciones[(row["evento_id"], row["jugador_id"])] = row
+        item = dict(row)
+        try:
+            item["dolor_zonas_lista"] = json.loads(item.get("dolor_zonas") or "[]")
+        except (TypeError, ValueError):
+            item["dolor_zonas_lista"] = []
+        item["bienestar_resumen"] = resumen_bienestar_confirmacion(item)
+        item["bienestar_completo"] = item["bienestar_resumen"] is not None
+        confirmaciones[(item["evento_id"], item["jugador_id"])] = item
     return confirmaciones
 
 
@@ -5221,6 +5270,24 @@ def init_db():
             UNIQUE(evento_id, jugador_id)
         )
     """)
+
+    columnas_portal_confirmaciones = get_columns(conn, "portal_asistencia_confirmaciones")
+    columnas_extra_portal_confirmaciones = {
+        "sueno_calidad": "INTEGER",
+        "horas_sueno": "TEXT",
+        "doms": "INTEGER",
+        "fatiga": "INTEGER",
+        "estres": "INTEGER",
+        "animo": "INTEGER",
+        "motivacion": "INTEGER",
+        "recuperacion": "INTEGER",
+        "dolor_zonas": "TEXT",
+        "dolor_otro": "TEXT",
+        "comentarios": "TEXT",
+    }
+    for columna, definicion in columnas_extra_portal_confirmaciones.items():
+        if columna not in columnas_portal_confirmaciones:
+            conn.execute(f"ALTER TABLE portal_asistencia_confirmaciones ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS test_tipos (
@@ -8965,7 +9032,9 @@ def pagar_cuota(cuota_id):
         SELECT
             c.*,
             j.nombre,
-            j.apellido
+            j.apellido,
+            j.email,
+            j.email_tutor
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.id = %s
@@ -10279,6 +10348,20 @@ def detalle_jugador(jugador_id):
         LIMIT 8
     """, (jugador_id,)).fetchall()
 
+    bienestar_reciente = conn.execute("""
+        SELECT
+            p.*,
+            e.fecha,
+            e.tipo,
+            e.descripcion
+        FROM portal_asistencia_confirmaciones p
+        JOIN eventos_asistencia e ON e.id = p.evento_id
+        WHERE p.jugador_id = %s
+          AND p.sueno_calidad IS NOT NULL
+        ORDER BY e.fecha DESC, p.actualizado_en DESC
+        LIMIT 8
+    """, (jugador_id,)).fetchall()
+
     documentos_manual = conn.execute("""
         SELECT *
         FROM documentos_jugadores
@@ -10367,6 +10450,13 @@ def detalle_jugador(jugador_id):
         cambios_portal = [dict(cambio) for cambio in cambios_portal]
         for cambio in cambios_portal:
             cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
+
+    for item in bienestar_reciente:
+        try:
+            item["dolor_zonas_lista"] = json.loads(item.get("dolor_zonas") or "[]")
+        except (TypeError, ValueError):
+            item["dolor_zonas_lista"] = []
+        item["bienestar_resumen"] = resumen_bienestar_confirmacion(item)
 
     conn.close()
 
@@ -13483,10 +13573,7 @@ def descargar_recibo(cuota_id):
     if check:
         return check
 
-    archivo = BASE_DIR / "recibos" / f"recibo_cuota_{cuota_id}.pdf"
-
-    if not archivo.exists():
-        archivo = generar_recibo_pdf(cuota_id)
+    archivo = generar_recibo_pdf(cuota_id)
 
     if archivo is None or not archivo.exists():
         flash("No se pudo generar el recibo.", "error")
