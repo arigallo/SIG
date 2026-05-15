@@ -11721,7 +11721,7 @@ def enviar_recordatorio_evento_calendario(evento_id):
         if jugador.get("portal_token") and jugador.get("portal_activo") and evento.get("asistencia_evento_id"):
             portal_url = url_for("portal_jugador", token=jugador["portal_token"], _external=True)
         cuerpo = construir_texto_recordatorio_evento(jugador, evento, portal_url=portal_url)
-        enviado, _ = enviar_email_jugador(jugador, f"Recordatorio: {evento['titulo']}", cuerpo)
+        enviado, _, _ = enviar_email_jugador(jugador, f"Recordatorio: {evento['titulo']}", cuerpo)
         enviados += 1 if enviado else 0
 
     registrar_auditoria("enviar_recordatorio", "calendario_evento", str(evento_id), {"cantidad": enviados})
@@ -12379,7 +12379,7 @@ def enviar_email_comunicacion_moroso(jugador_id):
 
     mensaje = mensaje_moroso(template, jugador)
     asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
-    enviado, destinatario = enviar_email_jugador(jugador, asunto, mensaje)
+    enviado, destinatario, _ = enviar_email_jugador(jugador, asunto, mensaje)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "moroso", str(jugador_id), {"destinatario": destinatario, "tipo": "comunicacion_moroso"})
         flash("Email enviado.", "ok")
@@ -12405,7 +12405,7 @@ def enviar_email_comunicacion_morosos_lote():
     for jugador in jugadores:
         mensaje = mensaje_moroso(template, jugador)
         asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
-        enviado, _ = enviar_email_jugador(jugador, asunto, mensaje)
+        enviado, _, _ = enviar_email_jugador(jugador, asunto, mensaje)
         enviados += 1 if enviado else 0
 
     registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos"})
@@ -12522,7 +12522,7 @@ def enviar_recordatorio_cuota(cuota_id):
         return redirect(url_for("ver_notificaciones"))
 
     cuerpo = construir_texto_recordatorio_cuota(cuota)
-    enviado, destinatario = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
+    enviado, destinatario, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "cuota", str(cuota_id), {"destinatario": destinatario, "tipo": "cuota"})
         flash("Recordatorio de cuota enviado.", "ok")
@@ -12565,7 +12565,7 @@ def enviar_recordatorio_ficha(jugador_id):
         return redirect(url_for("ver_notificaciones"))
 
     cuerpo = construir_texto_recordatorio_ficha(ficha)
-    enviado, destinatario = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
+    enviado, destinatario, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "ficha_medica", str(jugador_id), {"destinatario": destinatario, "tipo": "ficha_medica"})
         flash("Recordatorio de ficha médica enviado.", "ok")
@@ -12586,7 +12586,7 @@ def enviar_recordatorios_cuotas_lote():
     enviados = 0
     for cuota in cuotas:
         cuerpo = construir_texto_recordatorio_cuota(cuota)
-        enviado, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
+        enviado, _, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
         enviados += 1 if enviado else 0
     flash(f"Se enviaron {enviados} recordatorios por email.", "ok" if enviados else "error")
     return redirect(url_for("ver_notificaciones"))
@@ -12602,7 +12602,7 @@ def enviar_recordatorios_fichas_lote():
     enviados = 0
     for ficha in datos["fichas"]:
         cuerpo = construir_texto_recordatorio_ficha(ficha)
-        enviado, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
+        enviado, _, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
         enviados += 1 if enviado else 0
     flash(f"Se enviaron {enviados} recordatorios de ficha médica.", "ok" if enviados else "error")
     return redirect(url_for("ver_notificaciones"))
