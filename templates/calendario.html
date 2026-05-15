@@ -7,7 +7,7 @@
 <div class="section-header">
     <div>
         <h2>Calendario del club</h2>
-        <p class="page-intro">Vista operativa del mes con eventos, vencimientos y accesos rapidos a asistencia y comunicacion.</p>
+        <p class="page-intro">Vista operativa del mes con eventos, vencimientos y accesos r&aacute;pidos a asistencia y comunicaci&oacute;n.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_anterior) }}">Anterior</a>
@@ -49,36 +49,37 @@
         <p class="stat-number compact">
             {{ calendario['resumen']['cuotas'] + calendario['resumen']['fichas'] }}
         </p>
-        <span class="report-note">Cuotas y fichas médicas</span>
+        <span class="report-note">Cuotas y fichas m&eacute;dicas</span>
     </div>
 </div>
 
-<div class="table-wrapper">
-    <table>
+<div class="table-wrapper calendar-table">
+    <p class="table-hint">En celular, cada evento se ordena como tarjeta para ver fecha, tipo, detalle y acciones sin desplazarte tanto.</p>
+    <table class="calendar-detail-table">
         <thead>
             <tr>
                 <th>Fecha y hora</th>
                 <th>Tipo</th>
                 <th>Evento</th>
-                <th>Categoría</th>
-                <th>Ubicación</th>
+                <th>Categor&iacute;a</th>
+                <th>Ubicaci&oacute;n</th>
                 <th>Detalle</th>
-                <th>Acción</th>
+                <th>Acci&oacute;n</th>
             </tr>
         </thead>
         <tbody>
             {% for evento in calendario['eventos'] %}
             <tr class="{% if evento['prioridad'] == 'danger' %}calendar-danger{% elif evento['prioridad'] == 'warning' %}calendar-warning{% endif %}">
-                <td>{{ evento['fecha_hora'] or evento['fecha'] }}</td>
-                <td>
+                <td data-label="Fecha y hora">{{ evento['fecha_hora'] or evento['fecha'] }}</td>
+                <td data-label="Tipo">
                     <span class="calendar-type calendar-type-{{ evento['origen'] }}">
                         {{ evento['tipo'] }}
                     </span>
                 </td>
-                <td><strong>{{ evento['titulo'] }}</strong></td>
-                <td>{{ evento['categoria'] or '-' }}</td>
-                <td>{{ evento['ubicacion'] or '-' }}</td>
-                <td>
+                <td data-label="Evento"><strong>{{ evento['titulo'] }}</strong></td>
+                <td data-label="Categoría">{{ evento['categoria'] or '-' }}</td>
+                <td data-label="Ubicación">{{ evento['ubicacion'] or '-' }}</td>
+                <td data-label="Detalle">
                     {{ evento['detalle'] or '-' }}
                     {% if evento['disponibilidad_resumen'] %}
                         <span class="muted-line">Portal: {{ evento['disponibilidad_resumen'] }}</span>
@@ -93,7 +94,7 @@
                         <span class="muted-line">Minuta: {{ evento['minuta_post_evento'] }}</span>
                     {% endif %}
                 </td>
-                <td class="actions">
+                <td data-label="Acción" class="actions">
                     {% if evento['url'] %}
                         <a class="button secondary" href="{{ evento['url'] }}">{% if evento['origen'] == 'calendario' %}Tomar asistencia{% else %}Ver{% endif %}</a>
                     {% endif %}

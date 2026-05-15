@@ -35,8 +35,8 @@
 </form>
 
 <div class="table-wrapper communication-table">
-    <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-    <table>
+    <p class="table-hint">En celular, cada jugador se ordena en una tarjeta para que veas primero deuda, contacto y acciones.</p>
+    <table class="communication-detail-table">
         <thead>
             <tr>
                 <th>Jugador</th>
@@ -51,11 +51,11 @@
             {% for item in comunicaciones %}
             {% set jugador = item['jugador'] %}
             <tr>
-                <td>
+                <td data-label="Jugador">
                     <strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong>
                     <span class="muted-line">{{ jugador['categoria'] or '-' }}</span>
                 </td>
-                <td>
+                <td data-label="Contacto">
                     {{ jugador['telefono_tutor'] or jugador['telefono'] or '-' }}
                     {% if jugador['contacto_tutor'] %}
                         <span class="muted-line">{{ jugador['contacto_tutor'] }}</span>
@@ -66,13 +66,13 @@
                         <span class="muted-line">Sin email cargado</span>
                     {% endif %}
                 </td>
-                <td class="strong-danger">{{ jugador['deuda'] | moneda }}</td>
-                <td>
+                <td data-label="Deuda" class="strong-danger">{{ jugador['deuda'] | moneda }}</td>
+                <td data-label="Cuotas">
                     {{ jugador['cuotas_pendientes'] }} pendientes
                     <span class="muted-line">{{ jugador['cuotas_vencidas'] or 0 }} vencidas</span>
                 </td>
-                <td class="communication-message">{{ item['mensaje'] }}</td>
-                <td class="actions">
+                <td data-label="Mensaje" class="communication-message">{{ item['mensaje'] }}</td>
+                <td data-label="Acción" class="actions">
                     <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
                     <form method="post" action="{{ url_for('enviar_email_comunicacion_moroso', jugador_id=jugador['id']) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Editar ficha médica{% endblock %}
+{% block title %}Editar ficha m&eacute;dica{% endblock %}
 
 {% block content %}
-<h2>Editar ficha médica</h2>
+<h2>Editar ficha m&eacute;dica</h2>
 
 <form method="post" enctype="multipart/form-data" class="card form-card form-card-wide">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -11,7 +11,7 @@
         <label class="checkbox-row">
             <input type="checkbox" name="presentada"
                    {% if ficha and ficha['presentada'] %}checked{% endif %}>
-            <span>Ficha médica presentada</span>
+            <span>Ficha m&eacute;dica presentada</span>
         </label>
     </div>
 
@@ -25,8 +25,9 @@
         <label class="checkbox-row">
             <input type="checkbox" name="apto_fisico"
                    {% if ficha and ficha['apto_fisico'] %}checked{% endif %}>
-            <span>Apto físico</span>
+            <span>Apto f&iacute;sico</span>
         </label>
+        <span class="muted-line">Si carg&aacute;s la ficha oficial de URBA, el sistema la contar&aacute; como apto autom&aacute;ticamente.</span>
     </div>
 
     <div class="field">
@@ -36,7 +37,7 @@
     </div>
 
     <div class="field">
-        <label>Teléfono de emergencia</label>
+        <label>Tel&eacute;fono de emergencia</label>
         <input type="text" name="telefono_emergencia"
                value="{{ ficha['telefono_emergencia'] if ficha else '' }}">
     </div>
@@ -50,7 +51,7 @@
                 </a>
             </p>
             {% if ficha['documento_fecha'] %}
-                <span class="muted-line">Última carga: {{ ficha['documento_fecha'] }}</span>
+                <span class="muted-line">&Uacute;ltima carga: {{ ficha['documento_fecha'] }}</span>
             {% endif %}
         </div>
     {% endif %}
@@ -62,9 +63,9 @@
                    type="file"
                    name="ficha_archivo"
                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
-            <span class="upload-title">Arrastrá la ficha o hacé clic para elegirla</span>
-            <span class="upload-hint">También podés pegar una imagen desde el portapapeles.</span>
-            <span class="upload-file" data-upload-file-name>Ningún archivo seleccionado</span>
+            <span class="upload-title">Arrastr&aacute; la ficha o hac&eacute; clic para elegirla</span>
+            <span class="upload-hint">Tambi&eacute;n pod&eacute;s pegar una imagen desde el portapapeles.</span>
+            <span class="upload-file" data-upload-file-name>Ning&uacute;n archivo seleccionado</span>
         </label>
         <span class="muted-line">PDF, JPG o PNG hasta 16 MB.</span>
     </div>

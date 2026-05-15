@@ -1,20 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Ficha médica{% endblock %}
+{% block title %}Ficha m&eacute;dica{% endblock %}
 
 {% block content %}
 <div class="section-header">
-    <h2>Ficha médica de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+    <h2>Ficha m&eacute;dica de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
     <a class="button" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha</a>
 </div>
 
 <div class="card">
     {% if ficha %}
-        <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
+        <p><strong>Presentada:</strong> {% if ficha['presentada'] %}S&iacute;{% else %}No{% endif %}</p>
         <p><strong>Fecha de vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
-        <p><strong>Apto físico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
+        <p><strong>Apto f&iacute;sico:</strong> {% if ficha_apto_efectivo %}S&iacute;{% else %}No{% endif %}</p>
+        {% if ficha['documento_drive_file_id'] %}
+            <p class="muted-line">La ficha cargada cuenta como apto por ser la documentaci&oacute;n oficial de URBA.</p>
+        {% endif %}
         <p><strong>Contacto de emergencia:</strong> {{ ficha['contacto_emergencia'] or '-' }}</p>
-        <p><strong>Teléfono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
+        <p><strong>Tel&eacute;fono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
         <p><strong>Observaciones:</strong> {{ ficha['observaciones'] or '-' }}</p>
 
         {% if ficha['documento_drive_file_id'] %}
@@ -25,7 +28,7 @@
                 </a>
             </p>
             {% if ficha['documento_fecha'] %}
-                <p><strong>Última carga:</strong> {{ ficha['documento_fecha'] }}{% if ficha['documento_usuario'] %} por {{ ficha['documento_usuario'] }}{% endif %}</p>
+                <p><strong>&Uacute;ltima carga:</strong> {{ ficha['documento_fecha'] }}{% if ficha['documento_usuario'] %} por {{ ficha['documento_usuario'] }}{% endif %}</p>
             {% endif %}
         {% endif %}
 
@@ -42,7 +45,7 @@
             </div>
         {% endif %}
     {% else %}
-        <p>No hay ficha médica cargada para este jugador.</p>
+        <p>No hay ficha m&eacute;dica cargada para este jugador.</p>
     {% endif %}
 </div>
 {% endblock %}

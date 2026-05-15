@@ -7,7 +7,7 @@
 <div class="section-header">
     <div>
         <h2>Cuotas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
-        <p class="page-intro">Gestion de deuda, becas, planes de pago y comprobantes del jugador en una sola pantalla.</p>
+        <p class="page-intro">Gesti&oacute;n de deuda, becas, planes de pago y comprobantes del jugador en una sola pantalla.</p>
     </div>
     <div class="actions">
         <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">+ Nueva cuota</a>
@@ -74,8 +74,9 @@
     <div class="section-header">
         <h3>Planes de pago</h3>
     </div>
-    <div class="table-wrapper">
-        <table>
+    <div class="table-wrapper finance-table">
+        <p class="table-hint">En celular, cada plan se acomoda como tarjeta para ver estado, detalle y acciones sin perder contexto.</p>
+        <table class="finance-detail-table finance-plan-table">
             <thead>
                 <tr>
                     <th>Inicio</th>
@@ -83,28 +84,28 @@
                     <th>Cuotas</th>
                     <th>Estado</th>
                     <th>Detalle</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
                 {% for plan in planes_pago %}
                 <tr>
-                    <td>{{ plan['fecha_inicio'] or '-' }}</td>
-                    <td>
+                    <td data-label="Inicio">{{ plan['fecha_inicio'] or '-' }}</td>
+                    <td data-label="Monto">
                         {{ plan['monto_total'] | moneda }}
                         {% if plan['cuotas_incluidas'] %}
                             <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
                         {% endif %}
                     </td>
-                    <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
-                    <td>{{ plan['estado'] }}</td>
-                    <td>
+                    <td data-label="Cuotas">{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                    <td data-label="Estado">{{ plan['estado'] }}</td>
+                    <td data-label="Detalle">
                         {{ plan['descripcion'] or '-' }}
                         {% if plan['observaciones'] %}
                             <span class="muted-line">{{ plan['observaciones'] }}</span>
                         {% endif %}
                     </td>
-                    <td class="actions">
+                    <td data-label="Acción" class="actions">
                         {% if puede('planes_pago_gestionar') %}
                             <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
                         {% endif %}
@@ -119,7 +120,7 @@
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
                                 <input type="hidden" name="estado" value="Caido">
-                                <button class="button danger" type="submit">Caido</button>
+                                <button class="button danger" type="submit">Ca&iacute;do</button>
                             </form>
                         {% elif puede('planes_pago_gestionar') %}
                             <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
@@ -145,27 +146,28 @@
 </div>
 {% endif %}
 
-<div class="table-wrapper">
-    <table>
+<div class="table-wrapper finance-table">
+    <p class="table-hint">En celular, cada cuota se presenta como tarjeta con estado, comprobante y acciones principales a mano.</p>
+    <table class="finance-detail-table finance-quota-table">
         <thead>
             <tr>
-                <th>Periodo</th>
+                <th>Per&iacute;odo</th>
                 <th>Importe</th>
                 <th>Beca</th>
                 <th>Estado</th>
                 <th>Vencimiento</th>
                 <th>Fecha de pago</th>
-                <th>Método</th>
+                <th>M&eacute;todo</th>
                 <th>Referencia</th>
                 <th>Comprobante</th>
-                <th>Acción</th>
+                <th>Acci&oacute;n</th>
             </tr>
         </thead>
         <tbody>
             {% for cuota in cuotas %}
             <tr>
-                <td>{{ cuota['periodo'] }}</td>
-                <td>
+                <td data-label="Período">{{ cuota['periodo'] }}</td>
+                <td data-label="Importe">
                     {{ cuota['importe'] | moneda }}
                     {% if cuota['anulada'] and (cuota['importe_anulado'] or cuota['importe_original']) %}
                         <span class="muted-line">Anulada sobre {{ (cuota['importe_anulado'] or cuota['importe_original']) | moneda }}</span>
@@ -180,7 +182,7 @@
                         <span class="muted-line">{{ cuota['plan_pago_detalle'] }}</span>
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Beca">
                     {% if cuota['becada'] %}
                         <span class="status-paid">{{ cuota['beca_porcentaje'] or 0 }}%</span>
                         <span class="muted-line">Descuento: {{ cuota['descuento_beca'] | moneda }}</span>
@@ -188,7 +190,7 @@
                         -
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Estado">
                     {% if cuota['anulada'] %}
                         <span class="badge badge-muted">Anulada</span>
                         {% if cuota['anulacion_motivo'] %}
@@ -202,11 +204,11 @@
                         <span class="status-pending">Pendiente</span>
                     {% endif %}
                 </td>
-                <td>{{ cuota['fecha_vencimiento'] or '-' }}</td>
-                <td>{{ cuota['fecha_pago'] or '-' }}</td>
-                <td>{{ cuota['metodo_pago'] or '-' }}</td>
-                <td>{{ cuota['referencia_pago'] or '-' }}</td>
-                <td class="actions">
+                <td data-label="Vencimiento">{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                <td data-label="Fecha de pago">{{ cuota['fecha_pago'] or '-' }}</td>
+                <td data-label="Método">{{ cuota['metodo_pago'] or '-' }}</td>
+                <td data-label="Referencia">{{ cuota['referencia_pago'] or '-' }}</td>
+                <td data-label="Comprobante" class="actions">
                     {% set comprobante_estado = cuota['comprobante_estado'] or ('aceptado' if cuota['comprobante_drive_file_id'] and cuota['pagado'] else 'pendiente' if cuota['comprobante_drive_file_id'] else 'sin_comprobante') %}
                     {% if cuota['comprobante_drive_file_id'] and comprobante_estado == 'sin_comprobante' %}
                         {% set comprobante_estado = 'pendiente' %}
@@ -245,7 +247,7 @@
                         -
                     {% endif %}
                 </td>
-                <td class="actions">
+                <td data-label="Acción" class="actions">
                     {% if cuota['anulada'] %}
                         -
                     {% elif not cuota['pagado'] %}
@@ -276,12 +278,13 @@
     <div class="section-header">
         <h3>Historial de becas</h3>
     </div>
-    <div class="table-wrapper">
-        <table>
+    <div class="table-wrapper finance-table">
+        <p class="table-hint">En celular, el historial se muestra como tarjeta para no perder fecha, acci&oacute;n y vigencia.</p>
+        <table class="finance-detail-table finance-history-table">
             <thead>
                 <tr>
                     <th>Fecha</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                     <th>Beca</th>
                     <th>Vigencia</th>
                     <th>Motivo</th>
@@ -291,18 +294,18 @@
             <tbody>
                 {% for item in becas_historial %}
                 <tr>
-                    <td>{{ item['creado_en'] }}</td>
-                    <td>{{ item['accion'] }}</td>
-                    <td>
+                    <td data-label="Fecha">{{ item['creado_en'] }}</td>
+                    <td data-label="Acción">{{ item['accion'] }}</td>
+                    <td data-label="Beca">
                         {% if item['beca_activa'] %}
                             {{ item['beca_porcentaje'] or 0 }}%
                         {% else %}
                             Inactiva
                         {% endif %}
                     </td>
-                    <td>{{ item['beca_desde'] or 'sin inicio' }} a {{ item['beca_hasta'] or 'sin fin' }}</td>
-                    <td>{{ item['beca_motivo'] or '-' }}</td>
-                    <td>{{ item['creado_por'] or '-' }}</td>
+                    <td data-label="Vigencia">{{ item['beca_desde'] or 'sin inicio' }} a {{ item['beca_hasta'] or 'sin fin' }}</td>
+                    <td data-label="Motivo">{{ item['beca_motivo'] or '-' }}</td>
+                    <td data-label="Usuario">{{ item['creado_por'] or '-' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

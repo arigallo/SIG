@@ -200,7 +200,10 @@
         {% if ficha %}
             <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
             <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
-            <p><strong>Apto físico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
+            <p><strong>Apto físico:</strong> {% if ficha_apto_efectivo %}Sí{% else %}No{% endif %}</p>
+            {% if ficha['documento_drive_file_id'] %}
+                <p class="muted-line">La ficha médica cargada cuenta como apto oficial de URBA.</p>
+            {% endif %}
             <p><strong>Contacto de emergencia:</strong> {{ ficha['contacto_emergencia'] or '-' }}</p>
             <p><strong>Teléfono de emergencia:</strong> {{ ficha['telefono_emergencia'] or '-' }}</p>
             <p><strong>Observaciones:</strong> {{ ficha['observaciones'] or '-' }}</p>

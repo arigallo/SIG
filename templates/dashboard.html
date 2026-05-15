@@ -176,7 +176,7 @@
 
     <div class="table-wrapper">
         <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+        <table class="dashboard-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -188,16 +188,16 @@
             <tbody>
                 {% for jugador in jugadores_con_deuda %}
                 <tr>
-                    <td><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
-                    <td>{{ jugador['deuda'] | moneda }}</td>
-                    <td>
+                    <td data-label="Jugador"><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
+                    <td data-label="Deuda">{{ jugador['deuda'] | moneda }}</td>
+                    <td data-label="Cuotas vencidas">
                         {% if jugador['cuotas_vencidas'] %}
                             <span class="badge badge-warning">{{ jugador['cuotas_vencidas'] }}</span>
                         {% else %}
                             <span class="badge badge-muted">Sin vencer</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-label="Acción">
                         <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
                     </td>
                 </tr>
@@ -218,7 +218,7 @@
 
     <div class="table-wrapper">
         <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+        <table class="dashboard-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -232,11 +232,11 @@
             <tbody>
                 {% for cuota in cuotas_pendientes_lista %}
                 <tr>
-                    <td><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
-                    <td>{{ cuota['categoria'] or '-' }}</td>
-                    <td>{{ cuota['periodo'] }}</td>
-                    <td>{{ cuota['importe'] | moneda }}</td>
-                    <td>
+                    <td data-label="Jugador"><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
+                    <td data-label="Categoría">{{ cuota['categoria'] or '-' }}</td>
+                    <td data-label="Período">{{ cuota['periodo'] }}</td>
+                    <td data-label="Importe">{{ cuota['importe'] | moneda }}</td>
+                    <td data-label="Vencimiento">
                         {% if cuota['fecha_vencimiento'] %}
                             {% if cuota['fecha_vencimiento'] < now().strftime('%Y-%m-%d') %}
                                 <span class="badge badge-warning">{{ cuota['fecha_vencimiento'] }}</span>
@@ -247,7 +247,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="actions">
+                    <td data-label="Acción" class="actions">
                         {% if puede('cuotas_gestionar') %}
                             <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Registrar pago</a>
                         {% endif %}
@@ -273,7 +273,7 @@
 
     <div class="table-wrapper">
         <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+        <table class="dashboard-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -286,14 +286,14 @@
             <tbody>
                 {% for cuota in comprobantes_pendientes_lista %}
                 <tr>
-                    <td><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
-                    <td>{{ cuota['periodo'] }}</td>
-                    <td>{{ cuota['importe'] | moneda }}</td>
-                    <td>
+                    <td data-label="Jugador"><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></td>
+                    <td data-label="Período">{{ cuota['periodo'] }}</td>
+                    <td data-label="Importe">{{ cuota['importe'] | moneda }}</td>
+                    <td data-label="Carga">
                         {{ cuota['comprobante_fecha'] or '-' }}
                         <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
                     </td>
-                    <td class="actions">
+                    <td data-label="Acción" class="actions">
                         <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar</a>
                         <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
                     </td>
@@ -318,7 +318,7 @@
 
     <div class="table-wrapper">
         <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+        <table class="dashboard-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -329,9 +329,9 @@
             <tbody>
                 {% for jugador in fichas_vencidas %}
                 <tr>
-                    <td><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
-                    <td><span class="badge badge-warning">{{ jugador['fecha_vencimiento'] }}</span></td>
-                    <td>
+                    <td data-label="Jugador"><strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong></td>
+                    <td data-label="Vencimiento"><span class="badge badge-warning">{{ jugador['fecha_vencimiento'] }}</span></td>
+                    <td data-label="Acción">
                         <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ver ficha</a>
                     </td>
                 </tr>
@@ -352,7 +352,7 @@
 
     <div class="table-wrapper">
         <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+        <table class="dashboard-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -366,12 +366,12 @@
             <tbody>
                 {% for lesion in lesiones_activas %}
                 <tr>
-                    <td><strong>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</strong></td>
-                    <td>{{ lesion['fecha_lesion'] or '-' }}</td>
-                    <td>{{ lesion['tipo_lesion'] or '-' }}</td>
-                    <td>{{ lesion['zona_cuerpo'] or '-' }}</td>
-                    <td><span class="badge badge-info">{{ lesion['estado'] }}</span></td>
-                    <td>
+                    <td data-label="Jugador"><strong>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</strong></td>
+                    <td data-label="Fecha">{{ lesion['fecha_lesion'] or '-' }}</td>
+                    <td data-label="Tipo">{{ lesion['tipo_lesion'] or '-' }}</td>
+                    <td data-label="Zona">{{ lesion['zona_cuerpo'] or '-' }}</td>
+                    <td data-label="Estado"><span class="badge badge-info">{{ lesion['estado'] }}</span></td>
+                    <td data-label="Acción">
                         <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a>
                     </td>
                 </tr>

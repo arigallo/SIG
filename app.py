@@ -2682,8 +2682,8 @@ def obtener_panel_salud():
         SELECT
             COUNT(*) AS jugadores_activos,
             SUM(CASE WHEN f.id IS NULL OR COALESCE(f.presentada, 0) = 0 THEN 1 ELSE 0 END) AS fichas_faltantes,
-            SUM(CASE WHEN COALESCE(f.apto_fisico, 0) = 1 THEN 1 ELSE 0 END) AS aptos,
-            SUM(CASE WHEN f.id IS NOT NULL AND COALESCE(f.apto_fisico, 0) = 0 THEN 1 ELSE 0 END) AS no_aptos,
+            SUM(CASE WHEN f.id IS NOT NULL AND (COALESCE(f.apto_fisico, 0) = 1 OR NULLIF(COALESCE(f.documento_drive_file_id, ''), '') IS NOT NULL) THEN 1 ELSE 0 END) AS aptos,
+            SUM(CASE WHEN f.id IS NOT NULL AND COALESCE(f.presentada, 0) = 1 AND NOT (COALESCE(f.apto_fisico, 0) = 1 OR NULLIF(COALESCE(f.documento_drive_file_id, ''), '') IS NOT NULL) THEN 1 ELSE 0 END) AS no_aptos,
             SUM(
                 CASE
                     WHEN f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
@@ -2707,8 +2707,8 @@ def obtener_panel_salud():
         SELECT
             COALESCE(NULLIF(j.categoria, ''), 'Sin categoria') AS categoria,
             COUNT(*) AS jugadores,
-            SUM(CASE WHEN COALESCE(f.apto_fisico, 0) = 1 THEN 1 ELSE 0 END) AS aptos,
-            SUM(CASE WHEN f.id IS NOT NULL AND COALESCE(f.apto_fisico, 0) = 0 THEN 1 ELSE 0 END) AS no_aptos,
+            SUM(CASE WHEN f.id IS NOT NULL AND (COALESCE(f.apto_fisico, 0) = 1 OR NULLIF(COALESCE(f.documento_drive_file_id, ''), '') IS NOT NULL) THEN 1 ELSE 0 END) AS aptos,
+            SUM(CASE WHEN f.id IS NOT NULL AND COALESCE(f.presentada, 0) = 1 AND NOT (COALESCE(f.apto_fisico, 0) = 1 OR NULLIF(COALESCE(f.documento_drive_file_id, ''), '') IS NOT NULL) THEN 1 ELSE 0 END) AS no_aptos,
             SUM(CASE WHEN f.id IS NULL OR COALESCE(f.presentada, 0) = 0 THEN 1 ELSE 0 END) AS faltantes,
             SUM(
                 CASE
@@ -6211,9 +6211,18 @@ def estado_ficha_portal(ficha):
                 return {"label": "Ficha por vencer", "nivel": "warning"}
         except ValueError:
             pass
-    if ficha.get("apto_fisico"):
+    if ficha_tiene_apto_efectivo(ficha):
         return {"label": "Apto fisico vigente", "nivel": "success"}
     return {"label": "Ficha presentada sin apto", "nivel": "warning"}
+
+
+def ficha_tiene_apto_efectivo(ficha):
+    if not ficha:
+        return False
+    return bool(
+        ficha.get("apto_fisico")
+        or (ficha.get("documento_drive_file_id") or "").strip()
+    )
 
 
 def crear_token_recuperacion(conn, usuario_id):
@@ -6795,10 +6804,13 @@ def ver_ficha_medica(jugador_id):
 
     conn.close()
 
+    ficha_apto_efectivo = ficha_tiene_apto_efectivo(ficha)
+
     return render_template(
         "ficha_medica.html",
         jugador=jugador,
-        ficha=ficha
+        ficha=ficha,
+        ficha_apto_efectivo=ficha_apto_efectivo,
     )
 
 
@@ -6944,6 +6956,7 @@ def editar_ficha_medica(jugador_id):
                 )
 
             presentada = 1
+            apto_fisico = 1
             documento_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             documento_usuario = session.get("username")
 
@@ -10532,6 +10545,8 @@ def detalle_jugador(jugador_id):
     elif ficha and ficha.get("presentada"):
         ficha_estado = "Presentada"
 
+    ficha_apto_efectivo = ficha_tiene_apto_efectivo(ficha)
+
     cambios_portal = []
     if puede_ver_cambios_portal:
         cambios_portal = conn.execute("""
@@ -10584,6 +10599,7 @@ def detalle_jugador(jugador_id):
         resumen_cuotas=resumen_cuotas,
         ultimas_cuotas=ultimas_cuotas,
         ficha=ficha,
+        ficha_apto_efectivo=ficha_apto_efectivo,
         lesiones=lesiones,
         ficha_vencida=ficha_vencida,
         lesiones_activas_count=lesiones_activas_count,
@@ -10704,34 +10720,33 @@ def portal_buscar():
     if request.method == "POST":
         identificador = normalizar_identificador_portal(request.form.get("identificador", ""))
         if not identificador:
-            flash("Ingresa tu DNI, email o numero de socio del club.", "error")
+            flash("Ingresa tu DNI.", "error")
             return render_template("portal_buscar.html", identificador=identificador)
 
-        identificador_lower = identificador.lower()
         identificador_digitos = "".join(ch for ch in identificador if ch.isdigit())
+        if not identificador_digitos:
+            flash("Ingresa un DNI valido.", "error")
+            return render_template("portal_buscar.html", identificador=identificador)
+
         conn = get_connection()
         jugadores = conn.execute("""
             SELECT id, portal_token
             FROM jugadores
             WHERE COALESCE(portal_activo, 0) = 1
               AND portal_token IS NOT NULL
-              AND (
-                  LOWER(COALESCE(email, '')) = %s
-                  OR REGEXP_REPLACE(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
-                  OR REGEXP_REPLACE(COALESCE(numero_socio, ''), '[^0-9]', '', 'g') = %s
-              )
+              AND REGEXP_REPLACE(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
             ORDER BY id ASC
             LIMIT 2
-        """, (identificador_lower, identificador_digitos, identificador_digitos)).fetchall()
+        """, (identificador_digitos,)).fetchall()
         conn.close()
 
         if len(jugadores) == 1:
             return redirect(url_for("portal_jugador", token=jugadores[0]["portal_token"]))
 
         if len(jugadores) > 1:
-            flash("Encontramos mas de un portal con ese dato. Proba con DNI o consulta con administracion.", "error")
+            flash("Encontramos mas de un portal con ese DNI. Consulta con administracion.", "error")
         else:
-            flash("No encontramos un portal activo con ese dato. Revisalo o consulta con administracion.", "error")
+            flash("No encontramos un portal activo con ese DNI. Revisalo o consulta con administracion.", "error")
 
     return render_template("portal_buscar.html", identificador=identificador)
 

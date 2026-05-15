@@ -26,9 +26,9 @@
             </form>
         {% endif %}
     </div>
-    <div class="table-wrapper">
-        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">En celular, cada aviso se acomoda como tarjeta para priorizar jugador, detalle y acci&oacute;n.</p>
+        <table class="notification-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -41,8 +41,8 @@
                 {% for item in items %}
                 {% set fila = item['item'] %}
                 <tr>
-                    <td>{{ fila['apellido'] }}, {{ fila['nombre'] }}</td>
-                    <td>
+                    <td data-label="Jugador">{{ fila['apellido'] }}, {{ fila['nombre'] }}</td>
+                    <td data-label="Detalle">
                         {% if tipo == 'cuota' %}
                             {{ fila['periodo'] }} - {{ fila['importe'] | moneda }}
                             <span class="muted-line">Vence: {{ fila['fecha_vencimiento'] }}</span>
@@ -54,8 +54,8 @@
                             <span class="muted-line">{{ fila['presentes'] or 0 }} presentes de {{ fila['registros'] or 0 }}</span>
                         {% endif %}
                     </td>
-                    <td class="communication-message">{{ item['mensaje'] }}</td>
-                    <td class="actions">
+                    <td data-label="Mensaje" class="communication-message">{{ item['mensaje'] }}</td>
+                    <td data-label="Acción" class="actions">
                         <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
                         {% if tipo == 'cuota' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_cuota', cuota_id=fila['cuota_id']) }}">
@@ -73,7 +73,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="empty">No hay notificaciones en esta categoria.</td>
+                    <td colspan="4" class="empty">No hay notificaciones en esta categor&iacute;a.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -90,9 +90,9 @@
     <div class="section-header">
         <h3>Datos actualizados desde portal</h3>
     </div>
-    <div class="table-wrapper">
-        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">En celular, cada cambio se acomoda como tarjeta para revisar r&aacute;pido al jugador.</p>
+        <table class="notification-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -104,10 +104,10 @@
             <tbody>
                 {% for cambio in cambios_portal %}
                 <tr>
-                    <td>{{ cambio['apellido'] }}, {{ cambio['nombre'] }}</td>
-                    <td>{{ cambio['fecha'] }}</td>
-                    <td class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</td>
-                    <td>
+                    <td data-label="Jugador">{{ cambio['apellido'] }}, {{ cambio['nombre'] }}</td>
+                    <td data-label="Fecha">{{ cambio['fecha'] }}</td>
+                    <td data-label="Detalle" class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</td>
+                    <td data-label="Acción">
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
                     </td>
                 </tr>
@@ -129,9 +129,9 @@
             <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar todos</a>
         {% endif %}
     </div>
-    <div class="table-wrapper">
-        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">En celular, cada comprobante se presenta como tarjeta con carga y acceso a revisi&oacute;n.</p>
+        <table class="notification-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
@@ -144,15 +144,15 @@
             <tbody>
                 {% for cuota in comprobantes_pendientes %}
                 <tr>
-                    <td>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</td>
-                    <td>{{ cuota['periodo'] }}</td>
-                    <td>{{ cuota['importe'] | moneda }}</td>
-                    <td>
+                    <td data-label="Jugador">{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</td>
+                    <td data-label="Período">{{ cuota['periodo'] }}</td>
+                    <td data-label="Importe">{{ cuota['importe'] | moneda }}</td>
+                    <td data-label="Carga">
                         {{ cuota['comprobante_fecha'] or '-' }}
                         <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
                         <span class="muted-line">{{ cuota['comprobante_nombre'] or '-' }}</span>
                     </td>
-                    <td class="actions">
+                    <td data-label="Acción" class="actions">
                         {% if puede('cuotas_gestionar') %}
                             <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar</a>
                         {% endif %}
@@ -173,9 +173,9 @@
     <div class="section-header">
         <h3>Ahijadxs listos para ingresar</h3>
     </div>
-    <div class="table-wrapper">
-        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
-        <table>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">En celular, cada aspirante se muestra como tarjeta para ver categor&iacute;a y avance de un vistazo.</p>
+        <table class="notification-detail-table">
             <thead>
                 <tr>
                     <th>Ahijadx</th>
@@ -187,14 +187,14 @@
             <tbody>
                 {% for aspirante in ahijadxs_objetivo %}
                 <tr>
-                    <td>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</td>
-                    <td>{{ aspirante['categoria'] or '-' }}</td>
-                    <td>
+                    <td data-label="Ahijadx">{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</td>
+                    <td data-label="Categoría">{{ aspirante['categoria'] or '-' }}</td>
+                    <td data-label="Entrenamientos">
                         <span class="badge badge-success">
                             {{ aspirante['entrenamientos_presentes'] }}/{{ aspirante['entrenamientos_objetivo'] }}
                         </span>
                     </td>
-                    <td>
+                    <td data-label="Acción">
                         <a class="button secondary" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['aspirante_id']) }}">Ver seguimiento</a>
                     </td>
                 </tr>

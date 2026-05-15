@@ -19,12 +19,12 @@
                 <div>
                     <h1>SIG</h1>
                     <span class="brand-subtitle">
-                        Sistema Integral de Gestion
+                        Sistema Integral de Gesti&oacute;n
                     </span>
                 </div>
             </div>
 
-            <nav class="main-nav" aria-label="Navegacion principal">
+            <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
                 {% set endpoint = request.endpoint or '' %}
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
 
@@ -66,7 +66,7 @@
                         {% if puede('cuotas_gestionar') %}
                             <a class="{% if endpoint == 'generar_cuotas' %}active{% endif %}" href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
                             <a class="{% if endpoint == 'listar_comprobantes_revision' %}active{% endif %}" href="{{ url_for('listar_comprobantes_revision') }}">Comprobantes</a>
-                            <a class="{% if endpoint == 'conciliar_pagos' %}active{% endif %}" href="{{ url_for('conciliar_pagos') }}">Conciliacion</a>
+                            <a class="{% if endpoint == 'conciliar_pagos' %}active{% endif %}" href="{{ url_for('conciliar_pagos') }}">Conciliaci&oacute;n</a>
                         {% endif %}
                         {% if puede('planes_pago_ver') %}
                             <a class="{% if endpoint in ['listar_planes_pago', 'nuevo_plan_pago', 'editar_plan_pago'] %}active{% endif %}" href="{{ url_for('listar_planes_pago') }}">Planes</a>
@@ -109,9 +109,9 @@
                 {% if puede('comunicaciones_ver') %}
                 {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_notificaciones'] %}
                 <details class="nav-group {% if comunicacion_actual %}current{% endif %}" {% if comunicacion_actual %}open{% endif %}>
-                    <summary>Comunicacion</summary>
+                    <summary>Comunicaci&oacute;n</summary>
                     <div class="nav-menu">
-                        <a class="{% if endpoint == 'ver_comunicaciones' %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicacion</a>
+                        <a class="{% if endpoint == 'ver_comunicaciones' %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicaci&oacute;n</a>
                         <a class="{% if endpoint == 'ver_notificaciones' %}active{% endif %}" href="{{ url_for('ver_notificaciones') }}">
                             Notificaciones
                             {% if notificaciones_count %}
@@ -135,7 +135,7 @@
                             <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
                         {% endif %}
                         {% if puede('auditoria_ver') %}
-                            <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditoria</a>
+                            <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditor&iacute;a</a>
                         {% endif %}
                         {% if puede('seguridad_ver') %}
                             <a class="{% if endpoint == 'ver_seguridad' %}active{% endif %}" href="{{ url_for('ver_seguridad') }}">Seguridad</a>
@@ -185,7 +185,7 @@
                 <div>
                     <span class="badge badge-info">Primer ingreso</span>
                     <h2>Bienvenido al SIG</h2>
-                    <p>Tu vista se adapta al rol asignado. Estos accesos te llevan a las areas disponibles para tu usuario.</p>
+                    <p>Tu vista se adapta al rol asignado. Estos accesos te llevan a las &aacute;reas disponibles para tu usuario.</p>
                 </div>
 
                 <div class="onboarding-actions">

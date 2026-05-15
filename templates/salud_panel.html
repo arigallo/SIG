@@ -6,7 +6,7 @@
 <div class="section-header">
     <div>
         <h2>Panel de salud</h2>
-        <p class="page-intro">Resumen operativo de fichas medicas, aptos fisicos, vencimientos y lesiones.</p>
+        <p class="page-intro">Resumen operativo de fichas m&eacute;dicas, aptos f&iacute;sicos, vencimientos y lesiones.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
@@ -34,7 +34,7 @@
     <div class="card stat-card alert-card-warning">
         <h3>Por vencer</h3>
         <p class="stat-number compact">{{ panel['resumen']['por_vencer'] or 0 }}</p>
-        <span class="muted-line">Proximos 30 dias</span>
+        <span class="muted-line">Pr&oacute;ximos 30 d&iacute;as</span>
     </div>
     <div class="card stat-card alert-card-critical">
         <h3>Faltantes</h3>
@@ -44,13 +44,14 @@
 
 <div class="page-section">
     <div class="section-header">
-        <h3>Fichas por categoria</h3>
+        <h3>Fichas por categor&iacute;a</h3>
     </div>
-    <div class="table-wrapper">
-        <table>
+    <div class="table-wrapper health-table">
+        <p class="table-hint">En celular, cada categor&iacute;a se muestra como tarjeta para leer r&aacute;pido los estados de salud.</p>
+        <table class="health-detail-table">
             <thead>
                 <tr>
-                    <th>Categoria</th>
+                    <th>Categor&iacute;a</th>
                     <th>Jugadores</th>
                     <th>Aptos</th>
                     <th>No aptos</th>
@@ -62,17 +63,17 @@
             <tbody>
                 {% for fila in panel['fichas_por_categoria'] %}
                 <tr>
-                    <td>{{ fila['categoria'] }}</td>
-                    <td>{{ fila['jugadores'] or 0 }}</td>
-                    <td><span class="badge badge-success">{{ fila['aptos'] or 0 }}</span></td>
-                    <td><span class="badge badge-warning">{{ fila['no_aptos'] or 0 }}</span></td>
-                    <td><span class="badge badge-danger">{{ fila['faltantes'] or 0 }}</span></td>
-                    <td><span class="badge badge-danger">{{ fila['vencidas'] or 0 }}</span></td>
-                    <td><span class="badge badge-warning">{{ fila['por_vencer'] or 0 }}</span></td>
+                    <td data-label="Categoría">{{ fila['categoria'] }}</td>
+                    <td data-label="Jugadores">{{ fila['jugadores'] or 0 }}</td>
+                    <td data-label="Aptos"><span class="badge badge-success">{{ fila['aptos'] or 0 }}</span></td>
+                    <td data-label="No aptos"><span class="badge badge-warning">{{ fila['no_aptos'] or 0 }}</span></td>
+                    <td data-label="Faltantes"><span class="badge badge-danger">{{ fila['faltantes'] or 0 }}</span></td>
+                    <td data-label="Vencidas"><span class="badge badge-danger">{{ fila['vencidas'] or 0 }}</span></td>
+                    <td data-label="Por vencer"><span class="badge badge-warning">{{ fila['por_vencer'] or 0 }}</span></td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="empty">No hay datos de salud por categoria.</td>
+                    <td colspan="7" class="empty">No hay datos de salud por categor&iacute;a.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -144,33 +145,34 @@
     <div class="section-header">
         <h3>Seguimiento de retorno</h3>
     </div>
-    <div class="table-wrapper">
-        <table>
+    <div class="table-wrapper health-table">
+        <p class="table-hint">En celular, el seguimiento de retorno se acomoda por jugador para ver lesi&oacute;n, estado y control sin cruzar columnas.</p>
+        <table class="health-detail-table">
             <thead>
                 <tr>
                     <th>Jugador</th>
-                    <th>Categoria</th>
-                    <th>Lesion</th>
+                    <th>Categor&iacute;a</th>
+                    <th>Lesi&oacute;n</th>
                     <th>Estado</th>
                     <th>Control / retorno</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
                 {% for lesion in panel['seguimiento_retorno'] %}
                 <tr>
-                    <td>{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</td>
-                    <td>{{ lesion['categoria'] or '-' }}</td>
-                    <td>
-                        {{ lesion['tipo_lesion'] or 'Lesion' }}
+                    <td data-label="Jugador">{{ lesion['apellido'] }}, {{ lesion['nombre'] }}</td>
+                    <td data-label="Categoría">{{ lesion['categoria'] or '-' }}</td>
+                    <td data-label="Lesión">
+                        {{ lesion['tipo_lesion'] or 'Lesi&oacute;n' }}
                         <span class="muted-line">{{ lesion['zona_cuerpo'] or '-' }} - {{ lesion['fecha_lesion'] or '-' }}</span>
                     </td>
-                    <td><span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>{% if lesion['etapa_recuperacion'] %}<span class="muted-line">{{ lesion['etapa_recuperacion'] }}</span>{% endif %}</td>
-                    <td>
+                    <td data-label="Estado"><span class="badge {% if lesion['semaforo'] == 'rojo' %}badge-danger{% elif lesion['semaforo'] == 'amarillo' %}badge-warning{% else %}badge-success{% endif %}">{{ lesion['estado'] }}</span>{% if lesion['etapa_recuperacion'] %}<span class="muted-line">{{ lesion['etapa_recuperacion'] }}</span>{% endif %}</td>
+                    <td data-label="Control / retorno">
                         {% if lesion['proximo_control'] %}<span class="muted-line">Control: {{ lesion['proximo_control'] }}</span>{% endif %}
                         {% if lesion['fecha_retorno_estimada'] %}<span class="muted-line">Retorno: {{ lesion['fecha_retorno_estimada'] }}</span>{% elif lesion['fecha_alta'] %}<span class="muted-line">Alta: {{ lesion['fecha_alta'] }}</span>{% endif %}
                     </td>
-                    <td><a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a></td>
+                    <td data-label="Acción"><a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=lesion['jugador_id']) }}">Ver lesiones</a></td>
                 </tr>
                 {% else %}
                 <tr>

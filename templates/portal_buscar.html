@@ -18,20 +18,20 @@
         </div>
 
         <h1>Portal del jugador</h1>
-        <h2>Ingresa con DNI, email o numero de socio del club</h2>
+        <h2>Ingresa con tu DNI</h2>
 
         <form method="post">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div>
-                <label>DNI, email o numero de socio del club</label>
-                <input type="text" name="identificador" value="{{ identificador or '' }}" autocomplete="username" required>
+                <label>DNI</label>
+                <input type="text" name="identificador" value="{{ identificador or '' }}" inputmode="numeric" autocomplete="username" placeholder="Solo numeros" required>
             </div>
 
             <button class="button login-button" type="submit">Entrar al portal</button>
         </form>
 
         <div class="login-links">
-            <a href="{{ url_for('login') }}">Acceso administracion</a>
+            <a href="{{ url_for('login') }}">Acceso administraci&oacute;n</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

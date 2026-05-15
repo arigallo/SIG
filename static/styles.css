@@ -2104,6 +2104,17 @@ tbody tr:hover {
     gap: 18px;
 }
 
+.communication-detail-table td:first-child strong,
+.notification-detail-table td:first-child strong,
+.calendar-detail-table td:nth-child(3) strong,
+.dashboard-detail-table td:first-child strong {
+    display: block;
+}
+
+.finance-table details summary {
+    cursor: pointer;
+}
+
 .profile-page .detail-grid > .card,
 .finance-page .table-wrapper,
 .calendar-page .table-wrapper,
@@ -2393,6 +2404,9 @@ tbody tr:hover {
 
     .communication-page .table-wrapper table,
     .attendance-page .table-wrapper table,
+    .notification-table table,
+    .calendar-table table,
+    .finance-table table,
     .dashboard-title + .dashboard-cards + .page-section .table-wrapper table {
         min-width: 880px;
     }
@@ -2498,6 +2512,112 @@ tbody tr:hover {
     .attendance-page .attendance-detail-table .attendance-state-cell select,
     .attendance-page .attendance-detail-table td input[type="text"] {
         width: 100%;
+    }
+
+    .communication-page .communication-detail-table,
+    .notification-table .notification-detail-table,
+    .calendar-page .calendar-detail-table,
+    .finance-page .finance-detail-table,
+    .health-table .health-detail-table,
+    .dashboard-detail-table {
+        min-width: 0;
+    }
+
+    .communication-page .communication-detail-table thead,
+    .notification-table .notification-detail-table thead,
+    .calendar-page .calendar-detail-table thead,
+    .finance-page .finance-detail-table thead,
+    .health-table .health-detail-table thead,
+    .dashboard-detail-table thead {
+        display: none;
+    }
+
+    .communication-page .communication-detail-table tbody,
+    .notification-table .notification-detail-table tbody,
+    .calendar-page .calendar-detail-table tbody,
+    .finance-page .finance-detail-table tbody,
+    .health-table .health-detail-table tbody,
+    .dashboard-detail-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .communication-page .communication-detail-table tr,
+    .notification-table .notification-detail-table tr,
+    .calendar-page .calendar-detail-table tr,
+    .finance-page .finance-detail-table tr,
+    .health-table .health-detail-table tr,
+    .dashboard-detail-table tr {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--border-soft);
+        border-radius: 14px;
+        background: #fff;
+    }
+
+    .communication-page .communication-detail-table td,
+    .notification-table .notification-detail-table td,
+    .calendar-page .calendar-detail-table td,
+    .finance-page .finance-detail-table td,
+    .health-table .health-detail-table td,
+    .dashboard-detail-table td {
+        display: grid;
+        gap: 6px;
+        padding: 0;
+        white-space: normal;
+        border: 0;
+    }
+
+    .communication-page .communication-detail-table td::before,
+    .notification-table .notification-detail-table td::before,
+    .calendar-page .calendar-detail-table td::before,
+    .finance-page .finance-detail-table td::before,
+    .health-table .health-detail-table td::before,
+    .dashboard-detail-table td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .communication-page .communication-detail-table .actions,
+    .notification-table .notification-detail-table .actions,
+    .calendar-page .calendar-detail-table .actions,
+    .finance-page .finance-detail-table .actions,
+    .dashboard-detail-table .actions {
+        gap: 8px;
+    }
+
+    .communication-page .communication-detail-table .actions > .button,
+    .communication-page .communication-detail-table .actions > form,
+    .notification-table .notification-detail-table .actions > .button,
+    .notification-table .notification-detail-table .actions > form,
+    .calendar-page .calendar-detail-table .actions > .button,
+    .calendar-page .calendar-detail-table .actions > form,
+    .finance-page .finance-detail-table .actions > .button,
+    .finance-page .finance-detail-table .actions > form,
+    .dashboard-detail-table .actions > .button,
+    .dashboard-detail-table .actions > form {
+        width: 100%;
+    }
+
+    .communication-page .communication-detail-table .actions .button,
+    .notification-table .notification-detail-table .actions .button,
+    .calendar-page .calendar-detail-table .actions .button,
+    .finance-page .finance-detail-table .actions .button,
+    .dashboard-detail-table .actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .calendar-page .calendar-detail-table .calendar-type,
+    .finance-page .finance-detail-table .badge,
+    .health-table .health-detail-table .badge,
+    .dashboard-detail-table .badge {
+        width: fit-content;
     }
 
     .login-card {
