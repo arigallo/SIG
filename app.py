@@ -15240,13 +15240,24 @@ def tomar_asistencia(evento_id):
         WHERE evento_id = %s
     """, (evento_id,)).fetchall()
 
-    confirmaciones_portal = conn.execute("""
+    confirmaciones_portal_rows = conn.execute("""
         SELECT *
         FROM portal_asistencia_confirmaciones
         WHERE evento_id = %s
     """, (evento_id,)).fetchall()
 
     conn.close()
+
+    confirmaciones_portal = []
+    for row in confirmaciones_portal_rows:
+        item = dict(row)
+        try:
+            item["dolor_zonas_lista"] = json.loads(item.get("dolor_zonas") or "[]")
+        except (TypeError, ValueError):
+            item["dolor_zonas_lista"] = []
+        item["bienestar_resumen"] = resumen_bienestar_confirmacion(item)
+        item["bienestar_completo"] = item["bienestar_resumen"] is not None
+        confirmaciones_portal.append(item)
 
     asistencias_por_jugador = {
         a["jugador_id"]: a for a in asistencias
@@ -15277,11 +15288,56 @@ def tomar_asistencia(evento_id):
         item["confirmacion_portal"] = None
         participantes.append(item)
 
+    bienestar_completado = [c for c in confirmaciones_portal if c.get("bienestar_completo")]
+    promedio_general = None
+    if bienestar_completado:
+        suma_promedios = 0
+        cantidad_promedios = 0
+        dolores_totales = {}
+        for item in bienestar_completado:
+            resumen = item.get("bienestar_resumen") or {}
+            promedio = resumen.get("promedio")
+            if promedio is not None:
+                suma_promedios += promedio
+                cantidad_promedios += 1
+            for dolor in resumen.get("dolores") or []:
+                dolores_totales[dolor] = dolores_totales.get(dolor, 0) + 1
+        if cantidad_promedios:
+            promedio_general = round(suma_promedios / cantidad_promedios, 1)
+        dolores_frecuentes = [
+            nombre for nombre, _cantidad in sorted(
+                dolores_totales.items(),
+                key=lambda item: (-item[1], item[0].lower()),
+            )[:3]
+        ]
+    else:
+        dolores_frecuentes = []
+
+    bienestar_resumen_evento = {
+        "confirmaciones": len(confirmaciones_portal),
+        "completados": len(bienestar_completado),
+        "rojos": sum(
+            1 for item in bienestar_completado
+            if (item.get("bienestar_resumen") or {}).get("nivel") == "danger"
+        ),
+        "amarillos": sum(
+            1 for item in bienestar_completado
+            if (item.get("bienestar_resumen") or {}).get("nivel") == "warning"
+        ),
+        "verdes": sum(
+            1 for item in bienestar_completado
+            if (item.get("bienestar_resumen") or {}).get("nivel") == "success"
+        ),
+        "promedio_general": promedio_general,
+        "dolores_frecuentes": dolores_frecuentes,
+    }
+
     return render_template(
         "tomar_asistencia.html",
         evento=evento,
         participantes=participantes,
         puede_reabrir=session.get("rol") == "admin",
+        bienestar_resumen_evento=bienestar_resumen_evento,
     )
 
 if os.environ.get("INIT_DB", "true").lower() in {"1", "true", "yes", "on"}:

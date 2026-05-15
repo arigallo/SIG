@@ -7,7 +7,7 @@
 <div class="section-header">
     <div>
         <h2>Asistencia - {{ evento['fecha'] }}</h2>
-        <p class="page-intro">Control operativo de disponibilidad, asistencia real y observaciones del evento.</p>
+        <p class="page-intro">Control operativo de disponibilidad, bienestar y asistencia real del evento.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
@@ -31,7 +31,7 @@
 
 <div class="card spaced-small attendance-summary-card">
     <p><strong>Tipo:</strong> {{ evento['tipo'] }}</p>
-    <p><strong>Descripcion:</strong> {{ evento['descripcion'] or '-' }}</p>
+    <p><strong>Descripci&oacute;n:</strong> {{ evento['descripcion'] or '-' }}</p>
     <p>
         <strong>Estado:</strong>
         {% if evento['cerrado'] %}
@@ -45,6 +45,41 @@
     </p>
 </div>
 
+<div class="dashboard-cards spaced-small">
+    <div class="card stat-card">
+        <h3>Respuestas portal</h3>
+        <p class="stat-number compact">{{ bienestar_resumen_evento['confirmaciones'] }}</p>
+        <span class="muted-line">Jugadores que informaron disponibilidad</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Bienestar completo</h3>
+        <p class="stat-number compact">{{ bienestar_resumen_evento['completados'] }}</p>
+        <span class="muted-line">Cuestionarios respondidos</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Promedio grupal</h3>
+        <p class="stat-number compact">
+            {% if bienestar_resumen_evento['promedio_general'] is not none %}
+                {{ bienestar_resumen_evento['promedio_general'] }}/5
+            {% else %}
+                -
+            {% endif %}
+        </p>
+        <span class="muted-line">Lectura r&aacute;pida del d&iacute;a</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Alertas</h3>
+        <p class="stat-number compact">{{ bienestar_resumen_evento['rojos'] }}</p>
+        <span class="muted-line">Rojo {{ bienestar_resumen_evento['rojos'] }} &middot; Amarillo {{ bienestar_resumen_evento['amarillos'] }} &middot; Verde {{ bienestar_resumen_evento['verdes'] }}</span>
+    </div>
+</div>
+
+{% if bienestar_resumen_evento['dolores_frecuentes'] %}
+<div class="card spaced-small attendance-summary-card">
+    <p><strong>Molestias m&aacute;s reportadas:</strong> {{ bienestar_resumen_evento['dolores_frecuentes'] | join(', ') }}</p>
+</div>
+{% endif %}
+
 <form method="post" class="attendance-form-shell">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrapper">
@@ -53,8 +88,9 @@
                 <tr>
                     <th>Persona</th>
                     <th>Tipo</th>
-                    <th>Categoria</th>
-                    <th>Confirmacion portal</th>
+                    <th>Categor&iacute;a</th>
+                    <th>Confirmaci&oacute;n portal</th>
+                    <th>Bienestar</th>
                     <th>Asistencia</th>
                     <th>Observaciones</th>
                 </tr>
@@ -75,19 +111,25 @@
                                 {% else %}
                                     <span class="badge badge-danger">No asiste</span>
                                 {% endif %}
-                                {% if participante['confirmacion_portal']['bienestar_resumen'] %}
-                                    <div class="wellness-admin-summary">
-                                        <span class="badge {% if participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'danger' %}badge-danger{% elif participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ participante['confirmacion_portal']['bienestar_resumen']['label'] }}</span>
-                                        <span class="muted-line">Promedio {{ participante['confirmacion_portal']['bienestar_resumen']['promedio'] }}/5</span>
-                                        <span class="muted-line">Sue?o {{ participante['confirmacion_portal']['sueno_calidad'] }}/5 ? Fatiga {{ participante['confirmacion_portal']['fatiga'] }}/5 ? Recuperaci?n {{ participante['confirmacion_portal']['recuperacion'] }}/5</span>
-                                        {% if participante['confirmacion_portal']['bienestar_resumen']['dolores'] %}
-                                            <span class="muted-line">Molestias: {{ participante['confirmacion_portal']['bienestar_resumen']['dolores'] | join(', ') }}</span>
-                                        {% endif %}
-                                        {% if participante['confirmacion_portal']['comentarios'] %}
-                                            <span class="muted-line">{{ participante['confirmacion_portal']['comentarios'] }}</span>
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if participante['confirmacion_portal'] and participante['confirmacion_portal']['bienestar_resumen'] %}
+                                <div class="wellness-admin-summary">
+                                    <span class="badge {% if participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'danger' %}badge-danger{% elif participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ participante['confirmacion_portal']['bienestar_resumen']['label'] }}</span>
+                                    <span class="muted-line">Promedio {{ participante['confirmacion_portal']['bienestar_resumen']['promedio'] }}/5</span>
+                                    <span class="muted-line">Sue&ntilde;o {{ participante['confirmacion_portal']['sueno_calidad'] }}/5 &middot; Fatiga {{ participante['confirmacion_portal']['fatiga'] }}/5 &middot; Recuperaci&oacute;n {{ participante['confirmacion_portal']['recuperacion'] }}/5</span>
+                                    {% if participante['confirmacion_portal']['bienestar_resumen']['dolores'] %}
+                                        <span class="muted-line">Molestias: {{ participante['confirmacion_portal']['bienestar_resumen']['dolores'] | join(', ') }}</span>
+                                    {% endif %}
+                                    {% if participante['confirmacion_portal']['comentarios'] %}
+                                        <span class="muted-line">Comentario: {{ participante['confirmacion_portal']['comentarios'] }}</span>
+                                    {% endif %}
+                                </div>
+                            {% elif participante['confirmacion_portal'] %}
+                                <span class="muted-line">Pendiente de completar</span>
                             {% else %}
                                 -
                             {% endif %}
@@ -109,7 +151,7 @@
                     </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="empty">No hay jugadores activos ni ahijadxs en seguimiento.</td>
+                    <td colspan="7" class="empty">No hay jugadores activos ni ahijadxs en seguimiento.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -122,7 +164,7 @@
             <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Cancelar</a>
         </div>
     {% elif evento['cerrado'] %}
-        <p class="muted-line">Este evento está cerrado y la asistencia quedó bloqueada. Solo un admin puede reabrirlo.</p>
+        <p class="muted-line">Este evento est&aacute; cerrado y la asistencia qued&oacute; bloqueada. Solo un admin puede reabrirlo.</p>
     {% endif %}
 </form>
 </div>

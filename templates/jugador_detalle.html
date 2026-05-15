@@ -132,17 +132,19 @@
         <div class="section-header compact">
             <h3>Resumen de rendimiento</h3>
         </div>
-        <p><strong>Último test:</strong> {{ ultimo_test_resumen['test_nombre'] if ultimo_test_resumen else '-' }}</p>
+        <p><strong>&Uacute;ltimo test:</strong> {{ ultimo_test_resumen['test_nombre'] if ultimo_test_resumen else '-' }}</p>
         {% if ultimo_test_resumen %}
             <p><strong>Puntaje:</strong> {{ ultimo_test_resumen['puntaje'] }} {{ ultimo_test_resumen['unidad'] or '' }}</p>
             <p><strong>Fecha:</strong> {{ ultimo_test_resumen['fecha'] }}</p>
         {% endif %}
         <p><strong>Registros recientes:</strong> {{ tests_recientes | length }}</p>
     </div>
+    {% endif %}
     {% if puede_ver_salud and bienestar_reciente %}
     <div class="card">
         <div class="section-header compact">
             <h3>Bienestar reciente</h3>
+            <span class="muted-line">&Uacute;ltimos chequeos informados desde el portal</span>
         </div>
         <div class="table-wrapper flush">
             <table>
