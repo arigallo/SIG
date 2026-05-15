@@ -77,10 +77,9 @@
             </div>
         </div>
         <div class="permission-grid">
-            {% set seleccion = form.getlist('jugadores_ids') if form else [] %}
             {% for jugador in jugadores %}
                 <label class="permission-option" data-player-category="{{ jugador['categoria'] or 'Sin categoría' }}">
-                    <input type="checkbox" name="jugadores_ids" value="{{ jugador['id'] }}" {% if jugador['id']|string in seleccion %}checked{% endif %}>
+                    <input type="checkbox" name="jugadores_ids" value="{{ jugador['id'] }}" {% if jugador['id']|string in seleccion_jugadores %}checked{% endif %}>
                     <span>
                         <strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong>
                         <small>{{ jugador['categoria'] or 'Sin categor&iacute;a' }}</small>

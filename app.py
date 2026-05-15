@@ -10995,20 +10995,41 @@ def nuevo_gasto_compartido():
         if not titulo or not monto_raw:
             conn.close()
             flash("Titulo e importe son obligatorios.", "error")
-            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+            )
 
         try:
             monto = float(monto_raw)
         except ValueError:
             conn.close()
             flash("El importe debe ser numerico.", "error")
-            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+            )
 
         seleccionados = jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids)
         if not seleccionados:
             conn.close()
             flash("Tenes que definir al menos un jugador que deba pagar.", "error")
-            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+            )
 
         if modo_importe not in {"por_jugador", "total"}:
             modo_importe = "por_jugador"
@@ -11062,7 +11083,14 @@ def nuevo_gasto_compartido():
         return redirect(url_for("ver_gasto_compartido", gasto_id=gasto["id"]))
 
     conn.close()
-    return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=form_defaults)
+    return render_template(
+        "gasto_compartido_form.html",
+        jugadores=jugadores_activos,
+        eventos=eventos,
+        categorias_jugadores=categorias_jugadores,
+        form=form_defaults,
+        seleccion_jugadores=form_defaults.get("jugadores_ids", []),
+    )
 
 
 @app.route("/gastos-compartidos/<int:gasto_id>")
