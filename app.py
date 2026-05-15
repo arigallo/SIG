@@ -10930,7 +10930,7 @@ def listar_gastos_compartidos():
         FROM gastos_compartidos g
         LEFT JOIN gasto_compartido_items i ON i.gasto_id = g.id
         GROUP BY g.id
-        ORDER BY COALESCE(g.fecha_evento, g.fecha_vencimiento, g.creado_en::text) DESC, g.id DESC
+        ORDER BY COALESCE(g.fecha_evento::timestamp, g.fecha_vencimiento::timestamp, g.creado_en) DESC, g.id DESC
     """).fetchall()
     resumen = conn.execute("""
         SELECT
