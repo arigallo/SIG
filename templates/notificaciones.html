@@ -4,7 +4,10 @@
 
 {% block content %}
 <div class="section-header">
-    <h2>Notificaciones</h2>
+    <div>
+        <h2>Notificaciones</h2>
+        <p class="page-intro">Seguimiento de deuda, fichas, portal y comprobantes con acciones directas.</p>
+    </div>
 </div>
 
 {% macro tabla_notificaciones(titulo, items, tipo, lote_url=None, lote_label=None) %}
@@ -24,13 +27,14 @@
         {% endif %}
     </div>
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Jugador</th>
                     <th>Detalle</th>
                     <th>Mensaje</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -87,13 +91,14 @@
         <h3>Datos actualizados desde portal</h3>
     </div>
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Jugador</th>
                     <th>Fecha</th>
                     <th>Detalle</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -101,7 +106,7 @@
                 <tr>
                     <td>{{ cambio['apellido'] }}, {{ cambio['nombre'] }}</td>
                     <td>{{ cambio['fecha'] }}</td>
-                    <td class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizacion de datos personales' }}</td>
+                    <td class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</td>
                     <td>
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
                     </td>
@@ -125,6 +130,7 @@
         {% endif %}
     </div>
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
@@ -132,7 +138,7 @@
                     <th>Periodo</th>
                     <th>Importe</th>
                     <th>Carga</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -168,13 +174,14 @@
         <h3>Ahijadxs listos para ingresar</h3>
     </div>
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Ahijadx</th>
-                    <th>Categoria</th>
+                    <th>Categor&iacute;a</th>
                     <th>Entrenamientos</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -201,6 +208,6 @@
     </div>
 </div>
 
-{{ tabla_notificaciones('Fichas medicas', fichas, 'ficha', url_for('enviar_recordatorios_fichas_lote'), 'fichas') }}
+{{ tabla_notificaciones('Fichas m&eacute;dicas', fichas, 'ficha', url_for('enviar_recordatorios_fichas_lote'), 'fichas') }}
 {{ tabla_notificaciones('Asistencia baja', asistencia_baja, 'asistencia') }}
 {% endblock %}

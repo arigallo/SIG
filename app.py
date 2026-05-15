@@ -293,7 +293,7 @@ PERMISOS = {
     "jugadores_gestionar": {
         "grupo": "Jugadores",
         "nombre": "Crear y editar jugadores",
-        "descripcion": "Alta, edición, importación y acciones masivas.",
+        "descripcion": "Alta, ediciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n, importaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n y acciones masivas.",
     },
     "jugadores_eliminar": {
         "grupo": "Jugadores",
@@ -333,7 +333,7 @@ PERMISOS = {
     "caja_ver": {
         "grupo": "Cuotas y caja",
         "nombre": "Ver caja",
-        "descripcion": "Consulta y exportación de movimientos de caja.",
+        "descripcion": "Consulta y exportaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de movimientos de caja.",
     },
     "caja_gestionar": {
         "grupo": "Cuotas y caja",
@@ -358,17 +358,17 @@ PERMISOS = {
     "comunicaciones_ver": {
         "grupo": "Reportes",
         "nombre": "Ver comunicaciones",
-        "descripcion": "Morosos, plantillas y exportaciones de comunicación.",
+        "descripcion": "Morosos, plantillas y exportaciones de comunicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.",
     },
     "salud_ver": {
         "grupo": "Salud",
         "nombre": "Ver salud",
-        "descripcion": "Fichas médicas, lesiones y alertas médicas.",
+        "descripcion": "Fichas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas, lesiones y alertas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas.",
     },
     "salud_gestionar": {
         "grupo": "Salud",
         "nombre": "Gestionar salud",
-        "descripcion": "Editar fichas médicas, crear, editar y eliminar lesiones.",
+        "descripcion": "Editar fichas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas, crear, editar y eliminar lesiones.",
     },
     "documentos_ver": {
         "grupo": "Salud",
@@ -417,7 +417,7 @@ PERMISOS = {
     },
     "alertas_salud": {
         "grupo": "Alertas",
-        "nombre": "Alertas médicas",
+        "nombre": "Alertas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas",
         "descripcion": "Fichas vencidas y lesiones activas.",
     },
     "alertas_portal": {
@@ -426,8 +426,8 @@ PERMISOS = {
         "descripcion": "Notificaciones por datos personales actualizados desde el portal del jugador.",
     },
     "auditoria_ver": {
-        "grupo": "Administración",
-        "nombre": "Ver auditoría",
+        "grupo": "AdministraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n",
+        "nombre": "Ver auditorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a",
         "descripcion": "Consulta de actividad del sistema.",
     },
     "roles_gestionar": {
@@ -436,9 +436,9 @@ PERMISOS = {
         "descripcion": "Crear roles y editar permisos, incluidos los roles base.",
     },
     "backup_ver": {
-        "grupo": "Administración",
+        "grupo": "AdministraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n",
         "nombre": "Ver backup",
-        "descripcion": "Acceso a información de backup.",
+        "descripcion": "Acceso a informaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de backup.",
     },
     "backup_gestionar": {
         "grupo": "Administracion",
@@ -609,7 +609,7 @@ def drive_service():
         or MediaIoBaseUpload is None
     ):
         raise RuntimeError(
-            "Faltan dependencias de Google Drive. Instalá google-api-python-client y google-auth."
+            "Faltan dependencias de Google Drive. InstalÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ google-api-python-client y google-auth."
         )
 
     credentials, _ = google_auth_default(
@@ -621,7 +621,7 @@ def drive_service():
 def cloud_sql_admin_service():
     if google_auth_default is None or google_build is None:
         raise RuntimeError(
-            "Faltan dependencias de Google Cloud. Instalá google-api-python-client y google-auth."
+            "Faltan dependencias de Google Cloud. InstalÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ google-api-python-client y google-auth."
         )
 
     credentials, _ = google_auth_default(
@@ -916,10 +916,10 @@ def validar_comprobante_upload(file_storage):
 
     content = file_storage.read()
     if not content:
-        raise ValueError("El comprobante está vacío.")
+        raise ValueError("El comprobante estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.")
     if len(content) > COMPROBANTE_MAX_BYTES:
         max_mb = max(1, COMPROBANTE_MAX_BYTES // (1024 * 1024))
-        raise ValueError(f"El comprobante supera el tamaño máximo permitido ({max_mb} MB).")
+        raise ValueError(f"El comprobante supera el tamaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ximo permitido ({max_mb} MB).")
 
     mime_type = COMPROBANTE_EXTENSIONS[ext]
     guessed_mime = mimetypes.guess_type(filename)[0]
@@ -1287,8 +1287,8 @@ def buscar_fecha_cercana(texto, palabras_clave):
 def extraer_anio_bduar(texto):
     texto_min = texto.lower()
     patrones = (
-        r"evaluaci[oó]n\s+pre\s*competitiva\s+(20\d{2})",
-        r"evaluaci[oó]n\s+precompetitiva\s+(20\d{2})",
+        r"evaluaci[oÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³]n\s+pre\s*competitiva\s+(20\d{2})",
+        r"evaluaci[oÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³]n\s+precompetitiva\s+(20\d{2})",
         r"pre\s*competitiva\s+(20\d{2})",
         r"\bbduar\b.*?(20\d{2})",
     )
@@ -1651,21 +1651,21 @@ def mensaje_error_drive(error, carpeta="Cuotas", accion="subir el comprobante"):
         detalle_lower = detalle.lower()
         if "storage quota" in detalle_lower or "service accounts do not have storage quota" in detalle_lower:
             return (
-                "Google Drive rechazó la subida porque la cuenta de servicio no puede "
-                "guardar archivos en una carpeta de Mi unidad. Usá una unidad compartida "
-                "de Google Drive o una integración OAuth con un usuario real."
+                "Google Drive rechazÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la subida porque la cuenta de servicio no puede "
+                "guardar archivos en una carpeta de Mi unidad. UsÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ una unidad compartida "
+                "de Google Drive o una integraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n OAuth con un usuario real."
             )
         if status == 403:
             return (
-                f"Google Drive rechazó el acceso. Revisá que la carpeta {carpeta} esté compartida "
+                f"Google Drive rechazÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ el acceso. RevisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ que la carpeta {carpeta} estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© compartida "
                 "como editor con la service account de Cloud Run."
             )
         if status == 404:
             return (
-                f"Google Drive no encontró la carpeta configurada. Revisá el ID de la carpeta {carpeta}."
+                f"Google Drive no encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la carpeta configurada. RevisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ el ID de la carpeta {carpeta}."
             )
         if detalle:
-            return f"Google Drive rechazó la operación: {truncate_audit_value(detalle, 180)}"
+            return f"Google Drive rechazÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la operaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: {truncate_audit_value(detalle, 180)}"
 
     return f"No se pudo {accion} en Google Drive."
 
@@ -1738,7 +1738,7 @@ def datos_beca_form():
     if desde and hasta and hasta < desde:
         return None, "La fecha hasta de la beca no puede ser anterior a la fecha desde."
     if activa and porcentaje <= 0:
-        return None, "Para activar una beca indicá un porcentaje mayor a 0."
+        return None, "Para activar una beca indicÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ un porcentaje mayor a 0."
 
     return {
         "beca_activa": activa,
@@ -2542,7 +2542,7 @@ def obtener_alertas():
             j.categoria
         FROM lesiones l
         JOIN jugadores j ON j.id = l.jugador_id
-        WHERE l.estado IN ('Activa', 'En recuperación')
+        WHERE l.estado IN ('Activa', 'En recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n')
         ORDER BY
             CASE
                 WHEN l.estado = 'Activa' THEN 0
@@ -2836,6 +2836,20 @@ def obtener_estado_sistema_admin():
             "ventana": CLOUD_SQL_BACKUP_WINDOW,
             "ultimo_backup": os.environ.get("CLOUD_SQL_LAST_BACKUP", "Visible desde Google Cloud SQL"),
             "cloud_sql": obtener_info_backups_cloud_sql(),
+        },
+        "integraciones": {
+            "smtp_ok": smtp_configurado(),
+            "smtp_from": SMTP_FROM or "",
+            "smtp_user": SMTP_USER or "",
+            "drive_shared": bool(DRIVE_SHARED_DRIVE_ID),
+            "drive_comprobantes": bool(DRIVE_COMPROBANTES_FOLDER_ID or DRIVE_SHARED_DRIVE_ID),
+            "drive_fichas": bool(
+                DRIVE_FICHAS_MEDICAS_FOLDER_ID
+                or DRIVE_COMPROBANTES_FOLDER_ID
+                or DRIVE_SHARED_DRIVE_ID
+            ),
+            "cloud_sql_ok": bool(CLOUD_SQL_CONNECTION_NAME or (CLOUD_SQL_PROJECT and CLOUD_SQL_INSTANCE)),
+            "secret_key_default": app.secret_key == "cambiar-esto-por-una-clave-segura",
         },
     }
 
@@ -3304,8 +3318,8 @@ def obtener_calendario(mes):
         eventos.append({
             "id": ficha["jugador_id"],
             "fecha": ficha["fecha_vencimiento"],
-            "tipo": "Ficha médica",
-            "titulo": "Vence ficha médica",
+            "tipo": "Ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica",
+            "titulo": "Vence ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica",
             "detalle": f"{ficha['apellido']}, {ficha['nombre']}",
             "ubicacion": "",
             "categoria": ficha["categoria"] or "",
@@ -3962,12 +3976,12 @@ def aplicar_matches_conciliacion(conn, matches):
 def normalizar_header_excel(valor):
     texto = str(valor or "").strip().lower()
     reemplazos = {
-        "á": "a",
-        "é": "e",
-        "í": "i",
-        "ó": "o",
-        "ú": "u",
-        "ñ": "n",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡": "a",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©": "e",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­": "i",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³": "o",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº": "u",
+        "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±": "n",
     }
     for origen, destino in reemplazos.items():
         texto = texto.replace(origen, destino)
@@ -4376,7 +4390,7 @@ SENSITIVE_AUDIT_FIELDS = {
     "password",
     "pass",
     "clave",
-    "contraseña",
+    "contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a",
     "contrasena",
     "admin_password",
     "db_pass",
@@ -4954,9 +4968,9 @@ def init_db():
 
     roles_base = {
         "admin": "Acceso completo al sistema.",
-        "tesorero": "Gestión financiera, cuotas, caja y reportes.",
-        "medico": "Gestión de fichas médicas y lesiones.",
-        "entrenador": "Gestión deportiva, jugadores, calendario y asistencia.",
+        "tesorero": "GestiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n financiera, cuotas, caja y reportes.",
+        "medico": "GestiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de fichas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas y lesiones.",
+        "entrenador": "GestiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n deportiva, jugadores, calendario y asistencia.",
     }
 
     for nombre_rol, descripcion in roles_base.items():
@@ -5742,7 +5756,7 @@ def proteger_rutas():
         session.get("debe_cambiar_password")
         and request.endpoint not in {"cambiar_mi_password", "logout", "static"}
     ):
-        flash("Cambiá tu contraseña para continuar.", "warning")
+        flash("CambiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ tu contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a para continuar.", "warning")
         return redirect(url_for("cambiar_mi_password"))
 
     try:
@@ -5796,7 +5810,7 @@ def rol_requerido(*roles_permitidos):
         return None
 
     if rol not in roles_permitidos:
-        flash("No tenés permiso para acceder a esa sección.", "error")
+        flash("No tenÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s permiso para acceder a esa secciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "error")
         return redirect(url_for("index"))
     return None
 
@@ -5858,11 +5872,11 @@ def filtrar_bitacora_visible(items):
 
 def validar_password_nueva(password, confirmacion):
     if not password or not confirmacion:
-        return "La contraseña y la confirmación son obligatorias."
+        return "La contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a y la confirmaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n son obligatorias."
     if password != confirmacion:
-        return "La confirmación no coincide."
+        return "La confirmaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no coincide."
     if len(password) < 8:
-        return "La contraseña debe tener al menos 8 caracteres."
+        return "La contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a debe tener al menos 8 caracteres."
     return None
 
 def normalizar_username(username):
@@ -6065,6 +6079,44 @@ def enviar_email_jugador_con_adjuntos(jugador, asunto, cuerpo, adjuntos=None):
     return enviado, destinatario, motivo
 
 
+def mensaje_fallo_email(motivo, destinatario=None):
+    if motivo == "sin_email":
+        return "No hay un email configurado para este jugador."
+    if motivo == "smtp":
+        return "SMTP no est\u00e1 configurado en el servidor."
+    if destinatario:
+        return f"No se pudo enviar el email a {destinatario}. Revis\u00e1 la configuraci\u00f3n SMTP o intent\u00e1 nuevamente."
+    return "No se pudo enviar el email. Revis\u00e1 la configuraci\u00f3n SMTP o intent\u00e1 nuevamente."
+
+
+def resumir_envio_masivo_email(resultados, etiqueta):
+    enviados = sum(1 for ok, _, _ in resultados if ok)
+    sin_email = sum(1 for ok, _, motivo in resultados if not ok and motivo == "sin_email")
+    smtp = sum(1 for ok, _, motivo in resultados if not ok and motivo == "smtp")
+    otros = sum(1 for ok, _, motivo in resultados if not ok and motivo not in ("sin_email", "smtp"))
+    if enviados:
+        partes = [f"Se enviaron {enviados} {etiqueta}."]
+        if sin_email:
+            partes.append(f"{sin_email} sin email.")
+        if smtp:
+            partes.append(f"{smtp} sin SMTP.")
+        if otros:
+            partes.append(f"{otros} con error.")
+        return " ".join(partes), "ok"
+    if smtp and not sin_email and not otros:
+        return f"No se enviaron {etiqueta}: SMTP no est\u00e1 configurado en el servidor.", "error"
+    detalles = []
+    if sin_email:
+        detalles.append(f"{sin_email} sin email")
+    if smtp:
+        detalles.append(f"{smtp} sin SMTP")
+    if otros:
+        detalles.append(f"{otros} con error")
+    if detalles:
+        return f"No se enviaron {etiqueta}: " + ", ".join(detalles) + ".", "error"
+    return f"No se enviaron {etiqueta}.", "error"
+
+
 def construir_texto_recibo_cuota(cuota):
     nombre = nombre_jugador_corto(cuota)
     return (
@@ -6076,12 +6128,12 @@ def construir_texto_recibo_cuota(cuota):
 
 def construir_texto_recordatorio_cuota(cuota):
     nombre = nombre_jugador_corto(cuota)
-    estado = "venció" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
+    estado = "venciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
     fecha = cuota.get("fecha_vencimiento") or "-"
     return (
         f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
         f"La cuota {cuota.get('periodo') or '-'} por {formato_moneda(cuota.get('importe') or 0)} {estado} el {fecha}.\n"
-        "Si ya realizaste el pago, podés responder este correo o cargar el comprobante desde tu portal.\n\n"
+        "Si ya realizaste el pago, podÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s responder este correo o cargar el comprobante desde tu portal.\n\n"
         "Gracias."
     )
 
@@ -6089,14 +6141,14 @@ def construir_texto_recordatorio_cuota(cuota):
 def construir_texto_recordatorio_ficha(ficha):
     nombre = nombre_jugador_corto(ficha)
     if ficha.get("estado_documento") == "vencida":
-        estado = f"venció el {ficha.get('fecha_vencimiento') or '-'}"
+        estado = f"venciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ el {ficha.get('fecha_vencimiento') or '-'}"
     elif ficha.get("estado_documento") == "por_vencer":
         estado = f"vence el {ficha.get('fecha_vencimiento') or '-'}"
     else:
         estado = "figura pendiente de carga"
     return (
         f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
-        f"La ficha médica {estado}. Cuando puedas, acercanos la actualización o cargala por los canales habituales.\n\n"
+        f"La ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica {estado}. Cuando puedas, acercanos la actualizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n o cargala por los canales habituales.\n\n"
         "Gracias."
     )
 
@@ -6115,7 +6167,7 @@ def construir_texto_recordatorio_evento(jugador, evento, portal_url=None):
     if evento.get("descripcion"):
         cuerpo += f"\nDetalle: {evento['descripcion']}"
     if portal_url:
-        cuerpo += f"\n\nPodés confirmar asistencia desde tu portal:\n{portal_url}"
+        cuerpo += f"\n\nPodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s confirmar asistencia desde tu portal:\n{portal_url}"
     return cuerpo + "\n\nGracias."
 
 
@@ -6123,12 +6175,12 @@ def construir_texto_rechazo_comprobante(cuota, observaciones=None, portal_url=No
     nombre = nombre_jugador_corto(cuota)
     cuerpo = (
         f"Hola {nombre}, revisamos el comprobante de la cuota {cuota.get('periodo') or '-'} "
-        f"por {formato_moneda(cuota.get('importe') or 0)} y quedó rechazado para corrección."
+        f"por {formato_moneda(cuota.get('importe') or 0)} y quedÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ rechazado para correcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n."
     )
     if observaciones:
         cuerpo += f"\nMotivo: {observaciones}"
     if portal_url:
-        cuerpo += f"\n\nPodés volver a cargarlo desde tu portal:\n{portal_url}"
+        cuerpo += f"\n\nPodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s volver a cargarlo desde tu portal:\n{portal_url}"
     return cuerpo + "\n\nGracias."
 
 
@@ -6294,7 +6346,7 @@ def login():
                 rol=usuario["rol"],
             )
             if session["debe_cambiar_password"]:
-                flash("Por seguridad, cambiá tu contraseña para continuar.", "warning")
+                flash("Por seguridad, cambiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ tu contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a para continuar.", "warning")
                 return redirect(url_for("cambiar_mi_password"))
             return redirect(url_for("index"))
         else:
@@ -6308,7 +6360,7 @@ def login():
                 {"username": username},
                 username=username,
             )
-            flash("Usuario o contraseña incorrectos", "error")
+            flash("Usuario o contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a incorrectos", "error")
 
     return render_template("login.html")
 
@@ -6339,7 +6391,7 @@ def solicitar_recuperacion_password():
                             "Recibimos un pedido para restablecer tu clave del SIG.\n"
                             f"El enlace vence en {PASSWORD_RESET_TOKEN_MINUTES} minutos:\n\n"
                             f"{reset_url}\n\n"
-                            "Si no pediste este cambio, podés ignorar este mensaje."
+                            "Si no pediste este cambio, podÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s ignorar este mensaje."
                         ),
                     )
                 except Exception:
@@ -6357,7 +6409,7 @@ def solicitar_recuperacion_password():
             else:
                 conn.close()
 
-        flash("Si el email está registrado, vas a recibir un enlace de recuperación.", "ok")
+        flash("Si el email estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ registrado, vas a recibir un enlace de recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "ok")
         return redirect(url_for("login"))
 
     return render_template("password_recuperar.html")
@@ -6369,7 +6421,7 @@ def restablecer_password(token):
     token_row = buscar_token_recuperacion(conn, token)
     if token_row is None:
         conn.close()
-        flash("El enlace de recuperación no es válido o venció.", "error")
+        flash("El enlace de recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no es vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido o venciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³.", "error")
         return redirect(url_for("login"))
 
     usuario = {
@@ -6410,7 +6462,7 @@ def restablecer_password(token):
             {"origen": "recuperacion_email"},
             username=usuario["username"],
         )
-        flash("Contraseña actualizada. Ya podés iniciar sesión.", "ok")
+        flash("ContraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a actualizada. Ya podÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s iniciar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "ok")
         return redirect(url_for("login"))
 
     conn.close()
@@ -6446,7 +6498,7 @@ def cambiar_mi_password():
     if usuario is None:
         conn.close()
         session.clear()
-        flash("Tu usuario ya no existe. Iniciá sesión nuevamente.", "error")
+        flash("Tu usuario ya no existe. IniciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n nuevamente.", "error")
         return redirect(url_for("login"))
 
     if request.method == "POST":
@@ -6462,7 +6514,7 @@ def cambiar_mi_password():
 
         if not usuario["debe_cambiar_password"] and not check_password_hash(usuario["password"], password_actual):
             conn.close()
-            flash("La contraseña actual no es correcta.", "error")
+            flash("La contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a actual no es correcta.", "error")
             return render_template("password_form.html", usuario=usuario, modo="propio")
 
         conn.execute("""
@@ -6475,7 +6527,7 @@ def cambiar_mi_password():
         conn.close()
 
         session["debe_cambiar_password"] = False
-        flash("Contraseña actualizada correctamente.", "ok")
+        flash("ContraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a actualizada correctamente.", "ok")
         return redirect(url_for("index"))
 
     conn.close()
@@ -6560,7 +6612,7 @@ def index():
             l.estado
         FROM lesiones l
         JOIN jugadores j ON j.id = l.jugador_id
-        WHERE l.estado IN ('Activa', 'En recuperación')
+        WHERE l.estado IN ('Activa', 'En recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n')
         ORDER BY
             CASE
                 WHEN l.estado = 'Activa' THEN 0
@@ -6589,6 +6641,17 @@ def index():
     WHERE pagado = 1
       AND substring(fecha_pago from 1 for 7) = %s
     """, (mes_actual,)).fetchone()["total"]
+
+    deuda_vencida_total = conn.execute("""
+    SELECT COALESCE(SUM(importe), 0) AS total
+    FROM cuotas
+    WHERE pagado = 0
+      AND COALESCE(importe, 0) > 0
+      AND fecha_vencimiento IS NOT NULL
+      AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+      AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      AND fecha_vencimiento::date < CURRENT_DATE
+    """).fetchone()["total"]
 
     cuotas_pendientes = conn.execute("""
     SELECT COUNT(*) AS total
@@ -6654,26 +6717,58 @@ def index():
           AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
     """).fetchone()["total"]
 
+    fichas_por_vencer_count = conn.execute("""
+        SELECT COUNT(*) AS total
+        FROM fichas_medicas
+        WHERE fecha_vencimiento IS NOT NULL
+          AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+          AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND fecha_vencimiento::date >= CURRENT_DATE
+          AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+    """).fetchone()["total"]
+
     conn.close()
 
+    total_cuotas_mes = cuotas_pagadas_mes + cuotas_pendientes
+    cobranza_ratio = round((cuotas_pagadas_mes / total_cuotas_mes) * 100, 1) if total_cuotas_mes else None
+
+    resumen_notificaciones = None
+    if tiene_permiso("comunicaciones_ver"):
+        notificaciones = obtener_notificaciones_operativas()
+        resumen_notificaciones = {
+            "cuotas_vencidas": len(notificaciones["cuotas_vencidas"]),
+            "cuotas_por_vencer": len(notificaciones["cuotas_por_vencer"]),
+            "fichas": len(notificaciones["fichas"]),
+            "asistencia_baja": len(notificaciones["asistencia_baja"]),
+            "comprobantes": len(notificaciones["comprobantes_pendientes"]),
+            "cambios_portal": len(notificaciones["cambios_portal"]),
+        }
+
+    sistema_resumen = obtener_estado_sistema_admin() if session.get("rol") == "admin" else None
+
     return render_template(
-    "dashboard.html",
-    total_jugadores=total_jugadores,
-    jugadores_con_deuda=jugadores_con_deuda,
-    fichas_vencidas=fichas_vencidas,
-    lesiones_activas=lesiones_activas,
-    total_recaudado_mes=total_recaudado_mes,
-    deuda_total=deuda_total,
-    cuotas_pagadas_mes=cuotas_pagadas_mes,
-    cuotas_pendientes=cuotas_pendientes,
-    cuotas_pendientes_lista=cuotas_pendientes_lista,
-    comprobantes_pendientes_count=comprobantes_pendientes_count,
-    comprobantes_pendientes_lista=comprobantes_pendientes_lista,
-    mes_actual=mes_actual,
-    puede_ver_jugadores=tiene_permiso("jugadores_ver"),
-    puede_ver_finanzas=tiene_permiso("cuotas_ver", "cuotas_gestionar"),
-    puede_ver_salud=tiene_permiso("salud_ver")
-)
+        "dashboard.html",
+        total_jugadores=total_jugadores,
+        jugadores_con_deuda=jugadores_con_deuda,
+        fichas_vencidas=fichas_vencidas,
+        lesiones_activas=lesiones_activas,
+        total_recaudado_mes=total_recaudado_mes,
+        deuda_total=deuda_total,
+        deuda_vencida_total=deuda_vencida_total,
+        cuotas_pagadas_mes=cuotas_pagadas_mes,
+        cuotas_pendientes=cuotas_pendientes,
+        cobranza_ratio=cobranza_ratio,
+        fichas_por_vencer_count=fichas_por_vencer_count,
+        cuotas_pendientes_lista=cuotas_pendientes_lista,
+        comprobantes_pendientes_count=comprobantes_pendientes_count,
+        comprobantes_pendientes_lista=comprobantes_pendientes_lista,
+        mes_actual=mes_actual,
+        resumen_notificaciones=resumen_notificaciones,
+        sistema_resumen=sistema_resumen,
+        puede_ver_jugadores=tiene_permiso("jugadores_ver"),
+        puede_ver_finanzas=tiene_permiso("cuotas_ver", "cuotas_gestionar"),
+        puede_ver_salud=tiene_permiso("salud_ver"),
+    )
 
 @app.route("/jugadores/<int:jugador_id>/ficha-medica")
 def ver_ficha_medica(jugador_id):
@@ -6730,7 +6825,7 @@ def descargar_ficha_medica_documento(jugador_id):
         return redirect(url_for("listar_jugadores"))
 
     if not ficha or not ficha["documento_drive_file_id"]:
-        flash("La ficha médica no tiene documento adjunto.", "error")
+        flash("La ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica no tiene documento adjunto.", "error")
         return redirect(url_for("ver_ficha_medica", jugador_id=jugador_id))
 
     try:
@@ -6739,8 +6834,8 @@ def descargar_ficha_medica_documento(jugador_id):
         flash(str(error), "error")
         return redirect(url_for("ver_ficha_medica", jugador_id=jugador_id))
     except Exception as error:
-        app.logger.exception("No se pudo descargar ficha médica del jugador %s.", jugador_id)
-        flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="descargar la ficha médica"), "error")
+        app.logger.exception("No se pudo descargar ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica del jugador %s.", jugador_id)
+        flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="descargar la ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica"), "error")
         return redirect(url_for("ver_ficha_medica", jugador_id=jugador_id))
 
     registrar_auditoria(
@@ -6840,8 +6935,8 @@ def editar_ficha_medica(jugador_id):
                 )
             except Exception as error:
                 conn.close()
-                app.logger.exception("No se pudo subir ficha médica del jugador %s.", jugador_id)
-                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="guardar la ficha médica"), "error")
+                app.logger.exception("No se pudo subir ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica del jugador %s.", jugador_id)
+                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="guardar la ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica"), "error")
                 return render_template(
                     "ficha_medica_form.html",
                     jugador=jugador,
@@ -6874,11 +6969,11 @@ def editar_ficha_medica(jugador_id):
                         ocr_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         ocr_usuario = session.get("username")
                     else:
-                        flash("El documento se guardó, pero OCR no devolvió texto para completar campos.", "warning")
+                        flash("El documento se guardÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³, pero OCR no devolviÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ texto para completar campos.", "warning")
                 except Exception:
-                    app.logger.exception("No se pudo procesar OCR de ficha médica del jugador %s.", jugador_id)
+                    app.logger.exception("No se pudo procesar OCR de ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica del jugador %s.", jugador_id)
                     flash(
-                        "El documento se guardó, pero no se pudo procesar OCR. Revisá los datos manualmente.",
+                        "El documento se guardÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³, pero no se pudo procesar OCR. RevisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ los datos manualmente.",
                         "warning",
                     )
 
@@ -6941,9 +7036,9 @@ def editar_ficha_medica(jugador_id):
         conn.commit()
         conn.close()
 
-        flash("Ficha médica guardada correctamente.", "ok")
+        flash("Ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica guardada correctamente.", "ok")
         if documento_info:
-            flash("Documento de ficha médica guardado en Google Drive.", "ok")
+            flash("Documento de ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica guardado en Google Drive.", "ok")
         if ocr_texto:
             flash("OCR procesado y campos detectados aplicados.", "ok")
         return redirect(url_for("ver_ficha_medica", jugador_id=jugador_id))
@@ -6969,7 +7064,7 @@ def cargar_fichas_medicas_batch():
             if archivo and archivo.filename
         ]
         if not archivos:
-            flash("Seleccioná al menos una ficha médica para cargar.", "error")
+            flash("SeleccionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ al menos una ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica para cargar.", "error")
             conn = get_connection()
             batches_recientes = obtener_fichas_medicas_batch_recientes(conn)
             conn.close()
@@ -6994,7 +7089,7 @@ def cargar_fichas_medicas_batch():
                 datos_ocr = datos_ficha_desde_ocr(ocr_texto)
                 jugador_sugerido, confianza, motivo = sugerir_jugador_ficha_ocr(archivo_original, jugadores)
                 if confianza == "sin_coincidencia":
-                    error = "OCR pendiente. Procesalo desde la revisión o asigná manualmente."
+                    error = "OCR pendiente. Procesalo desde la revisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n o asignÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ manualmente."
 
                 conn.execute("""
                     INSERT INTO fichas_medicas_batch (
@@ -7041,20 +7136,20 @@ def cargar_fichas_medicas_batch():
             except Exception as error:
                 conn.rollback()
                 errores += 1
-                app.logger.exception("No se pudo cargar ficha médica batch %s.", archivo_original)
-                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="guardar la ficha médica"), "error")
+                app.logger.exception("No se pudo cargar ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica batch %s.", archivo_original)
+                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="guardar la ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica"), "error")
 
         conn.commit()
 
         if cargadas:
             conn.close()
             flash(f"Se cargaron {cargadas} ficha(s) para revisar.", "ok")
-            flash("Para evitar timeouts, el OCR se procesa por archivo desde la pantalla de revisión.", "warning")
+            flash("Para evitar timeouts, el OCR se procesa por archivo desde la pantalla de revisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "warning")
             if errores:
                 flash(f"{errores} archivo(s) no pudieron cargarse.", "warning")
             return redirect(url_for("revisar_fichas_medicas_batch", batch_id=batch_id))
 
-        flash("No se pudo cargar ninguna ficha médica.", "error")
+        flash("No se pudo cargar ninguna ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica.", "error")
         batches_recientes = obtener_fichas_medicas_batch_recientes(conn)
         conn.close()
         return render_template("fichas_medicas_batch.html", batches_recientes=batches_recientes)
@@ -7098,7 +7193,7 @@ def revisar_fichas_medicas_batch(batch_id):
 
             if fecha_vencimiento and not validar_fecha_movimiento(fecha_vencimiento):
                 errores += 1
-                flash(f"El archivo #{item_id} tiene una fecha de vencimiento inválida.", "error")
+                flash(f"El archivo #{item_id} tiene una fecha de vencimiento invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.", "error")
                 continue
 
             item = conn.execute("""
@@ -7115,7 +7210,7 @@ def revisar_fichas_medicas_batch(batch_id):
 
             if not item or not jugador:
                 errores += 1
-                flash(f"No se encontró el archivo pendiente #{item_id} o el jugador asignado.", "error")
+                flash(f"No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ el archivo pendiente #{item_id} o el jugador asignado.", "error")
                 continue
 
             try:
@@ -7202,15 +7297,15 @@ def revisar_fichas_medicas_batch(batch_id):
             except Exception as error:
                 conn.rollback()
                 errores += 1
-                app.logger.exception("No se pudo confirmar ficha médica batch item %s.", item_id)
-                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="asignar la ficha médica"), "error")
+                app.logger.exception("No se pudo confirmar ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica batch item %s.", item_id)
+                flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="asignar la ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica"), "error")
 
         if procesadas:
-            flash(f"Se asignaron {procesadas} ficha(s) médica(s).", "ok")
+            flash(f"Se asignaron {procesadas} ficha(s) mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica(s).", "ok")
         if omitidas:
             flash(f"{omitidas} archivo(s) quedaron pendientes.", "warning")
         if errores:
-            flash(f"{errores} archivo(s) requieren revisión.", "error")
+            flash(f"{errores} archivo(s) requieren revisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "error")
         return redirect(url_for("revisar_fichas_medicas_batch", batch_id=batch_id))
 
     items = conn.execute("""
@@ -7232,7 +7327,7 @@ def revisar_fichas_medicas_batch(batch_id):
     conn.close()
 
     if not items:
-        flash("No se encontró la tanda de fichas médicas.", "error")
+        flash("No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la tanda de fichas mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicas.", "error")
         return redirect(url_for("cargar_fichas_medicas_batch"))
 
     return render_template(
@@ -7258,7 +7353,7 @@ def procesar_ficha_medica_batch_ocr(item_id):
 
     if not item:
         conn.close()
-        flash("No se encontró el archivo pendiente.", "error")
+        flash("No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ el archivo pendiente.", "error")
         return redirect(url_for("cargar_fichas_medicas_batch"))
 
     if item["estado"] != "pendiente":
@@ -7272,7 +7367,7 @@ def procesar_ficha_medica_batch_ocr(item_id):
         if ocr_texto:
             flash("OCR procesado para el archivo seleccionado.", "ok")
         else:
-            flash("OCR no devolvió texto para este archivo. Podés asignarlo manualmente.", "warning")
+            flash("OCR no devolviÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ texto para este archivo. PodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s asignarlo manualmente.", "warning")
     except Exception as error:
         conn.rollback()
         app.logger.exception("No se pudo procesar OCR batch item %s.", item_id)
@@ -7282,7 +7377,7 @@ def procesar_ficha_medica_batch_ocr(item_id):
             WHERE id = %s
         """, (f"OCR no disponible: {truncate_audit_value(error, 160)}", item_id))
         conn.commit()
-        flash("No se pudo procesar OCR para este archivo. Podés cargar los datos manualmente.", "warning")
+        flash("No se pudo procesar OCR para este archivo. PodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s cargar los datos manualmente.", "warning")
     finally:
         conn.close()
 
@@ -7304,14 +7399,14 @@ def descargar_ficha_medica_batch_documento(item_id):
     conn.close()
 
     if not item or not item["drive_file_id"]:
-        flash("No se encontró el documento pendiente.", "error")
+        flash("No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ el documento pendiente.", "error")
         return redirect(url_for("cargar_fichas_medicas_batch"))
 
     try:
         archivo = descargar_drive_file(item["drive_file_id"])
     except Exception as error:
-        app.logger.exception("No se pudo descargar ficha médica batch item %s.", item_id)
-        flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="descargar la ficha médica"), "error")
+        app.logger.exception("No se pudo descargar ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica batch item %s.", item_id)
+        flash(mensaje_error_drive(error, carpeta=DRIVE_FICHAS_MEDICAS_SUBFOLDER, accion="descargar la ficha mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dica"), "error")
         return redirect(url_for("revisar_fichas_medicas_batch", batch_id=item["batch_id"]))
 
     return send_file(
@@ -8049,7 +8144,7 @@ def importar_jugadores():
         archivo = request.files.get("archivo")
 
         if not archivo or not archivo.filename:
-            flash("Debés seleccionar un archivo Excel.", "error")
+            flash("DebÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s seleccionar un archivo Excel.", "error")
             return render_template("importar_jugadores.html", resultado=resultado)
 
         if not archivo.filename.lower().endswith(".xlsx"):
@@ -8065,7 +8160,7 @@ def importar_jugadores():
             return render_template("importar_jugadores.html", resultado=resultado)
 
         if not rows:
-            flash("El archivo está vacío.", "error")
+            flash("El archivo estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.", "error")
             return render_template("importar_jugadores.html", resultado=resultado)
 
         headers = [normalizar_header_excel(valor) for valor in rows[0]]
@@ -8140,7 +8235,7 @@ def importar_jugadores():
             },
         )
 
-        flash(f"Importación terminada. Creados: {creados}. Omitidos: {omitidos}.", "ok")
+        flash(f"ImportaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n terminada. Creados: {creados}. Omitidos: {omitidos}.", "ok")
 
     return render_template("importar_jugadores.html", resultado=resultado)
 
@@ -8157,7 +8252,7 @@ def acciones_masivas_jugadores():
     nueva_categoria = request.form.get("categoria", "").strip()
 
     if not jugador_ids:
-        flash("Seleccioná al menos un jugador.", "error")
+        flash("SeleccionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ al menos un jugador.", "error")
         return redirect(url_for("listar_jugadores"))
 
     ids = []
@@ -8168,7 +8263,7 @@ def acciones_masivas_jugadores():
             continue
 
     if not ids:
-        flash("La selección no es válida.", "error")
+        flash("La selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no es vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.", "error")
         return redirect(url_for("listar_jugadores"))
 
     conn = get_connection()
@@ -8176,7 +8271,7 @@ def acciones_masivas_jugadores():
     if accion == "estado":
         if nuevo_estado not in {"Activo", "Inactivo", "Suspendido", "Baja"}:
             conn.close()
-            flash("El estado seleccionado no es válido.", "error")
+            flash("El estado seleccionado no es vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido.", "error")
             return redirect(url_for("listar_jugadores"))
 
         conn.execute(
@@ -8188,7 +8283,7 @@ def acciones_masivas_jugadores():
     elif accion == "categoria":
         if not nueva_categoria:
             conn.close()
-            flash("Ingresá una categoría.", "error")
+            flash("IngresÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ una categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a.", "error")
             return redirect(url_for("listar_jugadores"))
 
         conn.execute(
@@ -8196,7 +8291,7 @@ def acciones_masivas_jugadores():
             (nueva_categoria, ids)
         )
         detalle = {"accion": "categoria", "categoria": nueva_categoria, "cantidad": len(ids)}
-        mensaje = f"Categoría actualizada para {len(ids)} jugador(es)."
+        mensaje = f"CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a actualizada para {len(ids)} jugador(es)."
     elif accion == "portal_activar":
         if not tiene_permiso("portal_jugador_gestionar"):
             conn.close()
@@ -8234,7 +8329,7 @@ def acciones_masivas_jugadores():
         mensaje = f"Portal activado para {activados} jugador(es)."
     else:
         conn.close()
-        flash("La acción masiva no es válida.", "error")
+        flash("La acciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n masiva no es vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.", "error")
         return redirect(url_for("listar_jugadores"))
 
     conn.commit()
@@ -8931,13 +9026,13 @@ def nueva_cuota(jugador_id):
         fecha_vencimiento = request.form.get("fecha_vencimiento", "").strip()
 
         if not periodo or not importe:
-            flash("Período e importe son obligatorios.", "error")
+            flash("PerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo e importe son obligatorios.", "error")
             return render_template("cuota_form.html", jugador_id=jugador_id)
 
         try:
             importe_valor = float(importe)
         except ValueError:
-            flash("El importe debe ser numérico.", "error")
+            flash("El importe debe ser numÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©rico.", "error")
             return render_template(
                 "cuota_form.html",
                 jugador_id=jugador_id,
@@ -8965,7 +9060,7 @@ def nueva_cuota(jugador_id):
 
         if existente:
             conn.close()
-            flash("Ese jugador ya tiene una cuota cargada para ese período.", "error")
+            flash("Ese jugador ya tiene una cuota cargada para ese perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo.", "error")
             return render_template(
                 "cuota_form.html",
                 jugador_id=jugador_id,
@@ -9064,7 +9159,7 @@ def pagar_cuota(cuota_id):
 
         if not metodo_pago:
             conn.close()
-            flash("Debe seleccionar un método de pago.", "error")
+            flash("Debe seleccionar un mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todo de pago.", "error")
             return render_template("pagar_cuota.html", cuota=cuota)
 
         try:
@@ -9725,7 +9820,7 @@ def nueva_lesion(jugador_id):
         conn.commit()
         conn.close()
 
-        flash("Lesión cargada correctamente.", "ok")
+        flash("LesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n cargada correctamente.", "ok")
         return redirect(url_for("ver_lesiones", jugador_id=jugador_id))
 
     conn.close()
@@ -9745,7 +9840,7 @@ def editar_lesion(lesion_id):
 
     if lesion is None:
         conn.close()
-        flash("Lesión no encontrada.", "error")
+        flash("LesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no encontrada.", "error")
         return redirect(url_for("listar_jugadores"))
 
     jugador = conn.execute("""
@@ -9853,7 +9948,7 @@ def editar_lesion(lesion_id):
         conn.commit()
         conn.close()
 
-        flash("Lesión actualizada correctamente.", "ok")
+        flash("LesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n actualizada correctamente.", "ok")
         return redirect(url_for("ver_lesiones", jugador_id=jugador["id"]))
 
     conn.close()
@@ -9874,7 +9969,7 @@ def eliminar_lesion(lesion_id):
 
     if lesion is None:
         conn.close()
-        flash("Lesión no encontrada.", "error")
+        flash("LesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n no encontrada.", "error")
         return redirect(url_for("listar_jugadores"))
 
     documentos = conn.execute("""
@@ -9894,7 +9989,7 @@ def eliminar_lesion(lesion_id):
     conn.commit()
     conn.close()
 
-    flash("Lesión eliminada.", "ok")
+    flash("LesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n eliminada.", "ok")
     return redirect(url_for("ver_lesiones", jugador_id=lesion["jugador_id"]))
 
 @app.route("/lesiones/documentos/<int:documento_id>")
@@ -9982,13 +10077,13 @@ def generar_cuotas():
         categoria = request.form.get("categoria", "").strip()
 
         if not periodo or not importe:
-            flash("Período e importe son obligatorios.", "error")
+            flash("PerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo e importe son obligatorios.", "error")
             return render_template("generar_cuotas.html")
 
         try:
             importe_valor = float(importe)
         except ValueError:
-            flash("El importe debe ser numérico.", "error")
+            flash("El importe debe ser numÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©rico.", "error")
             return render_template(
                 "generar_cuotas.html",
                 periodo=periodo,
@@ -10076,7 +10171,7 @@ def generar_cuotas():
         conn.close()
 
         flash(
-            f"Generación terminada. Cuotas creadas: {creadas}. Becas totales: {becadas_totales}. "
+            f"GeneraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n terminada. Cuotas creadas: {creadas}. Becas totales: {becadas_totales}. "
             f"Becas parciales: {becadas_parciales}. Ya existentes: {omitidas}.",
             "ok",
         )
@@ -10291,7 +10386,7 @@ def detalle_jugador(jugador_id):
         ORDER BY
             CASE
                 WHEN estado = 'Activa' THEN 0
-                WHEN estado = 'En recuperación' THEN 1
+                WHEN estado = 'En recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n' THEN 1
                 ELSE 2
             END,
             fecha_lesion DESC,
@@ -10313,7 +10408,7 @@ def detalle_jugador(jugador_id):
         SELECT COUNT(*) AS total
         FROM lesiones
         WHERE jugador_id = %s
-          AND estado IN ('Activa', 'En recuperación')
+          AND estado IN ('Activa', 'En recuperaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n')
     """, (jugador_id,)).fetchone()["total"]
 
     cuotas_pendientes_count = conn.execute("""
@@ -12329,7 +12424,7 @@ def ver_comunicaciones():
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
-        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
+        "Te pedimos regularizar la situaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n o avisarnos si ya realizaste el pago. Gracias."
     )
     template = request.args.get("mensaje", template_default).strip() or template_default
     morosos = obtener_morosos_para_comunicacion()
@@ -12368,7 +12463,7 @@ def enviar_email_comunicacion_moroso(jugador_id):
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
-        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
+        "Te pedimos regularizar la situaci\u00f3n o avisarnos si ya realizaste el pago. Gracias."
     )
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
@@ -12379,12 +12474,12 @@ def enviar_email_comunicacion_moroso(jugador_id):
 
     mensaje = mensaje_moroso(template, jugador)
     asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
-    enviado, destinatario, _ = enviar_email_jugador(jugador, asunto, mensaje)
+    enviado, destinatario, motivo = enviar_email_jugador(jugador, asunto, mensaje)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "moroso", str(jugador_id), {"destinatario": destinatario, "tipo": "comunicacion_moroso"})
         flash("Email enviado.", "ok")
     else:
-        flash("No se pudo enviar el email. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+        flash(mensaje_fallo_email(motivo, destinatario), "error")
     return redirect(url_for("ver_comunicaciones", mensaje=template))
 
 
@@ -12397,19 +12492,20 @@ def enviar_email_comunicacion_morosos_lote():
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
-        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
+        "Te pedimos regularizar la situaci\u00f3n o avisarnos si ya realizaste el pago. Gracias."
     )
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
-    enviados = 0
+    resultados = []
     for jugador in jugadores:
         mensaje = mensaje_moroso(template, jugador)
         asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
-        enviado, _, _ = enviar_email_jugador(jugador, asunto, mensaje)
-        enviados += 1 if enviado else 0
+        resultados.append(enviar_email_jugador(jugador, asunto, mensaje))
 
+    enviados = sum(1 for ok, _, _ in resultados if ok)
     registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos"})
-    flash(f"Se enviaron {enviados} emails de comunicación.", "ok" if enviados else "error")
+    mensaje_resultado, nivel = resumir_envio_masivo_email(resultados, "emails de comunicaci\u00f3n")
+    flash(mensaje_resultado, nivel)
     return redirect(url_for("ver_comunicaciones", mensaje=template))
 
 
@@ -12470,8 +12566,8 @@ def ver_notificaciones():
         presentes = jugador["presentes"] or 0
         porcentaje = round((presentes / registros) * 100, 1) if registros else 0
         mensaje = (
-            f"Hola {jugador['nombre']}, notamos baja asistencia en los ultimos entrenamientos "
-            f"({porcentaje}%). Queremos saber si esta todo bien y como podemos acompañar."
+            f"Hola {jugador['nombre']}, notamos baja asistencia en los \u00faltimos entrenamientos "
+            f"({porcentaje}%). Queremos saber si est\u00e1 todo bien y c\u00f3mo podemos acompa\u00f1ar."
         )
         asistencia_baja.append({
             "item": jugador,
@@ -12522,12 +12618,12 @@ def enviar_recordatorio_cuota(cuota_id):
         return redirect(url_for("ver_notificaciones"))
 
     cuerpo = construir_texto_recordatorio_cuota(cuota)
-    enviado, destinatario, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
+    enviado, destinatario, motivo = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "cuota", str(cuota_id), {"destinatario": destinatario, "tipo": "cuota"})
         flash("Recordatorio de cuota enviado.", "ok")
     else:
-        flash("No se pudo enviar el recordatorio. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+        flash(mensaje_fallo_email(motivo, destinatario), "error")
     return redirect(url_for("ver_notificaciones"))
 
 
@@ -12565,12 +12661,12 @@ def enviar_recordatorio_ficha(jugador_id):
         return redirect(url_for("ver_notificaciones"))
 
     cuerpo = construir_texto_recordatorio_ficha(ficha)
-    enviado, destinatario, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
+    enviado, destinatario, motivo = enviar_email_jugador(ficha, "Recordatorio de ficha m\u00e9dica", cuerpo)
     if enviado:
         registrar_auditoria("enviar_recordatorio", "ficha_medica", str(jugador_id), {"destinatario": destinatario, "tipo": "ficha_medica"})
-        flash("Recordatorio de ficha médica enviado.", "ok")
+        flash("Recordatorio de ficha m\u00e9dica enviado.", "ok")
     else:
-        flash("No se pudo enviar el recordatorio. Revisá que el jugador tenga email cargado y SMTP activo.", "error")
+        flash(mensaje_fallo_email(motivo, destinatario), "error")
     return redirect(url_for("ver_notificaciones"))
 
 
@@ -12583,12 +12679,12 @@ def enviar_recordatorios_cuotas_lote():
     modo = request.form.get("modo", "vencidas").strip()
     datos = obtener_notificaciones_operativas()
     cuotas = datos["cuotas_vencidas"] if modo == "vencidas" else datos["cuotas_por_vencer"]
-    enviados = 0
+    resultados = []
     for cuota in cuotas:
         cuerpo = construir_texto_recordatorio_cuota(cuota)
-        enviado, _, _ = enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo)
-        enviados += 1 if enviado else 0
-    flash(f"Se enviaron {enviados} recordatorios por email.", "ok" if enviados else "error")
+        resultados.append(enviar_email_jugador(cuota, f"Recordatorio de cuota {cuota['periodo']}", cuerpo))
+    mensaje_resultado, nivel = resumir_envio_masivo_email(resultados, "recordatorios por email")
+    flash(mensaje_resultado, nivel)
     return redirect(url_for("ver_notificaciones"))
 
 
@@ -12599,14 +12695,13 @@ def enviar_recordatorios_fichas_lote():
         return check
 
     datos = obtener_notificaciones_operativas()
-    enviados = 0
+    resultados = []
     for ficha in datos["fichas"]:
         cuerpo = construir_texto_recordatorio_ficha(ficha)
-        enviado, _, _ = enviar_email_jugador(ficha, "Recordatorio de ficha médica", cuerpo)
-        enviados += 1 if enviado else 0
-    flash(f"Se enviaron {enviados} recordatorios de ficha médica.", "ok" if enviados else "error")
+        resultados.append(enviar_email_jugador(ficha, "Recordatorio de ficha m\u00e9dica", cuerpo))
+    mensaje_resultado, nivel = resumir_envio_masivo_email(resultados, "recordatorios de ficha m\u00e9dica")
+    flash(mensaje_resultado, nivel)
     return redirect(url_for("ver_notificaciones"))
-
 
 @app.route("/exportar/morosos")
 def exportar_morosos():
@@ -12702,7 +12797,7 @@ def backup_db():
         None,
         {"mensaje": "Consulta de instrucciones de backup Cloud SQL"},
     )
-    flash("En la versión con Cloud SQL, el backup se gestiona desde Google Cloud SQL. Usá los backups automáticos o exportaciones desde la consola de Google Cloud.", "ok")
+    flash("En la versiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n con Cloud SQL, el backup se gestiona desde Google Cloud SQL. UsÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ los backups automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ticos o exportaciones desde la consola de Google Cloud.", "ok")
     return render_template(
         "sistema_admin.html",
         estado=obtener_estado_sistema_admin(),
@@ -13090,7 +13185,7 @@ def nuevo_rol():
             )
 
         if not re.match(r"^[a-z0-9_ -]+$", nombre):
-            flash("El rol solo puede usar letras, números, espacios, guiones o guiones bajos.", "error")
+            flash("El rol solo puede usar letras, nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmeros, espacios, guiones o guiones bajos.", "error")
             return render_template(
                 "rol_form.html",
                 rol={"nombre": nombre, "descripcion": descripcion},
@@ -13165,7 +13260,7 @@ def editar_rol(rol_id):
         """, (descripcion, serializar_permisos(permisos), rol_id))
         conn.commit()
         conn.close()
-        flash("Rol actualizado correctamente. Los usuarios con este rol deberán volver a iniciar sesión para tomar los nuevos permisos.", "ok")
+        flash("Rol actualizado correctamente. Los usuarios con este rol deberÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n volver a iniciar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n para tomar los nuevos permisos.", "ok")
         return redirect(url_for("listar_roles"))
 
     permisos_actuales = deserializar_permisos(rol["permisos"], rol["nombre"])
@@ -13448,7 +13543,7 @@ def eliminar_usuario(usuario_id):
         return check
 
     if session.get("user_id") == usuario_id:
-        flash("No podés eliminar tu propio usuario mientras estás logueado.", "error")
+        flash("No podÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s eliminar tu propio usuario mientras estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s logueado.", "error")
         return redirect(url_for("listar_usuarios"))
 
     conn = get_connection()
@@ -14082,7 +14177,7 @@ def cerrar_mes():
 
     if cierre_existente:
         conn.close()
-        flash("Ese mes ya está cerrado.", "error")
+        flash("Ese mes ya estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ cerrado.", "error")
         return redirect(url_for("ver_caja", mes=mes))
 
     ingresos = conn.execute("""
@@ -14208,7 +14303,7 @@ def nuevo_test_tipo():
         except Exception:
             conn.rollback()
             conn.close()
-            flash("No se pudo crear el test. Revisá que el nombre no esté repetido.", "error")
+            flash("No se pudo crear el test. RevisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ que el nombre no estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© repetido.", "error")
             return render_template("test_form.html", test=request.form)
 
         conn.close()
@@ -14282,7 +14377,7 @@ def cargar_test_resultados(test_id):
                 flash(f"{omitidos} jugadores quedaron sin puntaje en esta carga.", "info")
             return redirect(url_for("graficos_tests", test_id=test_id))
 
-        flash("No se cargaron puntajes. Completá al menos una medición.", "error")
+        flash("No se cargaron puntajes. CompletÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ al menos una mediciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.", "error")
         return redirect(url_for("cargar_test_resultados", test_id=test_id))
 
     conn.close()
@@ -14310,7 +14405,7 @@ def importar_test_resultados():
         test_id_fijo = int(test_id_form) if test_id_form.isdigit() else None
 
         if not archivo or not archivo.filename:
-            flash("Seleccioná un archivo Excel para importar.", "error")
+            flash("SeleccionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ un archivo Excel para importar.", "error")
             conn.close()
             return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
 
@@ -14320,7 +14415,7 @@ def importar_test_resultados():
             filas = list(ws.iter_rows(values_only=True))
         except Exception:
             conn.close()
-            flash("No se pudo leer el Excel. Verificá el archivo.", "error")
+            flash("No se pudo leer el Excel. VerificÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ el archivo.", "error")
             return render_template("test_importar.html", tests=tests, batches_recientes=batches_recientes)
 
         if not filas:
@@ -14952,7 +15047,7 @@ def editar_evento_asistencia(evento_id):
             return render_template("asistencia_evento_form.html", evento=request.form)
         if evento.get("cerrado"):
             conn.close()
-            flash("El evento está cerrado. Solo un admin puede reabrirlo para modificar asistencia o datos.", "error")
+            flash("El evento estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ cerrado. Solo un admin puede reabrirlo para modificar asistencia o datos.", "error")
             return redirect(url_for("tomar_asistencia", evento_id=evento_id))
 
         conn.execute("""
@@ -15001,7 +15096,7 @@ def cerrar_evento_asistencia(evento_id):
     """, (session.get("username"), evento_id))
     conn.commit()
     conn.close()
-    flash("Evento cerrado. La asistencia quedó bloqueada.", "ok")
+    flash("Evento cerrado. La asistencia quedÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ bloqueada.", "ok")
     return redirect(url_for("tomar_asistencia", evento_id=evento_id))
 
 
@@ -15166,7 +15261,7 @@ def tomar_asistencia(evento_id):
             return check
         if evento.get("cerrado"):
             conn.close()
-            flash("El evento está cerrado. Solo un admin puede reabrirlo.", "error")
+            flash("El evento estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ cerrado. Solo un admin puede reabrirlo.", "error")
             return redirect(url_for("tomar_asistencia", evento_id=evento_id))
 
         for jugador in jugadores:

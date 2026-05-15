@@ -1079,6 +1079,27 @@ tbody tr:hover {
     white-space: normal;
 }
 
+.system-status-list {
+    display: grid;
+    gap: 12px;
+}
+
+.system-status-list > div {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--surface-soft);
+}
+
+.table-hint {
+    margin: 0;
+    padding: 12px 14px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 .report-progress {
     display: block;
     width: min(180px, 100%);
@@ -2069,6 +2090,14 @@ tbody tr:hover {
     margin: 0;
 }
 
+.attendance-detail-table .attendance-person-cell strong {
+    display: block;
+}
+
+.attendance-detail-table .attendance-state-cell select {
+    min-width: 148px;
+}
+
 .attendance-form-shell,
 .communication-table {
     display: grid;
@@ -2337,6 +2366,11 @@ tbody tr:hover {
         flex-direction: column;
     }
 
+    .communication-message {
+        max-width: none;
+        min-width: 220px;
+    }
+
     .actions form {
         align-items: stretch;
         flex-direction: column;
@@ -2348,9 +2382,23 @@ tbody tr:hover {
         -webkit-overflow-scrolling: touch;
     }
 
+    .table-hint {
+        display: block;
+    }
+
     table {
         min-width: 760px;
         font-size: 14px;
+    }
+
+    .communication-page .table-wrapper table,
+    .attendance-page .table-wrapper table,
+    .dashboard-title + .dashboard-cards + .page-section .table-wrapper table {
+        min-width: 880px;
+    }
+
+    .attendance-page .attendance-detail-table {
+        min-width: 0;
     }
 
     th,
@@ -2392,6 +2440,64 @@ tbody tr:hover {
 
     .main-nav {
         grid-template-columns: 1fr;
+    }
+
+    .toolbar-card,
+    .attendance-summary-card {
+        padding: 14px;
+    }
+
+    .attendance-page .attendance-detail-table {
+        min-width: 0;
+    }
+
+    .attendance-page .attendance-detail-table thead {
+        display: none;
+    }
+
+    .attendance-page .attendance-detail-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .attendance-page .attendance-detail-table tr {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--border-soft);
+        border-radius: 14px;
+        background: #fff;
+    }
+
+    .attendance-page .attendance-detail-table td {
+        display: grid;
+        gap: 6px;
+        padding: 0;
+        white-space: normal;
+        border: 0;
+    }
+
+    .attendance-page .attendance-detail-table td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .attendance-page .attendance-detail-table .attendance-person-cell {
+        gap: 4px;
+    }
+
+    .attendance-page .attendance-detail-table .attendance-person-cell strong {
+        font-size: 16px;
+        color: var(--secondary);
+    }
+
+    .attendance-page .attendance-detail-table .attendance-state-cell select,
+    .attendance-page .attendance-detail-table td input[type="text"] {
+        width: 100%;
     }
 
     .login-card {

@@ -6,7 +6,7 @@
 <div class="section-header dashboard-title">
     <div>
         <h2>Panel de control</h2>
-        <p class="page-intro">Vista rapida del estado deportivo, financiero y medico del club.</p>
+        <p class="page-intro">Vista r&aacute;pida del estado deportivo, financiero y m&eacute;dico del club.</p>
     </div>
     <div class="actions">
         {% if puede('jugadores_gestionar') %}
@@ -40,9 +40,9 @@
 
     {% if puede_ver_salud %}
     <div class="card stat-card alert-card-critical">
-        <h3>Fichas medicas vencidas</h3>
+        <h3>Fichas m&eacute;dicas vencidas</h3>
         <p class="stat-number">{{ fichas_vencidas|length }}</p>
-        <span class="muted-line">Requieren revision</span>
+        <span class="muted-line">Requieren revisi&oacute;n</span>
     </div>
 
     <div class="card stat-card alert-card-warning">
@@ -79,7 +79,7 @@
         <div class="card stat-card alert-card-critical">
             <h3>Deuda total</h3>
             <p class="stat-number compact text-danger">{{ deuda_total | moneda }}</p>
-            <span class="muted-line">Pendiente historico</span>
+            <span class="muted-line">Pendiente hist&oacute;rico</span>
         </div>
 
         <div class="card stat-card alert-card-info">
@@ -94,16 +94,78 @@
             <span class="muted-line">{{ mes_actual }}</span>
         </div>
 
+        <div class="card stat-card alert-card-critical">
+            <h3>Deuda vencida</h3>
+            <p class="stat-number compact text-danger">{{ deuda_vencida_total | moneda }}</p>
+            <span class="muted-line">Importe ya vencido</span>
+        </div>
+
+        <div class="card stat-card alert-card-info">
+            <h3>Cobranza del mes</h3>
+            <p class="stat-number compact">{% if cobranza_ratio is not none %}{{ cobranza_ratio }}%{% else %}-{% endif %}</p>
+            <span class="muted-line">Pagadas vs. pendientes del mes</span>
+        </div>
+
         {% if puede('cuotas_gestionar') %}
         <div class="card stat-card alert-card-info">
             <h3>Comprobantes</h3>
             <p class="stat-number compact">{{ comprobantes_pendientes_count }}</p>
-            <span class="muted-line">Pendientes de revision</span>
+            <span class="muted-line">Pendientes de revisi&oacute;n</span>
         </div>
         {% endif %}
     </div>
 </section>
+{% endif %}
 
+{% if puede_ver_salud or resumen_notificaciones or sistema_resumen %}
+<section class="page-section">
+    <div class="section-header">
+        <div>
+            <h3>Operaci&oacute;n del d&iacute;a</h3>
+            <p class="page-intro">Alertas y estado general para priorizar el trabajo del staff.</p>
+        </div>
+        {% if session.get('rol') == 'admin' %}
+            <a class="button secondary" href="{{ url_for('ver_sistema_admin') }}">Ver sistema</a>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-cards report-cards">
+        {% if puede_ver_salud %}
+        <div class="card stat-card alert-card-warning">
+            <h3>Fichas por vencer</h3>
+            <p class="stat-number">{{ fichas_por_vencer_count }}</p>
+            <span class="muted-line">Pr&oacute;ximos 30 d&iacute;as</span>
+        </div>
+        {% endif %}
+        {% if resumen_notificaciones %}
+        <div class="card stat-card alert-card-warning">
+            <h3>Notificaciones</h3>
+            <p class="stat-number">{{ resumen_notificaciones['cuotas_vencidas'] + resumen_notificaciones['fichas'] + resumen_notificaciones['comprobantes'] }}</p>
+            <span class="muted-line">Cuotas, fichas y comprobantes pendientes</span>
+        </div>
+        <div class="card stat-card alert-card-info">
+            <h3>Portal</h3>
+            <p class="stat-number">{{ resumen_notificaciones['cambios_portal'] }}</p>
+            <span class="muted-line">Cambios recientes desde jugadores</span>
+        </div>
+        <div class="card stat-card alert-card-warning">
+            <h3>Asistencia baja</h3>
+            <p class="stat-number">{{ resumen_notificaciones['asistencia_baja'] }}</p>
+            <span class="muted-line">Jugadores para seguir</span>
+        </div>
+        {% endif %}
+        {% if sistema_resumen %}
+        <div class="card stat-card {% if sistema_resumen['db_ok'] and sistema_resumen['integraciones']['smtp_ok'] %}alert-card-info{% else %}alert-card-critical{% endif %}">
+            <h3>Sistema</h3>
+            <p class="stat-number compact">{% if sistema_resumen['db_ok'] and sistema_resumen['integraciones']['smtp_ok'] %}OK{% else %}Revisar{% endif %}</p>
+            <span class="muted-line">DB {% if sistema_resumen['db_ok'] %}activa{% else %}con error{% endif %} &middot; SMTP {% if sistema_resumen['integraciones']['smtp_ok'] %}activo{% else %}sin configurar{% endif %}</span>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{% if puede_ver_finanzas %}
 <section class="page-section">
     <div class="section-header">
         <h3>Jugadores con deuda</h3>
@@ -113,13 +175,14 @@
     </div>
 
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Jugador</th>
                     <th>Deuda</th>
                     <th>Cuotas vencidas</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -154,15 +217,16 @@
     </div>
 
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Jugador</th>
-                    <th>Categoria</th>
+                    <th>Categor&iacute;a</th>
                     <th>Periodo</th>
                     <th>Importe</th>
                     <th>Vencimiento</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -208,6 +272,7 @@
     </div>
 
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
@@ -215,7 +280,7 @@
                     <th>Periodo</th>
                     <th>Importe</th>
                     <th>Carga</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -248,16 +313,17 @@
 {% if puede_ver_salud %}
 <section class="page-section">
     <div class="section-header">
-        <h3>Fichas medicas vencidas</h3>
+        <h3>Fichas m&eacute;dicas vencidas</h3>
     </div>
 
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
                     <th>Jugador</th>
                     <th>Vencimiento</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>
@@ -271,7 +337,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="3" class="empty">No hay fichas medicas vencidas.</td>
+                    <td colspan="3" class="empty">No hay fichas m&eacute;dicas vencidas.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -285,6 +351,7 @@
     </div>
 
     <div class="table-wrapper">
+        <p class="table-hint">En celular pod&eacute;s desplazar esta tabla hacia los costados.</p>
         <table>
             <thead>
                 <tr>
@@ -293,7 +360,7 @@
                     <th>Tipo</th>
                     <th>Zona</th>
                     <th>Estado</th>
-                    <th>Accion</th>
+                    <th>Acci&oacute;n</th>
                 </tr>
             </thead>
             <tbody>

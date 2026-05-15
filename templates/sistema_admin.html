@@ -6,7 +6,7 @@
 <div class="section-header">
     <div>
         <h2>{% if solo_backup %}Backup{% else %}Estado del sistema{% endif %}</h2>
-        <p class="page-intro">Checks basicos de operacion, Cloud Run, Cloud SQL y mantenimiento.</p>
+        <p class="page-intro">Checks b&aacute;sicos de operaci&oacute;n, Cloud Run, Cloud SQL y mantenimiento.</p>
     </div>
     <div class="actions">
         {% if session.get('rol') == 'admin' %}
@@ -28,12 +28,12 @@
         <span class="muted-line">{{ estado['mantenimiento']['actualizado_por'] or '-' }}</span>
     </div>
     <div class="card stat-card">
-        <h3>Revision</h3>
+        <h3>Revisi&oacute;n</h3>
         <p class="stat-number compact">{{ estado['cloud_run']['revision'] or '-' }}</p>
         <span class="muted-line">{{ estado['cloud_run']['service'] or '-' }}</span>
     </div>
     <div class="card stat-card">
-        <h3>Version</h3>
+        <h3>Versi&oacute;n</h3>
         <p class="stat-number compact">{{ estado['cloud_run']['version'] or 'local' }}</p>
         <span class="muted-line">{{ estado['cloud_run']['region'] or 'us-central1' }}</span>
     </div>
@@ -42,28 +42,41 @@
 <div class="detail-grid page-section">
     <div class="card">
         <div class="section-header compact">
+            <h3>Integraciones</h3>
+        </div>
+        <div class="system-status-list">
+            <div><strong>SMTP:</strong> <span class="badge {% if estado['integraciones']['smtp_ok'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['smtp_ok'] %}OK{% else %}Revisar{% endif %}</span><span class="muted-line">{{ estado['integraciones']['smtp_from'] or 'Sin remitente' }}</span></div>
+            <div><strong>Drive comprobantes:</strong> <span class="badge {% if estado['integraciones']['drive_comprobantes'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['drive_comprobantes'] %}OK{% else %}Falta configurar{% endif %}</span></div>
+            <div><strong>Drive fichas:</strong> <span class="badge {% if estado['integraciones']['drive_fichas'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['drive_fichas'] %}OK{% else %}Falta configurar{% endif %}</span></div>
+            <div><strong>Unidad compartida:</strong> <span class="badge {% if estado['integraciones']['drive_shared'] %}badge-success{% else %}badge-muted{% endif %}">{% if estado['integraciones']['drive_shared'] %}Configurada{% else %}No usada{% endif %}</span></div>
+            <div><strong>Cloud SQL:</strong> <span class="badge {% if estado['integraciones']['cloud_sql_ok'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['cloud_sql_ok'] %}OK{% else %}Falta configurar{% endif %}</span></div>
+            <div><strong>SECRET_KEY:</strong> <span class="badge {% if estado['integraciones']['secret_key_default'] %}badge-danger{% else %}badge-success{% endif %}">{% if estado['integraciones']['secret_key_default'] %}Por defecto{% else %}Personalizada{% endif %}</span></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="section-header compact">
             <h3>Backups Cloud SQL</h3>
         </div>
         <p><strong>Nivel:</strong> {{ estado['backup']['nivel'] }}</p>
-        <p><strong>Retencion:</strong> {{ estado['backup']['retencion_dias'] }} dias</p>
-        <p><strong>PITR:</strong> {{ estado['backup']['pitr_dias'] }} dias</p>
+        <p><strong>Retenci&oacute;n:</strong> {{ estado['backup']['retencion_dias'] }} d&iacute;as</p>
+        <p><strong>PITR:</strong> {{ estado['backup']['pitr_dias'] }} d&iacute;as</p>
         <p><strong>Ventana:</strong> {{ estado['backup']['ventana'] }}</p>
         {% set cloud_sql_backup = estado['backup']['cloud_sql'] %}
         <p><strong>Instancia:</strong> {{ cloud_sql_backup['instance'] or '-' }}</p>
         <p><strong>Proyecto:</strong> {{ cloud_sql_backup['project'] or '-' }}</p>
         {% if cloud_sql_backup['api_disponible'] and cloud_sql_backup['ultimo'] %}
-            <p><strong>Ultimo backup:</strong> {{ cloud_sql_backup['ultimo']['end_time'] or cloud_sql_backup['ultimo']['start_time'] or cloud_sql_backup['ultimo']['window_start_time'] or '-' }}</p>
+            <p><strong>&Uacute;ltimo backup:</strong> {{ cloud_sql_backup['ultimo']['end_time'] or cloud_sql_backup['ultimo']['start_time'] or cloud_sql_backup['ultimo']['window_start_time'] or '-' }}</p>
             <p><strong>Estado:</strong> {{ cloud_sql_backup['ultimo']['status'] }}</p>
             <p><strong>Tipo:</strong> {{ cloud_sql_backup['ultimo']['type'] }}</p>
             <p><strong>ID:</strong> {{ cloud_sql_backup['ultimo']['id'] or '-' }}</p>
         {% elif cloud_sql_backup['api_disponible'] %}
-            <p><strong>Ultimo backup:</strong> No informado por Cloud SQL.</p>
+            <p><strong>&Uacute;ltimo backup:</strong> No informado por Cloud SQL.</p>
         {% else %}
-            <p><strong>Ultimo backup:</strong> {{ estado['backup']['ultimo_backup'] }}</p>
+            <p><strong>&Uacute;ltimo backup:</strong> {{ estado['backup']['ultimo_backup'] }}</p>
             <p class="muted-line">{{ cloud_sql_backup['error'] or 'No se pudo consultar Cloud SQL Admin API.' }}</p>
         {% endif %}
         {% if cloud_sql_backup['en_ejecucion'] %}
-            <p><strong>En ejecucion:</strong> {{ cloud_sql_backup['en_ejecucion']|length }}</p>
+            <p><strong>En ejecuci&oacute;n:</strong> {{ cloud_sql_backup['en_ejecucion']|length }}</p>
         {% endif %}
         {% if puede('backup_gestionar') %}
             <form method="post"
@@ -121,11 +134,11 @@
                     <td>{{ estado['cloud_run']['service'] or '-' }}</td>
                 </tr>
                 <tr>
-                    <th>Configuracion</th>
+                    <th>Configuraci&oacute;n</th>
                     <td>{{ estado['cloud_run']['configuration'] or '-' }}</td>
                 </tr>
                 <tr>
-                    <th>Revision</th>
+                    <th>Revisi&oacute;n</th>
                     <td>{{ estado['cloud_run']['revision'] or '-' }}</td>
                 </tr>
                 <tr>

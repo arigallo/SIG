@@ -83,7 +83,8 @@
 <form method="post" class="attendance-form-shell">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrapper">
-        <table>
+        <p class="table-hint">En celular, cada participante se muestra en formato tarjeta para que el nombre y la asistencia se vean primero.</p>
+        <table class="attendance-detail-table">
             <thead>
                 <tr>
                     <th>Persona</th>
@@ -99,10 +100,12 @@
                 {% for participante in participantes %}
                     {% set asistencia = participante['asistencia'] %}
                     <tr>
-                        <td>{{ participante['apellido'] }}, {{ participante['nombre'] }}</td>
-                        <td>{{ participante['tipo_label'] }}</td>
-                        <td>{{ participante['categoria'] or '-' }}</td>
-                        <td>
+                        <td class="attendance-person-cell" data-label="Persona">
+                            <strong>{{ participante['apellido'] }}, {{ participante['nombre'] }}</strong>
+                        </td>
+                        <td data-label="Tipo">{{ participante['tipo_label'] }}</td>
+                        <td data-label="Categor&iacute;a">{{ participante['categoria'] or '-' }}</td>
+                        <td data-label="Confirmaci&oacute;n portal">
                             {% if participante['confirmacion_portal'] %}
                                 {% if participante['confirmacion_portal']['estado'] == 'confirmado' %}
                                     <span class="badge badge-success">Confirmado</span>
@@ -115,7 +118,7 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-label="Bienestar">
                             {% if participante['confirmacion_portal'] and participante['confirmacion_portal']['bienestar_resumen'] %}
                                 <div class="wellness-admin-summary">
                                     <span class="badge {% if participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'danger' %}badge-danger{% elif participante['confirmacion_portal']['bienestar_resumen']['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ participante['confirmacion_portal']['bienestar_resumen']['label'] }}</span>
@@ -134,7 +137,7 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="attendance-state-cell" data-label="Asistencia">
                             {% set estado_actual = asistencia['estado_asistencia'] if asistencia and asistencia['estado_asistencia'] else ('a_tiempo' if asistencia and asistencia['presente'] else 'ausente') %}
                             <select name="estado_{{ participante['form_key'] }}" {% if evento['cerrado'] %}disabled{% endif %}>
                                 <option value="ausente" {% if estado_actual == 'ausente' %}selected{% endif %}>Ausente</option>
@@ -142,10 +145,11 @@
                                 <option value="tarde" {% if estado_actual == 'tarde' %}selected{% endif %}>Tarde</option>
                             </select>
                         </td>
-                        <td>
+                        <td data-label="Observaciones">
                             <input type="text"
                                    name="obs_{{ participante['form_key'] }}"
                                    value="{{ asistencia['observaciones'] if asistencia else '' }}"
+                                   placeholder="Observaci&oacute;n breve"
                                    {% if evento['cerrado'] %}disabled{% endif %}>
                         </td>
                     </tr>
