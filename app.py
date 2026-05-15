@@ -13534,11 +13534,16 @@ def generar_recibo_pdf(cuota_id):
     pdf.setFillColor(colors.HexColor("#f7fafb"))
     pdf.rect(0, 0, width, height, stroke=0, fill=1)
 
+    header_x = 18 * mm
+    header_y = height - 52 * mm
+    header_w = 174 * mm
+    header_h = 34 * mm
+
     pdf.setFillColor(colors.white)
-    pdf.roundRect(18 * mm, height - 50 * mm, 174 * mm, 30 * mm, 7 * mm, stroke=0, fill=1)
+    pdf.roundRect(header_x, header_y, header_w, header_h, 7 * mm, stroke=0, fill=1)
     pdf.setStrokeColor(colors.HexColor("#d6a443"))
     pdf.setLineWidth(1.2)
-    pdf.roundRect(18 * mm, height - 50 * mm, 174 * mm, 30 * mm, 7 * mm, stroke=1, fill=0)
+    pdf.roundRect(header_x, header_y, header_w, header_h, 7 * mm, stroke=1, fill=0)
 
     logo_path = BASE_DIR / "static" / "img" / "logo.png"
     firma_path = BASE_DIR / "static" / "img" / "firma-tesoreria.png"
@@ -13546,40 +13551,45 @@ def generar_recibo_pdf(cuota_id):
     if logo_path.exists():
         pdf.drawImage(
             ImageReader(str(logo_path)),
-            margen_izquierdo,
-            height - 38 * mm,
-            width=22 * mm,
-            height=22 * mm,
+            margen_izquierdo + 1 * mm,
+            header_y + 6 * mm,
+            width=20 * mm,
+            height=20 * mm,
             preserveAspectRatio=True,
             mask="auto"
         )
-        texto_x = 52 * mm
+        texto_x = margen_izquierdo + 28 * mm
     else:
         texto_x = margen_izquierdo
 
-    pdf.setFillColor(colors.HexColor("#10231e"))
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(texto_x, height - 22 * mm, "Ruda Macho Rugby Club")
-
-    pdf.setFillColor(colors.HexColor("#475569"))
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(texto_x, height - 29 * mm, "Recibo interno no v\u00e1lido como factura")
+    titulo_y = header_y + header_h - 10 * mm
+    subtitulo_y = titulo_y - 6.5 * mm
+    meta_y = titulo_y
+    meta_sub_y = subtitulo_y
 
     pdf.setFillColor(colors.HexColor("#10231e"))
     pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawRightString(margen_derecho, height - 22 * mm, f"Nro. {datos['numero_recibo'] or datos['cuota_id']}")
+    pdf.drawString(texto_x, titulo_y, "Ruda Macho Rugby Club")
 
     pdf.setFillColor(colors.HexColor("#475569"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawRightString(margen_derecho, height - 29 * mm, f"Emitido: {datetime.now().strftime('%d/%m/%Y')}")
+    pdf.drawString(texto_x, subtitulo_y, "Recibo interno no v\u00e1lido como factura")
+
+    pdf.setFillColor(colors.HexColor("#10231e"))
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawRightString(margen_derecho - 2 * mm, meta_y, f"Nro. {datos['numero_recibo'] or datos['cuota_id']}")
+
+    pdf.setFillColor(colors.HexColor("#475569"))
+    pdf.setFont("Helvetica", 10)
+    pdf.drawRightString(margen_derecho - 2 * mm, meta_sub_y, f"Emitido: {datetime.now().strftime('%d/%m/%Y')}")
 
     pdf.setStrokeColor(colors.HexColor("#d6dee8"))
     pdf.setLineWidth(1)
-    pdf.line(margen_izquierdo, height - 55 * mm, margen_derecho, height - 55 * mm)
+    pdf.line(margen_izquierdo, header_y - 5 * mm, margen_derecho, header_y - 5 * mm)
 
     pdf.setFillColor(colors.HexColor("#10231e"))
     pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(margen_izquierdo, height - 66 * mm, "RECIBO DE CUOTA")
+    pdf.drawString(margen_izquierdo, header_y - 16 * mm, "RECIBO DE CUOTA")
 
     filas = [
         ("Jugador", f"{datos['apellido']}, {datos['nombre']}"),
@@ -13601,7 +13611,7 @@ def generar_recibo_pdf(cuota_id):
     ])
 
     fila_alto = 8 * mm
-    card_top = height - 74 * mm
+    card_top = header_y - 24 * mm
     card_height = (len(filas) * fila_alto) + (18 * mm)
     card_bottom = card_top - card_height
 
