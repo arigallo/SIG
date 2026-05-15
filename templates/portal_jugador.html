@@ -380,6 +380,103 @@
 
         <section class="page-section">
             <div class="section-header">
+                <h3>Gastos compartidos / terceros tiempos</h3>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Importe</th>
+                            <th>Estado</th>
+                            <th>Vencimiento</th>
+                            <th>Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in gastos_compartidos %}
+                        <tr>
+                            <td>
+                                <strong>{{ item['titulo'] }}</strong>
+                                {% if item['concepto'] %}
+                                    <span class="muted-line">{{ item['concepto'] }}</span>
+                                {% endif %}
+                                {% if item['fecha_evento'] %}
+                                    <span class="muted-line">Evento: {{ item['fecha_evento'] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item['importe'] | moneda }}</td>
+                            <td>
+                                {% if item['estado'] == 'pagado' %}
+                                    <span class="status-paid">Pagado</span>
+                                {% elif item['estado'] == 'exento' %}
+                                    <span class="badge badge-muted">Exento</span>
+                                {% else %}
+                                    <span class="status-pending">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item['fecha_vencimiento'] or '-' }}</td>
+                            <td>
+                                {% if item['estado'] == 'exento' %}
+                                    -
+                                {% elif item['estado'] == 'pagado' %}
+                                    {% if item['comprobante_drive_file_id'] %}
+                                        <span class="badge badge-success">Aceptado</span>
+                                        <a class="button secondary" href="{{ url_for('portal_ver_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">Ver</a>
+                                    {% else %}
+                                        <span class="badge badge-success">Pagado</span>
+                                    {% endif %}
+                                {% else %}
+                                    {% set comprobante_estado = item['comprobante_estado'] or ('pendiente' if item['comprobante_drive_file_id'] else 'sin_comprobante') %}
+                                    {% if item['comprobante_drive_file_id'] %}
+                                        {% if comprobante_estado == 'rechazado' %}
+                                            <span class="badge badge-danger">Rechazado</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">En revision</span>
+                                        {% endif %}
+                                        <span class="muted-line">{{ item['comprobante_nombre'] or 'Comprobante recibido' }}</span>
+                                        {% if item['comprobante_observaciones'] %}
+                                            <span class="muted-line">{{ item['comprobante_observaciones'] }}</span>
+                                        {% endif %}
+                                        <details class="embedded-preview-card top-gap">
+                                            <summary>Ver comprobante</summary>
+                                            {% with
+                                                src=url_for('portal_ver_comprobante_gasto_compartido', token=token, item_id=item['id']),
+                                                nombre=item['comprobante_nombre'],
+                                                preview_tipo='pdf' if item['comprobante_mime_type'] == 'application/pdf' else 'image' if item['comprobante_mime_type'] and item['comprobante_mime_type'].startswith('image/') else 'other'
+                                            %}
+                                                {% include "_embedded_file_preview.html" %}
+                                            {% endwith %}
+                                        </details>
+                                    {% endif %}
+                                    <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
+                                            <input class="upload-input"
+                                                   type="file"
+                                                   name="comprobante_pago"
+                                                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                   required>
+                                            <span class="upload-title">Arrastra o pega el comprobante</span>
+                                            <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
+                                        </label>
+                                        <button class="button secondary" type="submit">{% if item['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="empty">No tenes gastos compartidos asignados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="page-section">
+            <div class="section-header">
                 <h3>Evolucion de tests</h3>
             </div>
             {% if resumen_tests %}

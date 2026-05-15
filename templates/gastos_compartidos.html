@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Gastos compartidos{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Gastos compartidos / terceros tiempos</h2>
+        <p class="page-intro">Cargos grupales por evento para seguimiento, comprobantes y cobranza puntual.</p>
+    </div>
+    <div class="actions">
+        {% if puede('cuotas_gestionar') %}
+            <a class="button" href="{{ url_for('nuevo_gasto_compartido') }}">+ Nuevo gasto</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced admin-kpi-grid">
+    <div class="card stat-card">
+        <h3>Gastos cargados</h3>
+        <p class="stat-number compact">{{ resumen['total'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Activos</h3>
+        <p class="stat-number compact">{{ resumen['activos'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Total asignado</h3>
+        <p class="stat-number compact">{{ (resumen['monto_total'] or 0) | moneda }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Total cobrado</h3>
+        <p class="stat-number compact">{{ (resumen['cobrado'] or 0) | moneda }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Comprobantes a revisar</h3>
+        <p class="stat-number compact">{{ resumen['comprobantes_revision'] or 0 }}</p>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Gasto</th>
+                <th>Evento</th>
+                <th>Importe</th>
+                <th>Jugadores</th>
+                <th>Estado</th>
+                <th>Acci&oacute;n</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gasto in gastos %}
+            <tr>
+                <td>
+                    <strong>{{ gasto['titulo'] }}</strong>
+                    {% if gasto['concepto'] %}
+                        <span class="muted-line">{{ gasto['concepto'] }}</span>
+                    {% endif %}
+                    {% if gasto['fecha_vencimiento'] %}
+                        <span class="muted-line">Vence: {{ gasto['fecha_vencimiento'] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ gasto['fecha_evento'] or '-' }}</td>
+                <td>
+                    {{ (gasto['monto_total'] or gasto['total_asignado'] or 0) | moneda }}
+                    <span class="muted-line">
+                        {% if gasto['modo_importe'] == 'total' %}
+                            Repartido entre {{ gasto['jugadores_total'] or 0 }}
+                        {% else %}
+                            {{ (gasto['monto_por_jugador'] or 0) | moneda }} por jugador
+                        {% endif %}
+                    </span>
+                </td>
+                <td>
+                    {{ gasto['jugadores_total'] or 0 }} asignados
+                    <span class="muted-line">{{ gasto['pagados'] or 0 }} pagados · {{ gasto['pendientes'] or 0 }} pendientes</span>
+                </td>
+                <td>
+                    <span class="badge {% if gasto['estado'] == 'Activo' %}badge-success{% else %}badge-muted{% endif %}">{{ gasto['estado'] }}</span>
+                    {% if gasto['comprobantes_revision'] %}
+                        <span class="muted-line">{{ gasto['comprobantes_revision'] }} comprobante(s) a revisar</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=gasto['id']) }}">Ver detalle</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty">No hay gastos compartidos cargados todav&iacute;a.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

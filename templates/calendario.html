@@ -101,6 +101,9 @@
                     {% if puede('calendario_gestionar') and evento['edit_url'] %}
                         <a class="button secondary" href="{{ evento['edit_url'] }}">Editar</a>
                     {% endif %}
+                    {% if puede('cuotas_gestionar') and evento['origen'] == 'calendario' %}
+                        <a class="button secondary" href="{{ url_for('nuevo_gasto_compartido', calendario_evento_id=evento['id'], fuente_jugadores='presentes_evento') }}">Crear gasto</a>
+                    {% endif %}
                     {% if puede('comunicaciones_ver') and evento['origen'] == 'calendario' and evento['edit_url'] %}
                         <form method="post" action="{{ url_for('enviar_recordatorio_evento_calendario', evento_id=evento['id']) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

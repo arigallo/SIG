@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle gasto compartido{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>{{ gasto['titulo'] }}</h2>
+        <p class="page-intro">Seguimiento de cargos, comprobantes y cobro por jugador.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Volver</a>
+        {% if puede('cuotas_gestionar') %}
+            <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button danger" type="submit">Eliminar</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced admin-kpi-grid">
+    <div class="card stat-card">
+        <h3>Total</h3>
+        <p class="stat-number compact">{{ (gasto['monto_total'] or 0) | moneda }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Por jugador</h3>
+        <p class="stat-number compact">{{ (gasto['monto_por_jugador'] or 0) | moneda }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Vencimiento</h3>
+        <p class="stat-number compact">{{ gasto['fecha_vencimiento'] or '-' }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Evento</h3>
+        <p class="stat-number compact">{{ gasto['fecha_evento'] or '-' }}</p>
+        <span class="muted-line">{{ gasto['evento_titulo'] or 'Sin evento vinculado' }}</span>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Cobrado</h3>
+        <p class="stat-number compact">{{ (resumen['total_cobrado'] or 0) | moneda }}</p>
+        <span class="muted-line">{{ resumen['pagados'] or 0 }} jugador(es)</span>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Pendiente</h3>
+        <p class="stat-number compact">{{ (resumen['total_pendiente'] or 0) | moneda }}</p>
+        <span class="muted-line">{{ resumen['pendientes'] or 0 }} jugador(es)</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Exentos</h3>
+        <p class="stat-number compact">{{ resumen['exentos'] or 0 }}</p>
+        <span class="muted-line">Sobre {{ resumen['total_jugadores'] or 0 }} asignados</span>
+    </div>
+</div>
+
+<div class="card spaced-small">
+    <p><strong>Concepto:</strong> {{ gasto['concepto'] or '-' }}</p>
+    <p><strong>Modo:</strong> {% if gasto['modo_importe'] == 'total' %}Total repartido{% else %}Importe por jugador{% endif %}</p>
+    <p><strong>Observaciones:</strong> {{ gasto['observaciones'] or '-' }}</p>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Jugador</th>
+                <th>Importe</th>
+                <th>Estado</th>
+                <th>Comprobante</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>
+                    <strong>{{ item['apellido'] }}, {{ item['nombre'] }}</strong>
+                    <span class="muted-line">{{ item['categoria'] or '-' }}</span>
+                </td>
+                <td>{{ item['importe'] | moneda }}</td>
+                <td>
+                    {% if item['estado'] == 'pagado' %}
+                        <span class="badge badge-success">Pagado</span>
+                        <span class="muted-line">{{ item['fecha_pago'] or '-' }}</span>
+                    {% elif item['estado'] == 'exento' %}
+                        <span class="badge badge-muted">Exento</span>
+                    {% else %}
+                        <span class="badge badge-warning">Pendiente</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item['comprobante_drive_file_id'] %}
+                        {% if item['comprobante_estado'] == 'rechazado' %}
+                            <span class="badge badge-danger">Rechazado</span>
+                        {% elif item['comprobante_estado'] == 'aceptado' %}
+                            <span class="badge badge-success">Aceptado</span>
+                        {% else %}
+                            <span class="badge badge-warning">En revisi&oacute;n</span>
+                        {% endif %}
+                        <span class="muted-line">{{ item['comprobante_nombre'] or 'Comprobante cargado' }}</span>
+                        {% if item['comprobante_observaciones'] %}
+                            <span class="muted-line">{{ item['comprobante_observaciones'] }}</span>
+                        {% endif %}
+                        <a class="button secondary top-gap" href="{{ url_for('descargar_comprobante_gasto_compartido', item_id=item['id']) }}">Ver</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    {% if puede('cuotas_gestionar') %}
+                        {% if item['comprobante_drive_file_id'] and item['estado'] == 'pendiente' %}
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="aprobar">
+                                <input type="text" name="observaciones" placeholder="Obs. opcional">
+                                <button class="button secondary" type="submit">Aceptar</button>
+                            </form>
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="rechazar">
+                                <input type="text" name="observaciones" placeholder="Motivo de rechazo">
+                                <button class="button danger" type="submit">Rechazar</button>
+                            </form>
+                        {% endif %}
+                        {% if item['estado'] != 'pagado' %}
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="marcar_pagado">
+                                <button class="button secondary" type="submit">Marcar pagado</button>
+                            </form>
+                        {% endif %}
+                        {% if item['estado'] != 'exento' %}
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="exento">
+                                <button class="button secondary" type="submit">Exento</button>
+                            </form>
+                        {% endif %}
+                        {% if item['estado'] != 'pendiente' %}
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="restaurar">
+                                <button class="button secondary" type="submit">Restaurar</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="empty">No hay jugadores asignados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

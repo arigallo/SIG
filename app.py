@@ -985,6 +985,53 @@ def subir_comprobante_a_drive(file_storage, cuota):
     }
 
 
+def get_drive_gastos_compartidos_folder(service, fecha_base=None):
+    root_folder = get_drive_comprobantes_base_folder(service)
+    gastos_folder = get_or_create_drive_subfolder(service, root_folder, "Gastos compartidos")
+    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    return get_drive_periodo_folder(service, gastos_folder, periodo)
+
+
+def subir_comprobante_gasto_compartido_a_drive(file_storage, item):
+    validado = validar_comprobante_upload(file_storage)
+    if not validado:
+        return None
+
+    filename, ext, content, mime_type = validado
+    service = drive_service()
+    folder_id = get_drive_gastos_compartidos_folder(service, item.get("fecha_vencimiento"))
+    jugador_slug = secure_filename(f"{item['apellido']}_{item['nombre']}") or f"jugador_{item['jugador_id']}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    drive_name = f"gasto_{item['gasto_id']}_{item['id']}_{jugador_slug}_{timestamp}{ext}"
+    media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
+    body = {"name": drive_name, "parents": [folder_id]}
+
+    existing_file_id = item.get("comprobante_drive_file_id")
+    if existing_file_id:
+        uploaded = service.files().update(
+            fileId=existing_file_id,
+            body={"name": drive_name},
+            media_body=media,
+            fields="id, name, mimeType, size, webViewLink",
+            supportsAllDrives=True,
+        ).execute()
+    else:
+        uploaded = service.files().create(
+            body=body,
+            media_body=media,
+            fields="id, name, mimeType, size, webViewLink",
+            supportsAllDrives=True,
+        ).execute()
+
+    return {
+        "file_id": uploaded["id"],
+        "nombre": uploaded.get("name") or filename,
+        "mime_type": uploaded.get("mimeType") or mime_type,
+        "tamano": int(uploaded.get("size") or len(content)),
+        "web_url": uploaded.get("webViewLink"),
+    }
+
+
 def get_drive_caja_folder(service, fecha):
     root_folder = get_drive_comprobantes_base_folder(service)
     caja_folder = get_or_create_drive_subfolder(service, root_folder, "Caja")
@@ -4644,6 +4691,67 @@ def init_db():
         ON cuotas (jugador_id, periodo)
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS gastos_compartidos (
+            id SERIAL PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            concepto TEXT,
+            calendario_evento_id INTEGER,
+            fecha_evento TEXT,
+            fecha_vencimiento TEXT,
+            modo_importe TEXT NOT NULL DEFAULT 'por_jugador',
+            monto_total REAL,
+            monto_por_jugador REAL,
+            estado TEXT NOT NULL DEFAULT 'Activo',
+            observaciones TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_gastos_compartidos_fecha
+        ON gastos_compartidos (fecha_vencimiento, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS gasto_compartido_items (
+            id SERIAL PRIMARY KEY,
+            gasto_id INTEGER NOT NULL,
+            jugador_id INTEGER NOT NULL,
+            importe REAL NOT NULL,
+            estado TEXT NOT NULL DEFAULT 'pendiente',
+            fecha_pago TEXT,
+            observaciones TEXT,
+            comprobante_drive_file_id TEXT,
+            comprobante_nombre TEXT,
+            comprobante_mime_type TEXT,
+            comprobante_tamano INTEGER,
+            comprobante_fecha TEXT,
+            comprobante_usuario TEXT,
+            comprobante_web_url TEXT,
+            comprobante_estado TEXT DEFAULT 'sin_comprobante',
+            comprobante_revisado_en TEXT,
+            comprobante_revisado_por TEXT,
+            comprobante_observaciones TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (gasto_id) REFERENCES gastos_compartidos(id) ON DELETE CASCADE,
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id),
+            UNIQUE(gasto_id, jugador_id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_gasto_compartido_items_gasto
+        ON gasto_compartido_items (gasto_id, estado)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_gasto_compartido_items_jugador
+        ON gasto_compartido_items (jugador_id, estado, fecha_pago)
+    """)
+
     columnas_cuotas = get_columns(conn, "cuotas")
 
     if "fecha_vencimiento" not in columnas_cuotas:
@@ -5735,6 +5843,8 @@ def proteger_rutas():
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
         "portal_ver_comprobante",
+        "portal_subir_comprobante_gasto_compartido",
+        "portal_ver_comprobante_gasto_compartido",
         "portal_descargar_recibo",
         "portal_descargar_constancia",
         "portal_confirmar_asistencia",
@@ -6223,6 +6333,17 @@ def ficha_tiene_apto_efectivo(ficha):
         ficha.get("apto_fisico")
         or (ficha.get("documento_drive_file_id") or "").strip()
     )
+
+
+def repartir_importe_gasto(total, cantidad):
+    if cantidad <= 0:
+        return []
+    base = round(total / cantidad, 2)
+    valores = [base for _ in range(cantidad)]
+    diferencia = round(total - sum(valores), 2)
+    if valores:
+        valores[-1] = round(valores[-1] + diferencia, 2)
+    return valores
 
 
 def crear_token_recuperacion(conn, usuario_id):
@@ -10714,6 +10835,532 @@ def desactivar_portal_jugador(jugador_id):
     return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
 
 
+def opciones_eventos_gastos_compartidos(conn):
+    eventos = conn.execute("""
+        SELECT
+            id,
+            fecha,
+            titulo,
+            categoria,
+            asistencia_evento_id
+        FROM calendario_eventos
+        WHERE fecha IS NOT NULL
+        ORDER BY fecha DESC, id DESC
+        LIMIT 80
+    """).fetchall()
+    opciones = []
+    for evento in eventos:
+        etiqueta = f"{evento['fecha'] or '-'} · {evento['titulo']}"
+        if evento.get("categoria"):
+            etiqueta = f"{etiqueta} ({evento['categoria']})"
+        opciones.append({
+            "id": evento["id"],
+            "label": etiqueta,
+            "fecha": evento["fecha"],
+            "asistencia_evento_id": evento.get("asistencia_evento_id"),
+        })
+    return opciones
+
+
+def jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids):
+    if fuente == "manual":
+        ids = [int(valor) for valor in jugadores_ids if str(valor).isdigit()]
+        if not ids:
+            return []
+        return conn.execute("""
+            SELECT id, apellido, nombre, categoria
+            FROM jugadores
+            WHERE id = ANY(%s)
+            ORDER BY apellido, nombre
+        """, (ids,)).fetchall()
+
+    if not calendario_evento_id:
+        return []
+
+    evento = conn.execute("""
+        SELECT id, asistencia_evento_id
+        FROM calendario_eventos
+        WHERE id = %s
+    """, (calendario_evento_id,)).fetchone()
+    if not evento or not evento.get("asistencia_evento_id"):
+        return []
+
+    if fuente == "presentes_evento":
+        return conn.execute("""
+            SELECT j.id, j.apellido, j.nombre, j.categoria
+            FROM asistencias a
+            JOIN jugadores j ON j.id = a.jugador_id
+            WHERE a.evento_id = %s
+              AND a.presente = 1
+            ORDER BY j.apellido, j.nombre
+        """, (evento["asistencia_evento_id"],)).fetchall()
+
+    if fuente == "confirmados_portal":
+        return conn.execute("""
+            SELECT j.id, j.apellido, j.nombre, j.categoria
+            FROM portal_asistencia_confirmaciones p
+            JOIN jugadores j ON j.id = p.jugador_id
+            WHERE p.evento_id = %s
+              AND p.estado = 'confirmado'
+            ORDER BY j.apellido, j.nombre
+        """, (evento["asistencia_evento_id"],)).fetchall()
+
+    return []
+
+
+@app.route("/gastos-compartidos")
+def listar_gastos_compartidos():
+    check = permiso_requerido("cuotas_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    gastos = conn.execute("""
+        SELECT
+            g.*,
+            COUNT(i.id) AS jugadores_total,
+            COALESCE(SUM(i.importe), 0) AS total_asignado,
+            COUNT(*) FILTER (WHERE i.estado = 'pagado') AS pagados,
+            COUNT(*) FILTER (WHERE i.estado = 'exento') AS exentos,
+            COUNT(*) FILTER (WHERE i.estado = 'pendiente') AS pendientes,
+            COUNT(*) FILTER (
+                WHERE COALESCE(NULLIF(i.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'rechazado')
+                  AND i.estado = 'pendiente'
+            ) AS comprobantes_revision
+        FROM gastos_compartidos g
+        LEFT JOIN gasto_compartido_items i ON i.gasto_id = g.id
+        GROUP BY g.id
+        ORDER BY COALESCE(g.fecha_evento, g.fecha_vencimiento, g.creado_en::text) DESC, g.id DESC
+    """).fetchall()
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE estado = 'Activo') AS activos,
+            COALESCE(SUM(monto_total), 0) AS monto_total,
+            COALESCE((
+                SELECT SUM(importe)
+                FROM gasto_compartido_items
+                WHERE estado = 'pagado'
+            ), 0) AS cobrado,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM gasto_compartido_items
+                WHERE estado = 'pendiente'
+                  AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'rechazado')
+            ), 0) AS comprobantes_revision
+        FROM gastos_compartidos
+    """).fetchone()
+    conn.close()
+    return render_template("gastos_compartidos.html", gastos=gastos, resumen=resumen)
+
+
+@app.route("/gastos-compartidos/nuevo", methods=["GET", "POST"])
+def nuevo_gasto_compartido():
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    jugadores_activos = conn.execute("""
+        SELECT id, apellido, nombre, categoria
+        FROM jugadores
+        WHERE estado = 'Activo'
+        ORDER BY categoria NULLS LAST, apellido, nombre
+    """).fetchall()
+    eventos = opciones_eventos_gastos_compartidos(conn)
+    categorias_jugadores = sorted({(jugador["categoria"] or "").strip() for jugador in jugadores_activos if (jugador["categoria"] or "").strip()})
+    form_defaults = {
+        "fuente_jugadores": request.args.get("fuente_jugadores", "manual").strip() or "manual",
+        "modo_importe": request.args.get("modo_importe", "por_jugador").strip() or "por_jugador",
+        "calendario_evento_id": request.args.get("calendario_evento_id", "").strip(),
+        "titulo": request.args.get("titulo", "").strip(),
+    }
+    if form_defaults["calendario_evento_id"].isdigit() and not form_defaults["titulo"]:
+        evento_prefill = next((evento for evento in eventos if str(evento["id"]) == form_defaults["calendario_evento_id"]), None)
+        if evento_prefill:
+            form_defaults["titulo"] = f"Tercer tiempo - {evento_prefill['label']}"
+
+    if request.method == "POST":
+        titulo = request.form.get("titulo", "").strip()
+        concepto = request.form.get("concepto", "").strip()
+        calendario_evento_id_raw = request.form.get("calendario_evento_id", "").strip()
+        calendario_evento_id = int(calendario_evento_id_raw) if calendario_evento_id_raw.isdigit() else None
+        fuente = request.form.get("fuente_jugadores", "manual").strip()
+        jugadores_ids = request.form.getlist("jugadores_ids")
+        fecha_vencimiento = request.form.get("fecha_vencimiento", "").strip()
+        modo_importe = request.form.get("modo_importe", "por_jugador").strip()
+        monto_raw = request.form.get("monto", "").strip()
+        observaciones = request.form.get("observaciones", "").strip()
+
+        if not titulo or not monto_raw:
+            conn.close()
+            flash("Titulo e importe son obligatorios.", "error")
+            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+
+        try:
+            monto = float(monto_raw)
+        except ValueError:
+            conn.close()
+            flash("El importe debe ser numerico.", "error")
+            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+
+        seleccionados = jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids)
+        if not seleccionados:
+            conn.close()
+            flash("Tenes que definir al menos un jugador que deba pagar.", "error")
+            return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=request.form)
+
+        if modo_importe not in {"por_jugador", "total"}:
+            modo_importe = "por_jugador"
+
+        if modo_importe == "por_jugador":
+            importes = [round(monto, 2) for _ in seleccionados]
+            monto_total = round(sum(importes), 2)
+            monto_por_jugador = round(monto, 2)
+        else:
+            importes = repartir_importe_gasto(round(monto, 2), len(seleccionados))
+            monto_total = round(monto, 2)
+            monto_por_jugador = round(monto_total / len(seleccionados), 2) if seleccionados else 0
+
+        evento = None
+        if calendario_evento_id:
+            evento = conn.execute("""
+                SELECT id, fecha, titulo
+                FROM calendario_eventos
+                WHERE id = %s
+            """, (calendario_evento_id,)).fetchone()
+
+        gasto = conn.execute("""
+            INSERT INTO gastos_compartidos (
+                titulo, concepto, calendario_evento_id, fecha_evento, fecha_vencimiento,
+                modo_importe, monto_total, monto_por_jugador, estado, observaciones, creado_por
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activo', %s, %s)
+            RETURNING id
+        """, (
+            titulo,
+            concepto or None,
+            calendario_evento_id,
+            evento["fecha"] if evento else None,
+            fecha_vencimiento or None,
+            modo_importe,
+            monto_total,
+            monto_por_jugador,
+            observaciones or None,
+            session.get("username"),
+        )).fetchone()
+
+        for jugador_item, importe_item in zip(seleccionados, importes):
+            conn.execute("""
+                INSERT INTO gasto_compartido_items (gasto_id, jugador_id, importe, estado)
+                VALUES (%s, %s, %s, 'pendiente')
+            """, (gasto["id"], jugador_item["id"], importe_item))
+
+        conn.commit()
+        conn.close()
+        flash("Gasto compartido creado correctamente.", "ok")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto["id"]))
+
+    conn.close()
+    return render_template("gasto_compartido_form.html", jugadores=jugadores_activos, eventos=eventos, categorias_jugadores=categorias_jugadores, form=form_defaults)
+
+
+@app.route("/gastos-compartidos/<int:gasto_id>")
+def ver_gasto_compartido(gasto_id):
+    check = permiso_requerido("cuotas_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    gasto = conn.execute("""
+        SELECT g.*, ce.titulo AS evento_titulo
+        FROM gastos_compartidos g
+        LEFT JOIN calendario_eventos ce ON ce.id = g.calendario_evento_id
+        WHERE g.id = %s
+    """, (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+
+    items = conn.execute("""
+        SELECT
+            i.*,
+            j.apellido,
+            j.nombre,
+            j.categoria
+        FROM gasto_compartido_items i
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.gasto_id = %s
+        ORDER BY
+            CASE i.estado
+                WHEN 'pendiente' THEN 0
+                WHEN 'pagado' THEN 1
+                WHEN 'exento' THEN 2
+                ELSE 3
+            END,
+            j.apellido,
+            j.nombre
+    """, (gasto_id,)).fetchall()
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) AS total_jugadores,
+            COUNT(*) FILTER (WHERE estado = 'pagado') AS pagados,
+            COUNT(*) FILTER (WHERE estado = 'pendiente') AS pendientes,
+            COUNT(*) FILTER (WHERE estado = 'exento') AS exentos,
+            COALESCE(SUM(importe), 0) AS total_asignado,
+            COALESCE(SUM(importe) FILTER (WHERE estado = 'pagado'), 0) AS total_cobrado,
+            COALESCE(SUM(importe) FILTER (WHERE estado = 'pendiente'), 0) AS total_pendiente
+        FROM gasto_compartido_items
+        WHERE gasto_id = %s
+    """, (gasto_id,)).fetchone()
+    conn.close()
+    return render_template("gasto_compartido_detalle.html", gasto=gasto, items=items, resumen=resumen)
+
+
+@app.route("/gastos-compartidos/<int:gasto_id>/eliminar", methods=["POST"])
+def eliminar_gasto_compartido(gasto_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    gasto = conn.execute("SELECT * FROM gastos_compartidos WHERE id = %s", (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    conn.execute("DELETE FROM gasto_compartido_items WHERE gasto_id = %s", (gasto_id,))
+    conn.execute("DELETE FROM gastos_compartidos WHERE id = %s", (gasto_id,))
+    conn.commit()
+    conn.close()
+    flash("Gasto compartido eliminado.", "ok")
+    return redirect(url_for("listar_gastos_compartidos"))
+
+
+@app.route("/gastos-compartidos/items/<int:item_id>/comprobante")
+def descargar_comprobante_gasto_compartido(item_id):
+    check = permiso_requerido("cuotas_ver")
+    if check:
+        return check
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT i.*, g.id AS gasto_id
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        WHERE i.id = %s
+    """, (item_id,)).fetchone()
+    conn.close()
+    if item is None:
+        flash("Pago compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if not item.get("comprobante_drive_file_id"):
+        flash("Este pago no tiene comprobante adjunto.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    try:
+        archivo = descargar_drive_file(item["comprobante_drive_file_id"])
+    except Exception as error:
+        app.logger.exception("No se pudo descargar comprobante de gasto compartido %s.", item_id)
+        flash(mensaje_error_drive(error, accion="descargar el comprobante"), "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    return send_file(
+        io.BytesIO(archivo),
+        mimetype=item.get("comprobante_mime_type") or "application/octet-stream",
+        as_attachment=False,
+        download_name=item.get("comprobante_nombre") or f"gasto_compartido_{item_id}",
+    )
+
+
+@app.route("/gastos-compartidos/items/<int:item_id>/estado", methods=["POST"])
+def actualizar_item_gasto_compartido(item_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    accion = request.form.get("accion", "").strip()
+    observaciones = request.form.get("observaciones", "").strip()
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT i.*, g.id AS gasto_id
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        WHERE i.id = %s
+    """, (item_id,)).fetchone()
+    if item is None:
+        conn.close()
+        flash("Pago compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if accion == "aprobar":
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET estado = 'pagado',
+                fecha_pago = CURRENT_DATE,
+                comprobante_estado = 'aceptado',
+                comprobante_revisado_en = %s,
+                comprobante_revisado_por = %s,
+                comprobante_observaciones = %s,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (ahora, session.get("username"), observaciones or None, item_id))
+        flash("Comprobante aceptado.", "ok")
+    elif accion == "rechazar":
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET estado = 'pendiente',
+                fecha_pago = NULL,
+                comprobante_estado = 'rechazado',
+                comprobante_revisado_en = %s,
+                comprobante_revisado_por = %s,
+                comprobante_observaciones = %s,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (ahora, session.get("username"), observaciones or None, item_id))
+        flash("Comprobante rechazado.", "warning")
+    elif accion == "exento":
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET estado = 'exento',
+                fecha_pago = NULL,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (item_id,))
+        flash("Jugador marcado como exento.", "ok")
+    elif accion == "marcar_pagado":
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET estado = 'pagado',
+                fecha_pago = CURRENT_DATE,
+                comprobante_estado = CASE
+                    WHEN comprobante_drive_file_id IS NOT NULL THEN 'aceptado'
+                    ELSE comprobante_estado
+                END,
+                comprobante_revisado_en = CASE
+                    WHEN comprobante_drive_file_id IS NOT NULL THEN %s
+                    ELSE comprobante_revisado_en
+                END,
+                comprobante_revisado_por = CASE
+                    WHEN comprobante_drive_file_id IS NOT NULL THEN %s
+                    ELSE comprobante_revisado_por
+                END,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (ahora, session.get("username"), item_id))
+        flash("Pago marcado como cobrado.", "ok")
+    else:
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET estado = 'pendiente',
+                fecha_pago = NULL,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (item_id,))
+        flash("Pago restaurado a pendiente.", "ok")
+
+    conn.commit()
+    conn.close()
+    return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+
+@app.route("/portal/<token>/gastos/<int:item_id>/comprobante", methods=["POST"])
+def portal_subir_comprobante_gasto_compartido(token, item_id):
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT
+            i.*,
+            g.titulo,
+            g.fecha_vencimiento,
+            j.id AS jugador_id,
+            j.nombre,
+            j.apellido
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.id = %s
+          AND j.portal_token = %s
+          AND COALESCE(j.portal_activo, 0) = 1
+    """, (item_id, token)).fetchone()
+    if item is None:
+        conn.close()
+        flash("No encontramos ese gasto en tu portal.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    comprobante_pago = request.files.get("comprobante_pago")
+    try:
+        comprobante_info = subir_comprobante_gasto_compartido_a_drive(comprobante_pago, item)
+    except (RuntimeError, ValueError) as error:
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("portal_jugador", token=token))
+    except Exception as error:
+        conn.close()
+        app.logger.exception("No se pudo subir comprobante de gasto compartido %s desde portal.", item_id)
+        flash(mensaje_error_drive(error, accion="subir el comprobante"), "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    comprobante_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("""
+        UPDATE gasto_compartido_items
+        SET comprobante_drive_file_id = %s,
+            comprobante_nombre = %s,
+            comprobante_mime_type = %s,
+            comprobante_tamano = %s,
+            comprobante_fecha = %s,
+            comprobante_usuario = 'portal',
+            comprobante_web_url = %s,
+            comprobante_estado = 'pendiente',
+            comprobante_revisado_en = NULL,
+            comprobante_revisado_por = NULL,
+            comprobante_observaciones = NULL,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (
+        comprobante_info["file_id"],
+        comprobante_info["nombre"],
+        comprobante_info["mime_type"],
+        comprobante_info["tamano"],
+        comprobante_fecha,
+        comprobante_info["web_url"],
+        item_id,
+    ))
+    conn.commit()
+    conn.close()
+    flash("Comprobante enviado para revision.", "ok")
+    return redirect(url_for("portal_jugador", token=token))
+
+
+@app.route("/portal/<token>/gastos/<int:item_id>/comprobante/ver")
+def portal_ver_comprobante_gasto_compartido(token, item_id):
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT i.*
+        FROM gasto_compartido_items i
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.id = %s
+          AND j.portal_token = %s
+          AND COALESCE(j.portal_activo, 0) = 1
+    """, (item_id, token)).fetchone()
+    conn.close()
+    if item is None:
+        flash("No encontramos ese comprobante en tu portal.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+    if not item.get("comprobante_drive_file_id"):
+        flash("Ese gasto no tiene comprobante cargado.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+    try:
+        archivo = descargar_drive_file(item["comprobante_drive_file_id"])
+    except Exception as error:
+        app.logger.exception("No se pudo descargar comprobante de gasto compartido %s desde portal.", item_id)
+        flash(mensaje_error_drive(error, accion="descargar el comprobante"), "error")
+        return redirect(url_for("portal_jugador", token=token))
+    return send_file(
+        io.BytesIO(archivo),
+        mimetype=item.get("comprobante_mime_type") or "application/octet-stream",
+        as_attachment=False,
+        download_name=item.get("comprobante_nombre") or f"gasto_compartido_{item_id}",
+    )
+
+
 @app.route("/portal", methods=["GET", "POST"])
 def portal_buscar():
     identificador = ""
@@ -10813,6 +11460,29 @@ def portal_jugador(token):
         WHERE a.jugador_id = %s
         ORDER BY e.fecha DESC, e.id DESC
         LIMIT 12
+    """, (jugador["id"],)).fetchall()
+
+    gastos_compartidos = conn.execute("""
+        SELECT
+            i.*,
+            g.titulo,
+            g.concepto,
+            g.fecha_evento,
+            g.fecha_vencimiento
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        WHERE i.jugador_id = %s
+          AND g.estado = 'Activo'
+        ORDER BY
+            CASE i.estado
+                WHEN 'pendiente' THEN 0
+                WHEN 'pagado' THEN 1
+                WHEN 'exento' THEN 2
+                ELSE 3
+            END,
+            COALESCE(g.fecha_vencimiento, g.fecha_evento, g.creado_en::text) DESC,
+            i.id DESC
+        LIMIT 20
     """, (jugador["id"],)).fetchall()
 
     lesiones_activas_portal = conn.execute("""
@@ -10933,6 +11603,13 @@ def portal_jugador(token):
             "titulo": "Tenes deuda pendiente",
             "detalle": f"Actualmente tenes {formato_moneda(deuda)} pendientes de pago.",
         })
+    gastos_pendientes = [item for item in gastos_compartidos if item.get("estado") == "pendiente"]
+    if gastos_pendientes:
+        portal_alertas.append({
+            "nivel": "warning",
+            "titulo": "Gastos compartidos pendientes",
+            "detalle": f"Tenes {len(gastos_pendientes)} gasto(s) compartido(s) para revisar o pagar.",
+        })
     ficha_portal = estado_ficha_portal(ficha)
     if ficha_portal["nivel"] != "success":
         portal_alertas.append({
@@ -10983,6 +11660,7 @@ def portal_jugador(token):
         portal_alertas=portal_alertas,
         ficha_portal=ficha_portal,
         planes_pago=planes_pago,
+        gastos_compartidos=gastos_compartidos,
         tests_recientes=tests_recientes,
         resumen_tests=resumir_resultados_tests(tests_recientes),
         portal_tests=portal_tests,

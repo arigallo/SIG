@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo gasto compartido{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Nuevo gasto compartido / tercer tiempo</h2>
+        <p class="page-intro">Defin&iacute; el cargo, eleg&iacute; qui&eacute;nes lo pagan y dej&aacute; listo el seguimiento en portal.</p>
+    </div>
+</div>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-grid">
+        <div>
+            <label>T&iacute;tulo</label>
+            <input type="text" name="titulo" value="{{ form.get('titulo', '') }}" placeholder="Ej: Tercer tiempo vs Hindu" required>
+        </div>
+        <div>
+            <label>Evento relacionado</label>
+            <select name="calendario_evento_id">
+                <option value="">Sin evento vinculado</option>
+                {% for evento in eventos %}
+                    <option value="{{ evento['id'] }}" {% if form.get('calendario_evento_id')|string == evento['id']|string %}selected{% endif %}>{{ evento['label'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="full">
+            <label>Concepto / detalle</label>
+            <textarea name="concepto" rows="3" placeholder="Ej: comida post partido, bebidas, reserva, etc.">{{ form.get('concepto', '') }}</textarea>
+        </div>
+        <div>
+            <label>Vencimiento</label>
+            <input type="date" name="fecha_vencimiento" value="{{ form.get('fecha_vencimiento', '') }}">
+        </div>
+        <div>
+            <label>Fuente de jugadores</label>
+            <select name="fuente_jugadores">
+                <option value="manual" {% if form.get('fuente_jugadores', 'manual') == 'manual' %}selected{% endif %}>Selecci&oacute;n manual</option>
+                <option value="presentes_evento" {% if form.get('fuente_jugadores') == 'presentes_evento' %}selected{% endif %}>Presentes en asistencia del evento</option>
+                <option value="confirmados_portal" {% if form.get('fuente_jugadores') == 'confirmados_portal' %}selected{% endif %}>Confirmados en portal para el evento</option>
+            </select>
+        </div>
+        <div>
+            <label>Modo de importe</label>
+            <select name="modo_importe">
+                <option value="por_jugador" {% if form.get('modo_importe', 'por_jugador') == 'por_jugador' %}selected{% endif %}>Importe por jugador</option>
+                <option value="total" {% if form.get('modo_importe') == 'total' %}selected{% endif %}>Importe total a repartir</option>
+            </select>
+        </div>
+        <div>
+            <label>Importe</label>
+            <input type="number" name="monto" step="0.01" min="0" value="{{ form.get('monto', '') }}" required>
+        </div>
+        <div class="full">
+            <label>Observaciones internas</label>
+            <textarea name="observaciones" rows="3" placeholder="Notas para tesoreria o aclaraciones del gasto.">{{ form.get('observaciones', '') }}</textarea>
+        </div>
+    </div>
+
+    <div class="page-section">
+        <div class="section-header compact">
+            <h3>Jugadores incluidos</h3>
+        </div>
+        <p class="report-note">Si eleg&iacute;s una fuente autom&aacute;tica, se usar&aacute;n los jugadores detectados desde el evento seleccionado. Si dej&aacute;s manual, marc&aacute; ac&aacute; qui&eacute;nes deben pagar.</p>
+        <div class="inline-filter">
+            <div>
+                <label>Filtrar categor&iacute;a</label>
+                <select data-player-category-filter>
+                    <option value="">Todas las categor&iacute;as</option>
+                    {% for categoria in categorias_jugadores %}
+                        <option value="{{ categoria }}">{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="permission-grid">
+            {% set seleccion = form.getlist('jugadores_ids') if form else [] %}
+            {% for jugador in jugadores %}
+                <label class="permission-option" data-player-category="{{ jugador['categoria'] or 'Sin categoría' }}">
+                    <input type="checkbox" name="jugadores_ids" value="{{ jugador['id'] }}" {% if jugador['id']|string in seleccion %}checked{% endif %}>
+                    <span>
+                        <strong>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</strong>
+                        <small>{{ jugador['categoria'] or 'Sin categor&iacute;a' }}</small>
+                    </span>
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Crear gasto</button>
+        <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Cancelar</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const filter = document.querySelector("[data-player-category-filter]");
+    if (!filter) return;
+    const items = Array.from(document.querySelectorAll("[data-player-category]"));
+    filter.addEventListener("change", function () {
+        const selected = filter.value;
+        items.forEach(function (item) {
+            const categoria = item.getAttribute("data-player-category");
+            item.style.display = !selected || categoria === selected ? "" : "none";
+        });
+    });
+});
+</script>
+{% endblock %}
