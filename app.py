@@ -5724,6 +5724,7 @@ def proteger_rutas():
         "portal_descargar_recibo",
         "portal_descargar_constancia",
         "portal_confirmar_asistencia",
+        "portal_bienestar_asistencia",
         "portal_calendario_ics",
     }
 
