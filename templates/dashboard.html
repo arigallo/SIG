@@ -125,7 +125,7 @@
             <p class="page-intro">Alertas y estado general para priorizar el trabajo del staff.</p>
         </div>
         {% if session.get('rol') == 'admin' %}
-            <a class="button secondary" href="{{ url_for('ver_sistema_admin') }}">Ver sistema</a>
+            <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Ver sistema</a>
         {% endif %}
     </div>
 
