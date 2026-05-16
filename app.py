@@ -3447,10 +3447,17 @@ def whatsapp_api_disponible():
     )
 
 
+def valor_texto_contacto(valor):
+    texto = str(valor or "").strip()
+    if texto.lower() in {"", "none", "null", "n/a", "na", "-"}:
+        return ""
+    return texto
+
+
 def telefono_jugador_preferido(jugador):
     return normalizar_telefono_whatsapp(
-        (jugador or {}).get("telefono_tutor")
-        or (jugador or {}).get("telefono")
+        valor_texto_contacto((jugador or {}).get("telefono"))
+        or valor_texto_contacto((jugador or {}).get("telefono_tutor"))
         or ""
     )
 
@@ -3690,7 +3697,8 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
 
 def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugador", entidad_id=None):
     return enviar_whatsapp_meta(
-        (jugador or {}).get("telefono_tutor") or (jugador or {}).get("telefono"),
+        valor_texto_contacto((jugador or {}).get("telefono"))
+        or valor_texto_contacto((jugador or {}).get("telefono_tutor")),
         mensaje,
         tipo=tipo,
         entidad=entidad,
@@ -13609,7 +13617,7 @@ def ver_comunicaciones():
     comunicaciones = []
     for jugador in morosos:
         mensaje = mensaje_moroso(template, jugador)
-        telefono = jugador["telefono_tutor"] or jugador["telefono"]
+        telefono = valor_texto_contacto(jugador["telefono"]) or valor_texto_contacto(jugador["telefono_tutor"])
         telefono_whatsapp = normalizar_telefono_whatsapp(telefono)
         if telefono_whatsapp:
             whatsapp_url = f"https://wa.me/{telefono_whatsapp}?text={quote(mensaje)}"
