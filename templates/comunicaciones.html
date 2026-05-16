@@ -64,6 +64,11 @@
                 </td>
                 <td data-label="Contacto">
                     {{ jugador['telefono_tutor'] or jugador['telefono'] or '-' }}
+                    {% if item['telefono_whatsapp'] %}
+                        <span class="muted-line">WhatsApp destino: +{{ item['telefono_whatsapp'] }}</span>
+                    {% else %}
+                        <span class="muted-line">WhatsApp destino: sin número válido</span>
+                    {% endif %}
                     {% if jugador['contacto_tutor'] %}
                         <span class="muted-line">{{ jugador['contacto_tutor'] }}</span>
                     {% endif %}

@@ -3455,6 +3455,27 @@ def telefono_jugador_preferido(jugador):
     )
 
 
+def variantes_telefono_whatsapp(telefono):
+    normalizado = normalizar_telefono_whatsapp(telefono)
+    if not normalizado:
+        return []
+
+    variantes = [normalizado]
+
+    if normalizado.startswith("549") and len(normalizado) > 3:
+        variantes.append("54" + normalizado[3:])
+    elif normalizado.startswith("54") and not normalizado.startswith("549") and len(normalizado) > 2:
+        variantes.append("549" + normalizado[2:])
+
+    vistas = set()
+    resultado = []
+    for variante in variantes:
+        if variante and variante not in vistas:
+            resultado.append(variante)
+            vistas.add(variante)
+    return resultado
+
+
 def registrar_whatsapp_envio(
     telefono,
     tipo,
@@ -3572,85 +3593,99 @@ def resumir_envio_masivo_whatsapp(resultados, etiqueta):
 
 
 def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema", entidad_id=None, jugador_id=None):
-    telefono_normalizado = normalizar_telefono_whatsapp(telefono)
-    if not telefono_normalizado:
+    variantes = variantes_telefono_whatsapp(telefono)
+    if not variantes:
         return False, None, "sin_telefono", None
     if not whatsapp_api_disponible():
-        return False, telefono_normalizado, "sin_configuracion", None
+        return False, variantes[0], "sin_configuracion", None
 
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": telefono_normalizado,
-        "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": mensaje,
-        },
-    }
     headers = {
         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
         "Content-Type": "application/json",
     }
     url = f"{WHATSAPP_GRAPH_BASE}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    data = json.dumps(payload).encode("utf-8")
-    req = UrlRequest(url, data=data, headers=headers, method="POST")
+    ultimo_destino = variantes[0]
+    ultimo_detalle = None
+    ultimo_motivo = None
 
-    try:
-        with urlopen(req, timeout=20) as resp:
-            body = resp.read().decode("utf-8")
-            respuesta = json.loads(body) if body else {}
-        message_id = None
-        mensajes = respuesta.get("messages") or []
-        if mensajes and isinstance(mensajes, list):
-            message_id = mensajes[0].get("id")
-        registrar_whatsapp_envio(
-            telefono=telefono,
-            tipo=tipo,
-            entidad=entidad,
-            entidad_id=entidad_id,
-            jugador_id=jugador_id,
-            mensaje=mensaje,
-            payload=payload,
-            respuesta=respuesta,
-            estado="enviado",
-            meta_message_id=message_id,
-        )
-        return True, telefono_normalizado, None, respuesta
-    except HTTPError as error:
-        raw = error.read().decode("utf-8", errors="replace")
+    for idx, telefono_normalizado in enumerate(variantes):
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": telefono_normalizado,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": mensaje,
+            },
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = UrlRequest(url, data=data, headers=headers, method="POST")
+
         try:
-            detalle = json.loads(raw) if raw else {}
-        except ValueError:
-            detalle = {"raw": raw}
-        error_data = detalle.get("error") if isinstance(detalle, dict) else {}
-        registrar_whatsapp_envio(
-            telefono=telefono,
-            tipo=tipo,
-            entidad=entidad,
-            entidad_id=entidad_id,
-            jugador_id=jugador_id,
-            mensaje=mensaje,
-            payload=payload,
-            respuesta=detalle,
-            estado="error",
-            error_codigo=str(error_data.get("code") or error.code),
-            error_mensaje=error_data.get("message") or raw,
-        )
-        return False, telefono_normalizado, "http_error", error_data.get("message") or raw
-    except URLError:
-        registrar_whatsapp_envio(
-            telefono=telefono,
-            tipo=tipo,
-            entidad=entidad,
-            entidad_id=entidad_id,
-            jugador_id=jugador_id,
-            mensaje=mensaje,
-            payload=payload,
-            respuesta={},
-            estado="error",
-            error_mensaje="network_error",
-        )
-        return False, telefono_normalizado, "network_error", None
+            with urlopen(req, timeout=20) as resp:
+                body = resp.read().decode("utf-8")
+                respuesta = json.loads(body) if body else {}
+            message_id = None
+            mensajes = respuesta.get("messages") or []
+            if mensajes and isinstance(mensajes, list):
+                message_id = mensajes[0].get("id")
+            registrar_whatsapp_envio(
+                telefono=telefono,
+                tipo=tipo,
+                entidad=entidad,
+                entidad_id=entidad_id,
+                jugador_id=jugador_id,
+                mensaje=mensaje,
+                payload=payload,
+                respuesta=respuesta,
+                estado="enviado",
+                meta_message_id=message_id,
+            )
+            return True, telefono_normalizado, None, respuesta
+        except HTTPError as error:
+            raw = error.read().decode("utf-8", errors="replace")
+            try:
+                detalle = json.loads(raw) if raw else {}
+            except ValueError:
+                detalle = {"raw": raw}
+            error_data = detalle.get("error") if isinstance(detalle, dict) else {}
+            codigo = str(error_data.get("code") or error.code)
+            mensaje_error = error_data.get("message") or raw
+            registrar_whatsapp_envio(
+                telefono=telefono,
+                tipo=tipo,
+                entidad=entidad,
+                entidad_id=entidad_id,
+                jugador_id=jugador_id,
+                mensaje=mensaje,
+                payload=payload,
+                respuesta=detalle,
+                estado="error",
+                error_codigo=codigo,
+                error_mensaje=mensaje_error,
+            )
+            ultimo_destino = telefono_normalizado
+            ultimo_detalle = mensaje_error
+            ultimo_motivo = "http_error"
+            if codigo == "133010" and idx < len(variantes) - 1:
+                continue
+            return False, ultimo_destino, ultimo_motivo, ultimo_detalle
+        except URLError:
+            registrar_whatsapp_envio(
+                telefono=telefono,
+                tipo=tipo,
+                entidad=entidad,
+                entidad_id=entidad_id,
+                jugador_id=jugador_id,
+                mensaje=mensaje,
+                payload=payload,
+                respuesta={},
+                estado="error",
+                error_mensaje="network_error",
+            )
+            return False, telefono_normalizado, "network_error", None
+
+    return False, ultimo_destino, ultimo_motivo or "http_error", ultimo_detalle
 
 
 def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugador", entidad_id=None):
