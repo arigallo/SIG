@@ -10,6 +10,13 @@
         <p class="page-intro">Seguimiento de morosidad con mensaje editable, acciones directas y estado de contacto por jugador.</p>
     </div>
     <div class="actions">
+        {% if whatsapp_api_activa %}
+        <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_morosos_lote') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="mensaje" value="{{ template }}">
+            <button class="button secondary" type="submit">Enviar WhatsApps</button>
+        </form>
+        {% endif %}
         <form method="post" action="{{ url_for('enviar_email_comunicacion_morosos_lote') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="mensaje" value="{{ template }}">
@@ -73,7 +80,14 @@
                 </td>
                 <td data-label="Mensaje" class="communication-message">{{ item['mensaje'] }}</td>
                 <td data-label="Acción" class="actions">
-                    <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                    {% if whatsapp_api_activa %}
+                    <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_moroso', jugador_id=jugador['id']) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="mensaje" value="{{ template }}">
+                        <button class="button" type="submit" {% if not item['telefono_whatsapp'] %}disabled{% endif %}>WhatsApp API</button>
+                    </form>
+                    {% endif %}
+                    <a class="button secondary" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">Abrir chat</a>
                     <form method="post" action="{{ url_for('enviar_email_comunicacion_moroso', jugador_id=jugador['id']) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="mensaje" value="{{ template }}">

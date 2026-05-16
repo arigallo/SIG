@@ -15,6 +15,17 @@
     <div class="section-header">
         <h3>{{ titulo }}</h3>
         {% if lote_url %}
+            {% if whatsapp_api_activa and tipo in ['cuota', 'ficha'] %}
+            <form method="post" action="{% if tipo == 'cuota' %}{{ url_for('enviar_recordatorios_cuotas_whatsapp_lote') }}{% else %}{{ url_for('enviar_recordatorios_fichas_whatsapp_lote') }}{% endif %}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                {% if tipo == 'cuota' and lote_label == 'vencidas' %}
+                    <input type="hidden" name="modo" value="vencidas">
+                {% elif tipo == 'cuota' and lote_label == 'por_vencer' %}
+                    <input type="hidden" name="modo" value="por_vencer">
+                {% endif %}
+                <button class="button secondary" type="submit">Enviar WhatsApps</button>
+            </form>
+            {% endif %}
             <form method="post" action="{{ lote_url }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 {% if tipo == 'cuota' and lote_label == 'vencidas' %}
@@ -56,7 +67,18 @@
                     </td>
                     <td data-label="Mensaje" class="communication-message">{{ item['mensaje'] }}</td>
                     <td data-label="Acción" class="actions">
-                        <a class="button" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">WhatsApp</a>
+                        {% if whatsapp_api_activa and tipo == 'cuota' %}
+                            <form method="post" action="{{ url_for('enviar_recordatorio_cuota_whatsapp', cuota_id=fila['cuota_id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button" type="submit">WhatsApp API</button>
+                            </form>
+                        {% elif whatsapp_api_activa and tipo == 'ficha' %}
+                            <form method="post" action="{{ url_for('enviar_recordatorio_ficha_whatsapp', jugador_id=fila['jugador_id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button" type="submit">WhatsApp API</button>
+                            </form>
+                        {% endif %}
+                        <a class="button secondary" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">Abrir chat</a>
                         {% if tipo == 'cuota' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_cuota', cuota_id=fila['cuota_id']) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

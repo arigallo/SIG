@@ -13,10 +13,14 @@ import mimetypes
 import smtplib
 import secrets
 import unicodedata
+import hashlib
+import hmac
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
+from urllib.error import HTTPError, URLError
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -79,9 +83,18 @@ def inject_now():
         "puede": tiene_permiso,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
         "notificaciones_count": obtener_contador_notificaciones() if has_request_context() else 0,
+        "whatsapp_api_activa": whatsapp_api_disponible(),
     }
 
 BASE_DIR = Path(__file__).resolve().parent
+WHATSAPP_ENABLED = str(os.environ.get("WHATSAPP_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN", "").strip()
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+WHATSAPP_WABA_ID = os.environ.get("WHATSAPP_WABA_ID", "").strip()
+WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "").strip()
+WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
+WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v25.0").strip() or "v25.0"
+WHATSAPP_GRAPH_BASE = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
 
 
 def csrf_token():
@@ -3404,6 +3417,232 @@ def normalizar_telefono_whatsapp(telefono):
     return digitos
 
 
+def whatsapp_api_disponible():
+    return bool(
+        WHATSAPP_ENABLED
+        and WHATSAPP_ACCESS_TOKEN
+        and WHATSAPP_PHONE_NUMBER_ID
+        and WHATSAPP_WABA_ID
+    )
+
+
+def telefono_jugador_preferido(jugador):
+    return normalizar_telefono_whatsapp(
+        (jugador or {}).get("telefono_tutor")
+        or (jugador or {}).get("telefono")
+        or ""
+    )
+
+
+def registrar_whatsapp_envio(
+    telefono,
+    tipo,
+    entidad,
+    entidad_id=None,
+    jugador_id=None,
+    mensaje=None,
+    payload=None,
+    respuesta=None,
+    estado="pendiente",
+    meta_message_id=None,
+    error_codigo=None,
+    error_mensaje=None,
+):
+    conn = None
+    try:
+        conn = get_connection()
+        conn.execute("""
+            INSERT INTO whatsapp_envios (
+                jugador_id, telefono, destino_normalizado, tipo, entidad, entidad_id,
+                mensaje, estado, meta_message_id, error_codigo, error_mensaje,
+                payload, respuesta, creado_por, enviado_en
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            jugador_id,
+            telefono or None,
+            normalizar_telefono_whatsapp(telefono),
+            tipo,
+            entidad,
+            entidad_id,
+            mensaje or None,
+            estado,
+            meta_message_id,
+            error_codigo,
+            error_mensaje,
+            json.dumps(payload or {}, ensure_ascii=False, default=str),
+            json.dumps(respuesta or {}, ensure_ascii=False, default=str),
+            session.get("username") if has_request_context() else None,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if estado in {"enviado", "sent", "accepted"} else None,
+        ))
+        conn.commit()
+        conn.close()
+    except Exception:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
+def registrar_whatsapp_webhook(event_type, payload, procesado=False):
+    conn = None
+    try:
+        conn = get_connection()
+        conn.execute("""
+            INSERT INTO whatsapp_webhook_eventos (event_type, meta_object, payload, procesado)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            event_type,
+            (payload or {}).get("object"),
+            json.dumps(payload or {}, ensure_ascii=False, default=str),
+            1 if procesado else 0,
+        ))
+        conn.commit()
+        conn.close()
+    except Exception:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
+def mensaje_fallo_whatsapp(motivo, destinatario=None, detalle=None):
+    if motivo == "sin_telefono":
+        return "No hay un teléfono de WhatsApp configurado para este jugador."
+    if motivo == "sin_configuracion":
+        return "WhatsApp API no está configurado en el servidor."
+    if motivo == "verificacion":
+        return "WhatsApp API no tiene token de verificación configurado."
+    if motivo == "http_error" and detalle:
+        return f"No se pudo enviar el WhatsApp a {destinatario or 'este jugador'}: {detalle}"
+    if motivo == "network_error":
+        return "No se pudo conectar con WhatsApp API. Intentá nuevamente."
+    if destinatario:
+        return f"No se pudo enviar el WhatsApp a {destinatario}. Revisá la configuración o intentá nuevamente."
+    return "No se pudo enviar el WhatsApp. Revisá la configuración o intentá nuevamente."
+
+
+def resumir_envio_masivo_whatsapp(resultados, etiqueta):
+    enviados = sum(1 for ok, _, _, _ in resultados if ok)
+    sin_telefono = sum(1 for ok, _, motivo, _ in resultados if not ok and motivo == "sin_telefono")
+    sin_configuracion = sum(1 for ok, _, motivo, _ in resultados if not ok and motivo == "sin_configuracion")
+    otros = sum(1 for ok, _, motivo, _ in resultados if not ok and motivo not in ("sin_telefono", "sin_configuracion"))
+    if enviados:
+        partes = [f"Se enviaron {enviados} {etiqueta}."]
+        if sin_telefono:
+            partes.append(f"{sin_telefono} sin teléfono.")
+        if sin_configuracion:
+            partes.append(f"{sin_configuracion} sin configuración.")
+        if otros:
+            partes.append(f"{otros} con error.")
+        return " ".join(partes), "ok"
+    detalles = []
+    if sin_telefono:
+        detalles.append(f"{sin_telefono} sin teléfono")
+    if sin_configuracion:
+        detalles.append(f"{sin_configuracion} sin configuración")
+    if otros:
+        detalles.append(f"{otros} con error")
+    if detalles:
+        return f"No se enviaron {etiqueta}: " + ", ".join(detalles) + ".", "error"
+    return f"No se enviaron {etiqueta}.", "error"
+
+
+def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema", entidad_id=None, jugador_id=None):
+    telefono_normalizado = normalizar_telefono_whatsapp(telefono)
+    if not telefono_normalizado:
+        return False, None, "sin_telefono", None
+    if not whatsapp_api_disponible():
+        return False, telefono_normalizado, "sin_configuracion", None
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": telefono_normalizado,
+        "type": "text",
+        "text": {
+            "preview_url": False,
+            "body": mensaje,
+        },
+    }
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    url = f"{WHATSAPP_GRAPH_BASE}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    data = json.dumps(payload).encode("utf-8")
+    req = UrlRequest(url, data=data, headers=headers, method="POST")
+
+    try:
+        with urlopen(req, timeout=20) as resp:
+            body = resp.read().decode("utf-8")
+            respuesta = json.loads(body) if body else {}
+        message_id = None
+        mensajes = respuesta.get("messages") or []
+        if mensajes and isinstance(mensajes, list):
+            message_id = mensajes[0].get("id")
+        registrar_whatsapp_envio(
+            telefono=telefono,
+            tipo=tipo,
+            entidad=entidad,
+            entidad_id=entidad_id,
+            jugador_id=jugador_id,
+            mensaje=mensaje,
+            payload=payload,
+            respuesta=respuesta,
+            estado="enviado",
+            meta_message_id=message_id,
+        )
+        return True, telefono_normalizado, None, respuesta
+    except HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        try:
+            detalle = json.loads(raw) if raw else {}
+        except ValueError:
+            detalle = {"raw": raw}
+        error_data = detalle.get("error") if isinstance(detalle, dict) else {}
+        registrar_whatsapp_envio(
+            telefono=telefono,
+            tipo=tipo,
+            entidad=entidad,
+            entidad_id=entidad_id,
+            jugador_id=jugador_id,
+            mensaje=mensaje,
+            payload=payload,
+            respuesta=detalle,
+            estado="error",
+            error_codigo=str(error_data.get("code") or error.code),
+            error_mensaje=error_data.get("message") or raw,
+        )
+        return False, telefono_normalizado, "http_error", error_data.get("message") or raw
+    except URLError:
+        registrar_whatsapp_envio(
+            telefono=telefono,
+            tipo=tipo,
+            entidad=entidad,
+            entidad_id=entidad_id,
+            jugador_id=jugador_id,
+            mensaje=mensaje,
+            payload=payload,
+            respuesta={},
+            estado="error",
+            error_mensaje="network_error",
+        )
+        return False, telefono_normalizado, "network_error", None
+
+
+def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugador", entidad_id=None):
+    return enviar_whatsapp_meta(
+        (jugador or {}).get("telefono_tutor") or (jugador or {}).get("telefono"),
+        mensaje,
+        tipo=tipo,
+        entidad=entidad,
+        entidad_id=entidad_id,
+        jugador_id=(jugador or {}).get("id"),
+    )
+
+
 def mensaje_moroso(template, jugador):
     contexto = {
         "nombre": jugador["nombre"] or "",
@@ -4752,6 +4991,61 @@ def init_db():
         ON gasto_compartido_items (jugador_id, estado, fecha_pago)
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS whatsapp_envios (
+            id SERIAL PRIMARY KEY,
+            jugador_id INTEGER,
+            telefono TEXT,
+            destino_normalizado TEXT,
+            tipo TEXT NOT NULL DEFAULT 'general',
+            entidad TEXT NOT NULL DEFAULT 'sistema',
+            entidad_id TEXT,
+            mensaje TEXT,
+            estado TEXT NOT NULL DEFAULT 'pendiente',
+            meta_message_id TEXT,
+            error_codigo TEXT,
+            error_mensaje TEXT,
+            payload TEXT,
+            respuesta TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            enviado_en TEXT,
+            creado_por TEXT,
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_envios_jugador
+        ON whatsapp_envios (jugador_id, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_envios_estado
+        ON whatsapp_envios (estado, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_envios_meta_message_id
+        ON whatsapp_envios (meta_message_id)
+        WHERE meta_message_id IS NOT NULL
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS whatsapp_webhook_eventos (
+            id SERIAL PRIMARY KEY,
+            event_type TEXT,
+            meta_object TEXT,
+            payload TEXT,
+            procesado INTEGER NOT NULL DEFAULT 0,
+            recibido_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_webhook_eventos_recibido
+        ON whatsapp_webhook_eventos (recibido_en DESC)
+    """)
+
     columnas_cuotas = get_columns(conn, "cuotas")
 
     if "fecha_vencimiento" not in columnas_cuotas:
@@ -5850,9 +6144,13 @@ def proteger_rutas():
         "portal_confirmar_asistencia",
         "portal_bienestar_asistencia",
         "portal_calendario_ics",
+        "whatsapp_webhook_verify",
+        "whatsapp_webhook_receive",
     }
 
-    if request.method == "POST" and request.endpoint != "static":
+    csrf_exentas = {"static", "whatsapp_webhook_receive"}
+
+    if request.method == "POST" and request.endpoint not in csrf_exentas:
         if not csrf_valido():
             abort(400)
 
@@ -5882,6 +6180,72 @@ def proteger_rutas():
 
     if g.mantenimiento["activo"] and session.get("rol") != "admin":
         return render_template("mantenimiento.html", mantenimiento=g.mantenimiento), 503
+
+
+@app.route("/webhooks/whatsapp", methods=["GET"], endpoint="whatsapp_webhook_verify")
+def whatsapp_webhook_verify():
+    mode = request.args.get("hub.mode", "").strip()
+    verify_token = request.args.get("hub.verify_token", "").strip()
+    challenge = request.args.get("hub.challenge", "").strip()
+
+    if mode == "subscribe" and WHATSAPP_VERIFY_TOKEN and secrets.compare_digest(verify_token, WHATSAPP_VERIFY_TOKEN):
+        return Response(challenge, status=200, mimetype="text/plain")
+    return Response("forbidden", status=403, mimetype="text/plain")
+
+
+@app.route("/webhooks/whatsapp", methods=["POST"], endpoint="whatsapp_webhook_receive")
+def whatsapp_webhook_receive():
+    payload = request.get_json(silent=True) or {}
+
+    if WHATSAPP_APP_SECRET:
+        firma = request.headers.get("X-Hub-Signature-256", "")
+        esperado = "sha256=" + hmac.new(
+            WHATSAPP_APP_SECRET.encode("utf-8"),
+            request.get_data(),
+            hashlib.sha256,
+        ).hexdigest()
+        if not firma or not secrets.compare_digest(firma, esperado):
+            registrar_whatsapp_webhook("signature_error", payload, procesado=False)
+            return Response("invalid signature", status=403, mimetype="text/plain")
+
+    procesado = False
+    try:
+        for entry in payload.get("entry", []):
+            for change in entry.get("changes", []):
+                value = change.get("value") or {}
+                for status_item in value.get("statuses", []) or []:
+                    meta_message_id = status_item.get("id")
+                    estado = status_item.get("status") or "status"
+                    error_items = status_item.get("errors") or []
+                    error_codigo = None
+                    error_mensaje = None
+                    if error_items:
+                        error_codigo = str(error_items[0].get("code") or "")
+                        error_mensaje = error_items[0].get("title") or error_items[0].get("message")
+                    if meta_message_id:
+                        conn = get_connection()
+                        conn.execute("""
+                            UPDATE whatsapp_envios
+                            SET estado = %s,
+                                error_codigo = COALESCE(%s, error_codigo),
+                                error_mensaje = COALESCE(%s, error_mensaje),
+                                respuesta = %s
+                            WHERE meta_message_id = %s
+                        """, (
+                            estado,
+                            error_codigo,
+                            error_mensaje,
+                            json.dumps(status_item, ensure_ascii=False, default=str),
+                            meta_message_id,
+                        ))
+                        conn.commit()
+                        conn.close()
+                    procesado = True
+    except Exception:
+        app.logger.exception("No se pudo procesar el webhook de WhatsApp.")
+
+    registrar_whatsapp_webhook("receive", payload, procesado=procesado)
+    return Response("ok", status=200, mimetype="text/plain")
 
 
 @app.after_request
@@ -13230,6 +13594,71 @@ def enviar_email_comunicacion_morosos_lote():
     return redirect(url_for("ver_comunicaciones", mensaje=template))
 
 
+@app.route("/comunicaciones/<int:jugador_id>/whatsapp", methods=["POST"])
+def enviar_whatsapp_comunicacion_moroso(jugador_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    template_default = (
+        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
+        "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
+    )
+    template = request.form.get("mensaje", template_default).strip() or template_default
+    jugadores = obtener_morosos_para_comunicacion()
+    jugador = next((item for item in jugadores if item["id"] == jugador_id), None)
+    if jugador is None:
+        flash("Jugador no encontrado en el listado de deuda.", "error")
+        return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+    mensaje = mensaje_moroso(template, jugador)
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_jugador(
+        jugador,
+        mensaje,
+        tipo="comunicacion_moroso",
+        entidad="moroso",
+        entidad_id=str(jugador_id),
+    )
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "moroso", str(jugador_id), {"destinatario": destinatario, "tipo": "comunicacion_moroso_whatsapp"})
+        flash("WhatsApp enviado.", "ok")
+    else:
+        flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+
+@app.route("/comunicaciones/whatsapp-lote", methods=["POST"])
+def enviar_whatsapp_comunicacion_morosos_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    template_default = (
+        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
+        "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
+    )
+    template = request.form.get("mensaje", template_default).strip() or template_default
+    jugadores = obtener_morosos_para_comunicacion()
+    resultados = []
+    for jugador in jugadores:
+        mensaje = mensaje_moroso(template, jugador)
+        resultados.append(enviar_whatsapp_jugador(
+            jugador,
+            mensaje,
+            tipo="comunicacion_moroso",
+            entidad="moroso",
+            entidad_id=str(jugador["id"]),
+        ))
+
+    enviados = sum(1 for ok, _, _, _ in resultados if ok)
+    registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos_whatsapp"})
+    mensaje_resultado, nivel = resumir_envio_masivo_whatsapp(resultados, "WhatsApps de comunicacion")
+    flash(mensaje_resultado, nivel)
+    return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+
 @app.route("/notificaciones")
 def ver_notificaciones():
     check = permiso_requerido("comunicaciones_ver")
@@ -13348,6 +13777,56 @@ def enviar_recordatorio_cuota(cuota_id):
     return redirect(url_for("ver_notificaciones"))
 
 
+@app.route("/notificaciones/cuotas/<int:cuota_id>/whatsapp", methods=["POST"])
+def enviar_recordatorio_cuota_whatsapp(cuota_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    cuota = conn.execute("""
+        SELECT
+            c.id AS cuota_id,
+            c.periodo,
+            c.importe,
+            c.fecha_vencimiento,
+            CASE
+                WHEN c.fecha_vencimiento IS NOT NULL
+                 AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
+                 AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                THEN GREATEST((CURRENT_DATE - c.fecha_vencimiento::date), 0)
+                ELSE 0
+            END AS dias_vencida,
+            j.id AS jugador_id,
+            j.nombre,
+            j.apellido,
+            j.telefono,
+            j.telefono_tutor
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.id = %s
+    """, (cuota_id,)).fetchone()
+    conn.close()
+    if cuota is None:
+        flash("Cuota no encontrada.", "error")
+        return redirect(url_for("ver_notificaciones"))
+
+    cuerpo = construir_texto_recordatorio_cuota(cuota)
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_jugador(
+        cuota,
+        cuerpo,
+        tipo="recordatorio_cuota",
+        entidad="cuota",
+        entidad_id=str(cuota_id),
+    )
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "cuota", str(cuota_id), {"destinatario": destinatario, "tipo": "cuota_whatsapp"})
+        flash("Recordatorio de cuota enviado por WhatsApp.", "ok")
+    else:
+        flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
 @app.route("/notificaciones/fichas/<int:jugador_id>/email", methods=["POST"])
 def enviar_recordatorio_ficha(jugador_id):
     check = permiso_requerido("comunicaciones_ver")
@@ -13391,6 +13870,53 @@ def enviar_recordatorio_ficha(jugador_id):
     return redirect(url_for("ver_notificaciones"))
 
 
+@app.route("/notificaciones/fichas/<int:jugador_id>/whatsapp", methods=["POST"])
+def enviar_recordatorio_ficha_whatsapp(jugador_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    ficha = conn.execute("""
+        SELECT
+            j.id AS jugador_id,
+            j.nombre,
+            j.apellido,
+            j.telefono,
+            j.telefono_tutor,
+            f.fecha_vencimiento,
+            CASE
+                WHEN f.id IS NULL OR f.fecha_vencimiento IS NULL OR NULLIF(f.fecha_vencimiento::text, '') IS NULL THEN 'faltante'
+                WHEN f.fecha_vencimiento::text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN 'faltante'
+                WHEN f.fecha_vencimiento::date < CURRENT_DATE THEN 'vencida'
+                WHEN f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'
+                ELSE 'vigente'
+            END AS estado_documento
+        FROM jugadores j
+        LEFT JOIN fichas_medicas f ON f.jugador_id = j.id
+        WHERE j.id = %s
+    """, (jugador_id,)).fetchone()
+    conn.close()
+    if ficha is None:
+        flash("Jugador no encontrado.", "error")
+        return redirect(url_for("ver_notificaciones"))
+
+    cuerpo = construir_texto_recordatorio_ficha(ficha)
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_jugador(
+        ficha,
+        cuerpo,
+        tipo="recordatorio_ficha",
+        entidad="ficha_medica",
+        entidad_id=str(jugador_id),
+    )
+    if enviado:
+        registrar_auditoria("enviar_recordatorio", "ficha_medica", str(jugador_id), {"destinatario": destinatario, "tipo": "ficha_medica_whatsapp"})
+        flash("Recordatorio de ficha médica enviado por WhatsApp.", "ok")
+    else:
+        flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
 @app.route("/notificaciones/cuotas/email-lote", methods=["POST"])
 def enviar_recordatorios_cuotas_lote():
     check = permiso_requerido("comunicaciones_ver")
@@ -13409,6 +13935,30 @@ def enviar_recordatorios_cuotas_lote():
     return redirect(url_for("ver_notificaciones"))
 
 
+@app.route("/notificaciones/cuotas/whatsapp-lote", methods=["POST"])
+def enviar_recordatorios_cuotas_whatsapp_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    modo = request.form.get("modo", "vencidas").strip()
+    datos = obtener_notificaciones_operativas()
+    cuotas = datos["cuotas_vencidas"] if modo == "vencidas" else datos["cuotas_por_vencer"]
+    resultados = []
+    for cuota in cuotas:
+        cuerpo = construir_texto_recordatorio_cuota(cuota)
+        resultados.append(enviar_whatsapp_jugador(
+            cuota,
+            cuerpo,
+            tipo="recordatorio_cuota",
+            entidad="cuota",
+            entidad_id=str(cuota["cuota_id"]),
+        ))
+    mensaje_resultado, nivel = resumir_envio_masivo_whatsapp(resultados, "recordatorios por WhatsApp")
+    flash(mensaje_resultado, nivel)
+    return redirect(url_for("ver_notificaciones"))
+
+
 @app.route("/notificaciones/fichas/email-lote", methods=["POST"])
 def enviar_recordatorios_fichas_lote():
     check = permiso_requerido("comunicaciones_ver")
@@ -13421,6 +13971,28 @@ def enviar_recordatorios_fichas_lote():
         cuerpo = construir_texto_recordatorio_ficha(ficha)
         resultados.append(enviar_email_jugador(ficha, "Recordatorio de ficha m\u00e9dica", cuerpo))
     mensaje_resultado, nivel = resumir_envio_masivo_email(resultados, "recordatorios de ficha m\u00e9dica")
+    flash(mensaje_resultado, nivel)
+    return redirect(url_for("ver_notificaciones"))
+
+
+@app.route("/notificaciones/fichas/whatsapp-lote", methods=["POST"])
+def enviar_recordatorios_fichas_whatsapp_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    datos = obtener_notificaciones_operativas()
+    resultados = []
+    for ficha in datos["fichas"]:
+        cuerpo = construir_texto_recordatorio_ficha(ficha)
+        resultados.append(enviar_whatsapp_jugador(
+            ficha,
+            cuerpo,
+            tipo="recordatorio_ficha",
+            entidad="ficha_medica",
+            entidad_id=str(ficha["jugador_id"]),
+        ))
+    mensaje_resultado, nivel = resumir_envio_masivo_whatsapp(resultados, "recordatorios de ficha médica por WhatsApp")
     flash(mensaje_resultado, nivel)
     return redirect(url_for("ver_notificaciones"))
 
