@@ -3414,6 +3414,27 @@ def obtener_calendario(mes):
 
 def normalizar_telefono_whatsapp(telefono):
     digitos = re.sub(r"\D+", "", telefono or "")
+    if not digitos:
+        return ""
+
+    if digitos.startswith("00"):
+        digitos = digitos[2:]
+
+    if digitos.startswith("549"):
+        return digitos
+
+    if digitos.startswith("54"):
+        resto = digitos[2:]
+        if resto.startswith("9"):
+            return digitos
+        return "549" + resto.lstrip("0")
+
+    if digitos.startswith("0"):
+        digitos = digitos.lstrip("0")
+
+    if 10 <= len(digitos) <= 11:
+        return "549" + digitos
+
     return digitos
 
 
@@ -13500,6 +13521,41 @@ def exportar_datos_integral():
     )
 
 
+def template_morosos_default():
+    return (
+        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
+        "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
+    )
+
+
+def construir_texto_recordatorio_cuota(cuota):
+    nombre = nombre_jugador_corto(cuota)
+    estado = "vencio" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
+    fecha = cuota.get("fecha_vencimiento") or "-"
+    return (
+        f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
+        f"La cuota {cuota.get('periodo') or '-'} por {formato_moneda(cuota.get('importe') or 0)} {estado} el {fecha}.\n"
+        "Si ya realizaste el pago, podes responder este mensaje o cargar el comprobante desde tu portal.\n\n"
+        "Gracias."
+    )
+
+
+def construir_texto_recordatorio_ficha(ficha):
+    nombre = nombre_jugador_corto(ficha)
+    if ficha.get("estado_documento") == "vencida":
+        estado = f"vencio el {ficha.get('fecha_vencimiento') or '-'}"
+    elif ficha.get("estado_documento") == "por_vencer":
+        estado = f"vence el {ficha.get('fecha_vencimiento') or '-'}"
+    else:
+        estado = "figura pendiente de carga"
+    return (
+        f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
+        f"La ficha medica {estado}. Cuando puedas, acercanos la actualizacion o cargala por los canales habituales.\n\n"
+        "Gracias."
+    )
+
+
 @app.route("/comunicaciones")
 def ver_comunicaciones():
     check = permiso_requerido("comunicaciones_ver")
@@ -13511,6 +13567,7 @@ def ver_comunicaciones():
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
         "Te pedimos regularizar la situaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n o avisarnos si ya realizaste el pago. Gracias."
     )
+    template_default = template_morosos_default()
     template = request.args.get("mensaje", template_default).strip() or template_default
     morosos = obtener_morosos_para_comunicacion()
 
@@ -13550,6 +13607,7 @@ def enviar_email_comunicacion_moroso(jugador_id):
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
         "Te pedimos regularizar la situaci\u00f3n o avisarnos si ya realizaste el pago. Gracias."
     )
+    template_default = template_morosos_default()
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
     jugador = next((item for item in jugadores if item["id"] == jugador_id), None)
@@ -13579,6 +13637,7 @@ def enviar_email_comunicacion_morosos_lote():
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
         "Te pedimos regularizar la situaci\u00f3n o avisarnos si ya realizaste el pago. Gracias."
     )
+    template_default = template_morosos_default()
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
     resultados = []
@@ -13605,6 +13664,7 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
         "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
     )
+    template_default = template_morosos_default()
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
     jugador = next((item for item in jugadores if item["id"] == jugador_id), None)
@@ -13639,6 +13699,7 @@ def enviar_whatsapp_comunicacion_morosos_lote():
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
         "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
     )
+    template_default = template_morosos_default()
     template = request.form.get("mensaje", template_default).strip() or template_default
     jugadores = obtener_morosos_para_comunicacion()
     resultados = []
