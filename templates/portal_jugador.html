@@ -62,6 +62,11 @@
                 <strong class="portal-summary-value">{{ tests_recientes | length }}</strong>
                 <span class="muted-line">{% if resumen_tests %}Tu evoluci&oacute;n deportiva ya est&aacute; disponible.{% else %}Todav&iacute;a no hay mediciones cargadas.{% endif %}</span>
             </article>
+            <article class="card portal-summary-card">
+                <span class="portal-summary-label">Gastos compartidos</span>
+                <strong class="portal-summary-value {% if gasto_pendiente_total > 0 %}text-danger{% endif %}">{{ gasto_pendiente_total | moneda }}</strong>
+                <span class="muted-line">{{ gastos_pendientes | length }} pendiente(s) · {{ gastos_pagados | length }} pago(s) registrados</span>
+            </article>
         </section>
 
         {% if portal_alertas %}

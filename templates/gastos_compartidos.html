@@ -15,6 +15,33 @@
     </div>
 </div>
 
+<form method="get" class="card spaced-small toolbar-card">
+    <div class="report-filter-grid">
+        <div>
+            <label>Estado</label>
+            <select name="estado">
+                <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                <option value="activos" {% if estado_filtro == 'activos' %}selected{% endif %}>Solo activos</option>
+                <option value="con_pendientes" {% if estado_filtro == 'con_pendientes' %}selected{% endif %}>Con pendientes</option>
+                <option value="con_revision" {% if estado_filtro == 'con_revision' %}selected{% endif %}>Con comprobantes a revisar</option>
+            </select>
+        </div>
+        <div>
+            <label>Categor&iacute;a</label>
+            <select name="categoria">
+                <option value="">Todas</option>
+                {% for categoria in categorias_disponibles %}
+                    <option value="{{ categoria }}" {% if categoria_filtro == categoria %}selected{% endif %}>{{ categoria }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Aplicar filtros</button>
+        <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Limpiar</a>
+    </div>
+</form>
+
 <div class="dashboard-cards report-cards spaced admin-kpi-grid">
     <div class="card stat-card">
         <h3>Gastos cargados</h3>
@@ -75,10 +102,16 @@
                 </td>
                 <td>
                     {{ gasto['jugadores_total'] or 0 }} asignados
+                    {% if gasto['categorias'] %}
+                        <span class="muted-line">{{ gasto['categorias'] }}</span>
+                    {% endif %}
                     <span class="muted-line">{{ gasto['pagados'] or 0 }} pagados · {{ gasto['pendientes'] or 0 }} pendientes</span>
                 </td>
                 <td>
                     <span class="badge {% if gasto['estado'] == 'Activo' %}badge-success{% else %}badge-muted{% endif %}">{{ gasto['estado'] }}</span>
+                    {% if gasto['estado'] == 'Cerrado' and gasto['cierre_monto'] %}
+                        <span class="muted-line">{{ gasto['cierre_monto'] | moneda }} a caja</span>
+                    {% endif %}
                     {% if gasto['comprobantes_revision'] %}
                         <span class="muted-line">{{ gasto['comprobantes_revision'] }} comprobante(s) a revisar</span>
                     {% endif %}

@@ -7,15 +7,32 @@
     <div>
         <h2>{{ gasto['titulo'] }}</h2>
         <p class="page-intro">Seguimiento de cargos, comprobantes y cobro por jugador.</p>
+        {% if gasto['estado'] == 'Cerrado' %}
+            <p class="report-note">Cerrado por {{ gasto['cerrado_por'] or '-' }} el {{ gasto['cerrado_en'] or '-' }}. El detalle sigue disponible para consulta de comprobantes.</p>
+            {% if gasto['cierre_movimiento_id'] %}
+                <p class="report-note">Ingreso en caja registrado por {{ (gasto['cierre_monto'] or 0) | moneda }}.</p>
+            {% endif %}
+        {% endif %}
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Volver</a>
         {% if puede('cuotas_gestionar') %}
-            <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
-            <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button class="button danger" type="submit">Eliminar</button>
-            </form>
+            <a class="button secondary" href="{{ url_for('exportar_gasto_compartido', gasto_id=gasto['id']) }}">Exportar CSV</a>
+            {% if gasto['estado'] != 'Cerrado' %}
+                <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
+                <form method="post" action="{{ url_for('enviar_recordatorios_gasto_compartido_lote', gasto_id=gasto['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Recordar pendientes</button>
+                </form>
+                <form method="post" action="{{ url_for('cerrar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('¿Cerrar este gasto compartido? Los cobros pagados se registrarán en caja como un único ingreso y ya no se podrá editar.');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button" type="submit">Cerrar gasto</button>
+                </form>
+                <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button danger" type="submit">Eliminar</button>
+                </form>
+            {% endif %}
         {% endif %}
     </div>
 </div>
@@ -37,6 +54,15 @@
         <h3>Evento</h3>
         <p class="stat-number compact">{{ gasto['fecha_evento'] or '-' }}</p>
         <span class="muted-line">{{ gasto['evento_titulo'] or 'Sin evento vinculado' }}</span>
+    </div>
+    <div class="card stat-card {% if gasto['estado'] == 'Cerrado' %}alert-card-info{% endif %}">
+        <h3>Estado</h3>
+        <p class="stat-number compact">{{ gasto['estado'] or 'Activo' }}</p>
+        {% if gasto['estado'] == 'Cerrado' %}
+            <span class="muted-line">{{ (gasto['cierre_monto'] or 0) | moneda }} registrado</span>
+        {% else %}
+            <span class="muted-line">Gestion editable</span>
+        {% endif %}
     </div>
     <div class="card stat-card alert-card-info">
         <h3>Cobrado</h3>
@@ -119,7 +145,7 @@
                     {% endif %}
                 </td>
                 <td class="actions">
-                    {% if puede('cuotas_gestionar') %}
+                    {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
                         {% if item['comprobante_drive_file_id'] and item['estado'] == 'pendiente' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -155,6 +181,12 @@
                                 <button class="button secondary" type="submit">Restaurar</button>
                             </form>
                         {% endif %}
+                        <form method="post" action="{{ url_for('enviar_recordatorio_gasto_compartido', item_id=item['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button secondary" type="submit" {% if not (item['email'] or item['email_tutor']) %}disabled{% endif %}>Email</button>
+                        </form>
+                    {% elif gasto['estado'] == 'Cerrado' %}
+                        <span class="muted-line">Solo consulta</span>
                     {% endif %}
                 </td>
             </tr>

@@ -2446,6 +2446,18 @@ def obtener_reportes(desde, hasta):
         ORDER BY categoria ASC
     """, (desde, hasta)).fetchall()
 
+    gastos_compartidos_resumen = conn.execute("""
+        SELECT
+            COUNT(DISTINCT g.id) AS gastos,
+            COUNT(i.id) FILTER (WHERE i.estado = 'pendiente') AS items_pendientes,
+            COUNT(i.id) FILTER (WHERE i.estado = 'pagado') AS items_pagados,
+            COALESCE(SUM(i.importe) FILTER (WHERE i.estado = 'pendiente'), 0) AS pendiente,
+            COALESCE(SUM(i.importe) FILTER (WHERE i.estado = 'pagado'), 0) AS cobrado
+        FROM gastos_compartidos g
+        LEFT JOIN gasto_compartido_items i ON i.gasto_id = g.id
+        WHERE substring(COALESCE(g.fecha_evento::text, g.fecha_vencimiento::text, g.creado_en::text) from 1 for 7) BETWEEN %s AND %s
+    """, (desde, hasta)).fetchone()
+
     conn.close()
 
     movimientos_por_mes = {fila["mes"]: fila for fila in movimientos_mensuales}
@@ -2515,6 +2527,11 @@ def obtener_reportes(desde, hasta):
             "asistencia_presentes": asistencia_presentes,
             "asistencia_registros": asistencia_registros,
             "asistencia_porcentaje": asistencia_porcentaje,
+            "gastos_compartidos": gastos_compartidos_resumen["gastos"] or 0,
+            "gastos_compartidos_cobrado": gastos_compartidos_resumen["cobrado"] or 0,
+            "gastos_compartidos_pendiente": gastos_compartidos_resumen["pendiente"] or 0,
+            "gastos_compartidos_items_pagados": gastos_compartidos_resumen["items_pagados"] or 0,
+            "gastos_compartidos_items_pendientes": gastos_compartidos_resumen["items_pendientes"] or 0,
         },
         "mensual": mensual,
         "deuda_por_categoria": deuda_por_categoria,
@@ -5037,6 +5054,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_gastos_compartidos_fecha
         ON gastos_compartidos (fecha_vencimiento, creado_en DESC)
     """)
+
+    columnas_gastos_compartidos = get_columns(conn, "gastos_compartidos")
+    columnas_extra_gastos_compartidos = {
+        "fuente_jugadores": "TEXT DEFAULT 'manual'",
+        "actualizado_en": "TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "cerrado_en": "TIMESTAMPTZ",
+        "cerrado_por": "TEXT",
+        "cierre_movimiento_id": "INTEGER",
+        "cierre_monto": "REAL",
+    }
+    for columna, definicion in columnas_extra_gastos_compartidos.items():
+        if columna not in columnas_gastos_compartidos:
+            conn.execute(f"ALTER TABLE gastos_compartidos ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS gasto_compartido_items (
@@ -11357,12 +11387,32 @@ def jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_i
     return []
 
 
+def construir_texto_gasto_compartido(item):
+    nombre = nombre_jugador_corto(item)
+    titulo = item.get("titulo") or "gasto compartido"
+    importe = formato_moneda(item.get("importe") or 0)
+    vencimiento = item.get("fecha_vencimiento") or "sin vencimiento"
+    concepto = item.get("concepto") or "Sin detalle adicional."
+    return (
+        f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
+        f"Tenes pendiente el gasto compartido \"{titulo}\" por {importe}. "
+        f"Vencimiento: {vencimiento}. "
+        f"Detalle: {concepto}"
+    )
+
+
+def gasto_compartido_esta_cerrado(gasto):
+    return (gasto.get("estado") or "").strip().lower() == "cerrado"
+
+
 @app.route("/gastos-compartidos")
 def listar_gastos_compartidos():
     check = permiso_requerido("cuotas_ver")
     if check:
         return check
 
+    estado_filtro = (request.args.get("estado") or "todos").strip().lower()
+    categoria_filtro = (request.args.get("categoria") or "").strip()
     conn = get_connection()
     gastos = conn.execute("""
         SELECT
@@ -11372,15 +11422,36 @@ def listar_gastos_compartidos():
             COUNT(*) FILTER (WHERE i.estado = 'pagado') AS pagados,
             COUNT(*) FILTER (WHERE i.estado = 'exento') AS exentos,
             COUNT(*) FILTER (WHERE i.estado = 'pendiente') AS pendientes,
+            STRING_AGG(DISTINCT COALESCE(NULLIF(j.categoria, ''), 'Sin categoria'), ', ') AS categorias,
             COUNT(*) FILTER (
                 WHERE COALESCE(NULLIF(i.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'rechazado')
                   AND i.estado = 'pendiente'
             ) AS comprobantes_revision
         FROM gastos_compartidos g
         LEFT JOIN gasto_compartido_items i ON i.gasto_id = g.id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
         GROUP BY g.id
         ORDER BY COALESCE(g.fecha_evento::timestamp, g.fecha_vencimiento::timestamp, g.creado_en) DESC, g.id DESC
     """).fetchall()
+    categorias_disponibles = sorted({
+        categoria.strip()
+        for gasto in gastos
+        for categoria in (gasto.get("categorias") or "").split(",")
+        if categoria.strip()
+    })
+    gastos_filtrados = []
+    for gasto in gastos:
+        if estado_filtro == "activos" and (gasto.get("estado") or "").lower() != "activo":
+            continue
+        if estado_filtro == "con_pendientes" and not (gasto.get("pendientes") or 0):
+            continue
+        if estado_filtro == "con_revision" and not (gasto.get("comprobantes_revision") or 0):
+            continue
+        if categoria_filtro:
+            categorias_gasto = {(valor or "").strip() for valor in (gasto.get("categorias") or "").split(",")}
+            if categoria_filtro not in categorias_gasto:
+                continue
+        gastos_filtrados.append(gasto)
     resumen = conn.execute("""
         SELECT
             COUNT(*) AS total,
@@ -11400,7 +11471,14 @@ def listar_gastos_compartidos():
         FROM gastos_compartidos
     """).fetchone()
     conn.close()
-    return render_template("gastos_compartidos.html", gastos=gastos, resumen=resumen)
+    return render_template(
+        "gastos_compartidos.html",
+        gastos=gastos_filtrados,
+        resumen=resumen,
+        estado_filtro=estado_filtro,
+        categoria_filtro=categoria_filtro,
+        categorias_disponibles=categorias_disponibles,
+    )
 
 
 @app.route("/gastos-compartidos/nuevo", methods=["GET", "POST"])
@@ -11560,6 +11638,10 @@ def editar_gasto_compartido(gasto_id):
         conn.close()
         flash("Gasto compartido no encontrado.", "error")
         return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado(gasto):
+        conn.close()
+        flash("Ese gasto compartido ya esta cerrado y no se puede editar.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
 
     jugadores_activos = conn.execute("""
         SELECT id, apellido, nombre, categoria
@@ -11765,7 +11847,9 @@ def ver_gasto_compartido(gasto_id):
             i.*,
             j.apellido,
             j.nombre,
-            j.categoria
+            j.categoria,
+            j.email,
+            j.email_tutor
         FROM gasto_compartido_items i
         JOIN jugadores j ON j.id = i.jugador_id
         WHERE i.gasto_id = %s
@@ -11795,6 +11879,191 @@ def ver_gasto_compartido(gasto_id):
     return render_template("gasto_compartido_detalle.html", gasto=gasto, items=items, resumen=resumen)
 
 
+@app.route("/gastos-compartidos/<int:gasto_id>/exportar")
+def exportar_gasto_compartido(gasto_id):
+    check = permiso_requerido("cuotas_ver")
+    if check:
+        return check
+    conn = get_connection()
+    gasto = conn.execute("SELECT * FROM gastos_compartidos WHERE id = %s", (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    items = conn.execute("""
+        SELECT
+            i.*,
+            j.apellido,
+            j.nombre,
+            j.categoria,
+            j.telefono,
+            j.email
+        FROM gasto_compartido_items i
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.gasto_id = %s
+        ORDER BY j.apellido, j.nombre
+    """, (gasto_id,)).fetchall()
+    conn.close()
+
+    export_dir = BASE_DIR / "exports"
+    export_dir.mkdir(exist_ok=True)
+    nombre_archivo = secure_filename(f"gasto_compartido_{gasto_id}_{gasto.get('titulo') or 'detalle'}") or f"gasto_compartido_{gasto_id}"
+    ruta = export_dir / f"{nombre_archivo}.csv"
+    with ruta.open("w", newline="", encoding="utf-8-sig") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["Apellido", "Nombre", "Categoria", "Importe", "Estado", "Fecha pago", "Telefono", "Email", "Comprobante"])
+        for item in items:
+            writer.writerow([
+                item.get("apellido") or "",
+                item.get("nombre") or "",
+                item.get("categoria") or "",
+                item.get("importe") or 0,
+                item.get("estado") or "",
+                item.get("fecha_pago") or "",
+                item.get("telefono") or "",
+                item.get("email") or "",
+                item.get("comprobante_nombre") or "",
+            ])
+    return send_file(ruta, as_attachment=True, download_name=f"{nombre_archivo}.csv")
+
+
+@app.route("/gastos-compartidos/items/<int:item_id>/email", methods=["POST"])
+def enviar_recordatorio_gasto_compartido(item_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT
+            i.*,
+            g.titulo,
+            g.concepto,
+            g.fecha_vencimiento,
+            g.id AS gasto_id,
+            g.estado AS gasto_estado,
+            j.nombre,
+            j.apellido,
+            j.email,
+            j.email_tutor
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.id = %s
+    """, (item_id,)).fetchone()
+    conn.close()
+    if item is None:
+        flash("Pago compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+        flash("El gasto compartido ya esta cerrado y no admite nuevos recordatorios.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    asunto = f"Gasto compartido pendiente - {item.get('titulo') or 'Ruda Macho Rugby Club'}"
+    cuerpo = construir_texto_gasto_compartido(item)
+    enviado, destinatario, motivo = enviar_email_jugador(item, asunto, cuerpo)
+    flash("Recordatorio enviado por email." if enviado else mensaje_fallo_email(motivo, destinatario), "ok" if enviado else "error")
+    return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+
+@app.route("/gastos-compartidos/<int:gasto_id>/email-pendientes", methods=["POST"])
+def enviar_recordatorios_gasto_compartido_lote(gasto_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    items = conn.execute("""
+        SELECT
+            i.*,
+            g.titulo,
+            g.concepto,
+            g.fecha_vencimiento,
+            g.id AS gasto_id,
+            g.estado AS gasto_estado,
+            j.nombre,
+            j.apellido,
+            j.email,
+            j.email_tutor
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.gasto_id = %s
+          AND i.estado = 'pendiente'
+    """, (gasto_id,)).fetchall()
+    conn.close()
+    if items and gasto_compartido_esta_cerrado({"estado": items[0].get("gasto_estado")}):
+        flash("Ese gasto compartido ya esta cerrado y no admite nuevos recordatorios.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+    resultados = []
+    for item in items:
+        asunto = f"Gasto compartido pendiente - {item.get('titulo') or 'Ruda Macho Rugby Club'}"
+        cuerpo = construir_texto_gasto_compartido(item)
+        resultados.append(enviar_email_jugador(item, asunto, cuerpo))
+    mensaje, categoria = resumir_envio_masivo_email(resultados, "recordatorio(s) de gasto compartido")
+    flash(mensaje, categoria)
+    return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+
+@app.route("/gastos-compartidos/<int:gasto_id>/cerrar", methods=["POST"])
+def cerrar_gasto_compartido(gasto_id):
+    check = permiso_requerido("cuotas_gestionar", "caja_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    gasto = conn.execute("SELECT * FROM gastos_compartidos WHERE id = %s", (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado(gasto):
+        conn.close()
+        flash("Ese gasto compartido ya estaba cerrado.", "warning")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+    resumen = conn.execute("""
+        SELECT COALESCE(SUM(importe) FILTER (WHERE estado = 'pagado'), 0) AS total_cobrado
+        FROM gasto_compartido_items
+        WHERE gasto_id = %s
+    """, (gasto_id,)).fetchone()
+    total_cobrado = round(float(resumen.get("total_cobrado") or 0), 2)
+    fecha_cierre = datetime.now().strftime("%Y-%m-%d")
+    if mes_esta_cerrado(fecha_cierre[:7]):
+        conn.close()
+        flash("No se puede cerrar el gasto porque el mes actual de caja ya esta cerrado.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+    movimiento_id = None
+    if total_cobrado > 0:
+        movimiento = conn.execute("""
+            INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            "ingreso",
+            f"Cierre gasto compartido: {gasto.get('titulo') or f'#{gasto_id}'}",
+            total_cobrado,
+            fecha_cierre,
+            f"Gasto compartido #{gasto_id}",
+        )).fetchone()
+        movimiento_id = movimiento["id"]
+
+    conn.execute("""
+        UPDATE gastos_compartidos
+        SET estado = 'Cerrado',
+            cerrado_en = CURRENT_TIMESTAMP,
+            cerrado_por = %s,
+            cierre_movimiento_id = %s,
+            cierre_monto = %s,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (session.get("username"), movimiento_id, total_cobrado, gasto_id))
+    conn.commit()
+    conn.close()
+    if movimiento_id:
+        flash("Gasto compartido cerrado y cobro registrado en caja como un unico ingreso.", "ok")
+    else:
+        flash("Gasto compartido cerrado. No habia cobros pagados para registrar en caja.", "ok")
+    return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+
 @app.route("/gastos-compartidos/<int:gasto_id>/eliminar", methods=["POST"])
 def eliminar_gasto_compartido(gasto_id):
     check = permiso_requerido("cuotas_gestionar")
@@ -11806,6 +12075,10 @@ def eliminar_gasto_compartido(gasto_id):
         conn.close()
         flash("Gasto compartido no encontrado.", "error")
         return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado(gasto):
+        conn.close()
+        flash("No se puede eliminar un gasto compartido cerrado.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
     conn.execute("DELETE FROM gasto_compartido_items WHERE gasto_id = %s", (gasto_id,))
     conn.execute("DELETE FROM gastos_compartidos WHERE id = %s", (gasto_id,))
     conn.commit()
@@ -11857,7 +12130,7 @@ def actualizar_item_gasto_compartido(item_id):
     observaciones = request.form.get("observaciones", "").strip()
     conn = get_connection()
     item = conn.execute("""
-        SELECT i.*, g.id AS gasto_id
+        SELECT i.*, g.id AS gasto_id, g.estado AS gasto_estado
         FROM gasto_compartido_items i
         JOIN gastos_compartidos g ON g.id = i.gasto_id
         WHERE i.id = %s
@@ -11866,6 +12139,10 @@ def actualizar_item_gasto_compartido(item_id):
         conn.close()
         flash("Pago compartido no encontrado.", "error")
         return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+        conn.close()
+        flash("El gasto compartido esta cerrado y ya no admite cambios.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
     ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if accion == "aprobar":
@@ -11947,6 +12224,7 @@ def portal_subir_comprobante_gasto_compartido(token, item_id):
             i.*,
             g.titulo,
             g.fecha_vencimiento,
+            g.estado AS gasto_estado,
             j.id AS jugador_id,
             j.nombre,
             j.apellido
@@ -11960,6 +12238,10 @@ def portal_subir_comprobante_gasto_compartido(token, item_id):
     if item is None:
         conn.close()
         flash("No encontramos ese gasto en tu portal.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+        conn.close()
+        flash("Ese gasto compartido ya esta cerrado y no admite nuevos comprobantes.", "error")
         return redirect(url_for("portal_jugador", token=token))
 
     comprobante_pago = request.files.get("comprobante_pago")
@@ -12281,6 +12563,8 @@ def portal_jugador(token):
             "detalle": f"Actualmente tenes {formato_moneda(deuda)} pendientes de pago.",
         })
     gastos_pendientes = [item for item in gastos_compartidos if item.get("estado") == "pendiente"]
+    gastos_pagados = [item for item in gastos_compartidos if item.get("estado") == "pagado"]
+    gasto_pendiente_total = round(sum(float(item.get("importe") or 0) for item in gastos_pendientes), 2)
     if gastos_pendientes:
         portal_alertas.append({
             "nivel": "warning",
@@ -12338,6 +12622,9 @@ def portal_jugador(token):
         ficha_portal=ficha_portal,
         planes_pago=planes_pago,
         gastos_compartidos=gastos_compartidos,
+        gastos_pendientes=gastos_pendientes,
+        gastos_pagados=gastos_pagados,
+        gasto_pendiente_total=gasto_pendiente_total,
         tests_recientes=tests_recientes,
         resumen_tests=resumir_resultados_tests(tests_recientes),
         portal_tests=portal_tests,
@@ -17054,6 +17341,17 @@ def tomar_asistencia(evento_id):
         "promedio_general": promedio_general,
         "dolores_frecuentes": dolores_frecuentes,
     }
+    resumen_categoria = {}
+    for participante in participantes:
+        categoria = (participante.get("categoria") or "Sin categoria").strip() or "Sin categoria"
+        bucket = resumen_categoria.setdefault(categoria, {"total": 0, "confirmados": 0, "alertas": 0})
+        bucket["total"] += 1
+        if participante.get("confirmacion_portal"):
+            bucket["confirmados"] += 1
+            bienestar = participante["confirmacion_portal"].get("bienestar_resumen") or {}
+            if bienestar.get("nivel") == "danger":
+                bucket["alertas"] += 1
+    resumen_categoria = [{"categoria": categoria, **datos} for categoria, datos in sorted(resumen_categoria.items())]
 
     return render_template(
         "tomar_asistencia.html",
@@ -17061,6 +17359,7 @@ def tomar_asistencia(evento_id):
         participantes=participantes,
         puede_reabrir=session.get("rol") == "admin",
         bienestar_resumen_evento=bienestar_resumen_evento,
+        bienestar_por_categoria=resumen_categoria,
     )
 
 if os.environ.get("INIT_DB", "true").lower() in {"1", "true", "yes", "on"}:

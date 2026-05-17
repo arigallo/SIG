@@ -80,6 +80,17 @@
 </div>
 {% endif %}
 
+{% if bienestar_por_categoria %}
+<div class="card spaced-small attendance-summary-card">
+    <p><strong>Resumen por categor&iacute;a:</strong></p>
+    <div class="portal-chip-row">
+        {% for fila in bienestar_por_categoria %}
+            <span>{{ fila['categoria'] }} · {{ fila['confirmados'] }}/{{ fila['total'] }} con portal · {{ fila['alertas'] }} alerta(s)</span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <form method="post" class="attendance-form-shell">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-wrapper">

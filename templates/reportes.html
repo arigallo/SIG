@@ -81,6 +81,11 @@
         <p class="stat-number compact">{{ reportes['resumen']['asistencia_porcentaje'] }}%</p>
         <span class="report-note">{{ reportes['resumen']['asistencia_eventos'] }} eventos</span>
     </div>
+    <div class="card stat-card">
+        <h3>Gastos compartidos</h3>
+        <p class="stat-number">{{ reportes['resumen']['gastos_compartidos_cobrado'] | moneda }}</p>
+        <span class="report-note">{{ reportes['resumen']['gastos_compartidos_items_pagados'] }} pagos · {{ reportes['resumen']['gastos_compartidos_items_pendientes'] }} pendientes</span>
+    </div>
 </div>
 
 <div class="page-section">
