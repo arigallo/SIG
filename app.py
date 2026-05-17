@@ -19,8 +19,10 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from urllib.parse import quote
+from urllib.parse import urljoin
 from urllib.request import Request as UrlRequest, urlopen
 from urllib.error import HTTPError, URLError
+from html.parser import HTMLParser
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -5104,6 +5106,25 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_gasto_compartido_items_jugador
         ON gasto_compartido_items (jugador_id, estado, fecha_pago)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS urba_circulares (
+            id SERIAL PRIMARY KEY,
+            anio INTEGER NOT NULL,
+            titulo TEXT NOT NULL,
+            url TEXT NOT NULL,
+            origen_url TEXT,
+            orden_fuente INTEGER,
+            nueva INTEGER NOT NULL DEFAULT 1,
+            detectada_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizada_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            notificada_en TIMESTAMPTZ
+        )
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_urba_circulares_anio_url
+        ON urba_circulares (anio, url)
     """)
 
     conn.execute("""
@@ -11405,6 +11426,193 @@ def gasto_compartido_esta_cerrado(gasto):
     return (gasto.get("estado") or "").strip().lower() == "cerrado"
 
 
+class UrbaCircularesParser(HTMLParser):
+    def __init__(self, base_url):
+        super().__init__()
+        self.base_url = base_url
+        self.current_href = None
+        self.current_text = []
+        self.items = []
+        self.seen = set()
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() != "a":
+            return
+        attrs_map = dict(attrs)
+        self.current_href = attrs_map.get("href")
+        self.current_text = []
+
+    def handle_data(self, data):
+        if self.current_href is not None:
+            self.current_text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() != "a" or self.current_href is None:
+            return
+        titulo = " ".join(parte.strip() for parte in self.current_text if parte and parte.strip()).strip()
+        href = self.current_href.strip()
+        self.current_href = None
+        self.current_text = []
+        if not titulo or titulo.lower() == "image":
+            return
+        url = urljoin(self.base_url, href)
+        if "azureedge.net" not in url and not url.lower().endswith(".pdf"):
+            return
+        clave = (titulo, url)
+        if clave in self.seen:
+            return
+        self.seen.add(clave)
+        self.items.append({
+            "titulo": html.unescape(titulo),
+            "url": url,
+        })
+
+
+def urba_circulares_url_anio(anio):
+    anio = int(anio)
+    actual = datetime.now().year
+    if anio == actual:
+        return f"https://urba.org.ar/circulares-{anio}"
+    return f"https://urba.org.ar/circulares-{anio}-copy"
+
+
+def anios_circulares_urba():
+    actual = datetime.now().year
+    return list(range(actual, 2001, -1))
+
+
+def obtener_config_circulares_urba(conn=None):
+    own_conn = conn is None
+    conn = conn or get_connection()
+    rows = conn.execute("""
+        SELECT clave, valor, actualizado_en, actualizado_por
+        FROM app_settings
+        WHERE clave IN (
+            'urba_circulares_notify_user_ids',
+            'urba_circulares_sync_en',
+            'urba_circulares_sync_por'
+        )
+    """).fetchall()
+    if own_conn:
+        conn.close()
+    data = {row["clave"]: row for row in rows}
+    try:
+        notify_user_ids = json.loads((data.get("urba_circulares_notify_user_ids") or {}).get("valor") or "[]")
+    except (TypeError, ValueError):
+        notify_user_ids = []
+    notify_user_ids = [int(valor) for valor in notify_user_ids if str(valor).isdigit()]
+    return {
+        "notify_user_ids": notify_user_ids,
+        "sync_en": (data.get("urba_circulares_sync_en") or {}).get("valor"),
+        "sync_por": (data.get("urba_circulares_sync_por") or {}).get("valor"),
+        "actualizado_en": (data.get("urba_circulares_notify_user_ids") or {}).get("actualizado_en"),
+        "actualizado_por": (data.get("urba_circulares_notify_user_ids") or {}).get("actualizado_por"),
+    }
+
+
+def usuarios_notificar_circulares_urba(conn, user_ids):
+    ids = [int(valor) for valor in user_ids if str(valor).isdigit()]
+    if not ids:
+        return []
+    return conn.execute("""
+        SELECT id, username, email, rol
+        FROM usuarios
+        WHERE id = ANY(%s)
+          AND email IS NOT NULL
+          AND trim(email) <> ''
+        ORDER BY username
+    """, (ids,)).fetchall()
+
+
+def sincronizar_circulares_urba(conn, anio, usuario=None):
+    url = urba_circulares_url_anio(anio)
+    req = UrlRequest(url, headers={"User-Agent": "SIG-RMR/1.0 (+https://sig.rudamachorugby.com)"})
+    try:
+        with urlopen(req, timeout=20) as resp:
+            html_text = resp.read().decode("utf-8", errors="ignore")
+    except HTTPError as error:
+        raise RuntimeError(f"URBA devolvio {error.code} al consultar {url}.")
+    except URLError as error:
+        raise RuntimeError(f"No se pudo conectar con URBA: {error.reason}.")
+
+    parser = UrbaCircularesParser(url)
+    parser.feed(html_text)
+    items = parser.items
+    nuevas = []
+    conn.execute("UPDATE urba_circulares SET nueva = 0 WHERE anio = %s", (anio,))
+    for orden, item in enumerate(items, start=1):
+        existente = conn.execute("""
+            SELECT id
+            FROM urba_circulares
+            WHERE anio = %s
+              AND url = %s
+            LIMIT 1
+        """, (anio, item["url"])).fetchone()
+        if existente:
+            conn.execute("""
+                UPDATE urba_circulares
+                SET titulo = %s,
+                    origen_url = %s,
+                    orden_fuente = %s,
+                    actualizada_en = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (item["titulo"], url, orden, existente["id"]))
+            continue
+        fila = conn.execute("""
+            INSERT INTO urba_circulares (
+                anio, titulo, url, origen_url, orden_fuente, nueva,
+                detectada_en, actualizada_en
+            )
+            VALUES (%s, %s, %s, %s, %s, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING id, anio, titulo, url
+        """, (anio, item["titulo"], item["url"], url, orden)).fetchone()
+        nuevas.append(fila)
+
+    guardar_app_setting(conn, "urba_circulares_sync_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario)
+    guardar_app_setting(conn, "urba_circulares_sync_por", usuario or "", usuario)
+    return {
+        "anio": anio,
+        "url": url,
+        "total": len(items),
+        "nuevas": nuevas,
+    }
+
+
+def enviar_notificacion_circulares_urba(conn, nuevas, usuario=None):
+    config = obtener_config_circulares_urba(conn)
+    destinatarios = usuarios_notificar_circulares_urba(conn, config["notify_user_ids"])
+    if not nuevas or not destinatarios:
+        return []
+    asunto = f"Nuevas circulares URBA {nuevas[0]['anio']}"
+    lineas = [
+        "Se detectaron nuevas circulares en URBA:",
+        "",
+    ]
+    for item in nuevas[:20]:
+        lineas.append(f"- {item['titulo']}: {item['url']}")
+    if len(nuevas) > 20:
+        lineas.append("")
+        lineas.append(f"Y {len(nuevas) - 20} circular(es) mas.")
+    lineas.append("")
+    lineas.append("Consulta completa en SIG > URBA.")
+    cuerpo = "\n".join(lineas)
+    resultados = []
+    notificados_ids = []
+    for destinatario in destinatarios:
+        enviado, motivo = enviar_email(destinatario["email"], asunto, cuerpo)
+        resultados.append((destinatario, enviado, motivo))
+        if enviado:
+            notificados_ids.append(destinatario["id"])
+    if notificados_ids:
+        ids_circulares = [item["id"] for item in nuevas]
+        conn.execute("""
+            UPDATE urba_circulares
+            SET notificada_en = CURRENT_TIMESTAMP
+            WHERE id = ANY(%s)
+        """, (ids_circulares,))
+    return resultados
+
+
 @app.route("/gastos-compartidos")
 def listar_gastos_compartidos():
     check = permiso_requerido("cuotas_ver")
@@ -13557,6 +13765,96 @@ def ver_reportes():
         filtros=filtros,
         reportes=reportes,
     )
+
+
+@app.route("/urba/circulares")
+def listar_circulares_urba():
+    anios = anios_circulares_urba()
+    anio = request.args.get("anio", str(datetime.now().year)).strip()
+    anio = int(anio) if anio.isdigit() and int(anio) in anios else datetime.now().year
+    conn = get_connection()
+    circulares = conn.execute("""
+        SELECT *
+        FROM urba_circulares
+        WHERE anio = %s
+        ORDER BY COALESCE(orden_fuente, 9999), id
+    """, (anio,)).fetchall()
+    usuarios = []
+    config = obtener_config_circulares_urba(conn)
+    if session.get("rol") == "admin":
+        usuarios = conn.execute("""
+            SELECT id, username, email, rol
+            FROM usuarios
+            WHERE email IS NOT NULL
+              AND trim(email) <> ''
+            ORDER BY username
+        """).fetchall()
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE nueva = 1) AS nuevas,
+            COUNT(DISTINCT anio) AS anios_sincronizados
+        FROM urba_circulares
+    """).fetchone()
+    conn.close()
+    return render_template(
+        "circulares_urba.html",
+        anio=anio,
+        anios=anios,
+        circulares=circulares,
+        config=config,
+        usuarios_notificables=usuarios,
+        resumen=resumen,
+    )
+
+
+@app.route("/urba/circulares/sync", methods=["POST"])
+def sincronizar_circulares_urba_view():
+    if session.get("rol") != "admin":
+        flash("Solo admins pueden sincronizar circulares URBA.", "error")
+        return redirect(url_for("listar_circulares_urba"))
+    anio_raw = (request.form.get("anio") or "").strip()
+    anios = anios_circulares_urba()
+    anio = int(anio_raw) if anio_raw.isdigit() and int(anio_raw) in anios else datetime.now().year
+    conn = get_connection()
+    try:
+        resultado = sincronizar_circulares_urba(conn, anio, session.get("username"))
+        notificaciones = enviar_notificacion_circulares_urba(conn, resultado["nuevas"], session.get("username"))
+        conn.commit()
+    except RuntimeError as error:
+        conn.rollback()
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("listar_circulares_urba", anio=anio))
+    conn.close()
+    extras = []
+    if resultado["nuevas"]:
+        extras.append(f"{len(resultado['nuevas'])} nueva(s)")
+    if notificaciones:
+        enviados = sum(1 for _, ok, _ in notificaciones if ok)
+        extras.append(f"{enviados} email(s) enviados")
+    detalle = f" ({', '.join(extras)})" if extras else ""
+    flash(f"Sincronizacion URBA {anio} completada{detalle}.", "ok")
+    return redirect(url_for("listar_circulares_urba", anio=anio))
+
+
+@app.route("/urba/circulares/notificaciones", methods=["POST"])
+def guardar_notificaciones_circulares_urba():
+    if session.get("rol") != "admin":
+        flash("Solo admins pueden configurar notificaciones de circulares URBA.", "error")
+        return redirect(url_for("listar_circulares_urba"))
+    seleccion = [int(valor) for valor in request.form.getlist("notify_user_ids") if str(valor).isdigit()]
+    conn = get_connection()
+    guardar_app_setting(
+        conn,
+        "urba_circulares_notify_user_ids",
+        json.dumps(seleccion, ensure_ascii=False),
+        session.get("username"),
+    )
+    conn.commit()
+    conn.close()
+    flash("Usuarios de notificacion automatica actualizados.", "ok")
+    return redirect(url_for("listar_circulares_urba", anio=request.form.get("anio") or datetime.now().year))
 
 
 def estilizar_hoja_reporte(ws, header_row=1):

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Circulares URBA{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Circulares URBA</h2>
+        <p class="page-intro">Consulta interna de circulares vigentes e historicas de URBA, con sincronizacion y aviso por email.</p>
+    </div>
+    <div class="actions">
+        {% if session.get('rol') == 'admin' %}
+            <form method="post" action="{{ url_for('sincronizar_circulares_urba_view') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <button class="button" type="submit">Sincronizar {{ anio }}</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<form method="get" class="card spaced-small">
+    <div class="report-filter-grid">
+        <div>
+            <label>Año</label>
+            <select name="anio">
+                {% for opcion in anios %}
+                    <option value="{{ opcion }}" {% if opcion == anio %}selected{% endif %}>{{ opcion }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button" type="submit">Ver año</button>
+        <a class="button secondary" href="{{ url_for('listar_circulares_urba') }}">Año actual</a>
+    </div>
+</form>
+
+<div class="dashboard-cards report-cards spaced admin-kpi-grid">
+    <div class="card stat-card">
+        <h3>Sincronizadas</h3>
+        <p class="stat-number compact">{{ resumen['total'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Nuevas</h3>
+        <p class="stat-number compact">{{ resumen['nuevas'] or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Años cargados</h3>
+        <p class="stat-number compact">{{ resumen['anios_sincronizados'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Última sync</h3>
+        <p class="stat-number compact">{{ config['sync_en'] or '-' }}</p>
+        <span class="muted-line">{{ config['sync_por'] or 'Sin registro' }}</span>
+    </div>
+</div>
+
+{% if session.get('rol') == 'admin' %}
+<form method="post" action="{{ url_for('guardar_notificaciones_circulares_urba') }}" class="card form-card form-card-wide spaced-small">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="anio" value="{{ anio }}">
+    <div class="section-header compact">
+        <div>
+            <h3>Notificación automática</h3>
+            <p class="report-note">Elegí qué usuarios del sistema reciben email cuando una sincronización detecta nuevas circulares.</p>
+        </div>
+    </div>
+    <div class="permission-grid">
+        {% for usuario in usuarios_notificables %}
+            <label class="permission-option">
+                <input type="checkbox" name="notify_user_ids" value="{{ usuario['id'] }}" {% if usuario['id'] in config['notify_user_ids'] %}checked{% endif %}>
+                <span>
+                    <strong>{{ usuario['username'] }}</strong>
+                    <small>{{ usuario['email'] }}{% if usuario['rol'] %} · {{ usuario['rol'] }}{% endif %}</small>
+                </span>
+            </label>
+        {% else %}
+            <p class="report-note">No hay usuarios con email configurado.</p>
+        {% endfor %}
+    </div>
+    <div class="actions-row">
+        <button class="button secondary" type="submit">Guardar destinatarios</button>
+    </div>
+</form>
+{% endif %}
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Circular</th>
+                <th>Estado</th>
+                <th>Detectada</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for circular in circulares %}
+            <tr>
+                <td>
+                    <strong>{{ circular['titulo'] }}</strong>
+                    <span class="muted-line">{{ circular['url'] }}</span>
+                </td>
+                <td>
+                    {% if circular['nueva'] %}
+                        <span class="badge badge-warning">Nueva</span>
+                    {% else %}
+                        <span class="badge badge-muted">Histórica</span>
+                    {% endif %}
+                    {% if circular['notificada_en'] %}
+                        <span class="muted-line">Avisada {{ circular['notificada_en'] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ circular['detectada_en'] or '-' }}</td>
+                <td class="actions">
+                    <a class="button secondary" href="{{ circular['url'] }}" target="_blank" rel="noopener">Abrir</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="empty">Todavía no hay circulares URBA sincronizadas para {{ anio }}.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

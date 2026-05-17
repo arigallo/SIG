@@ -29,7 +29,7 @@
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
 
                 {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
-                {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario'] %}
+                {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_circulares_urba'] %}
                 {% if mostrar_club %}
                 <details class="nav-group {% if club_actual %}current{% endif %}" {% if club_actual %}open{% endif %}>
                     <summary>Club</summary>
@@ -49,6 +49,7 @@
                         {% if puede('calendario_ver') %}
                             <a class="{% if endpoint in ['ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario'] %}active{% endif %}" href="{{ url_for('ver_calendario') }}">Calendario</a>
                         {% endif %}
+                        <a class="{% if endpoint == 'listar_circulares_urba' %}active{% endif %}" href="{{ url_for('listar_circulares_urba') }}">Circulares URBA</a>
                         {% if puede('jugadores_gestionar') %}
                             <a href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
                             <a href="{{ url_for('importar_jugadores') }}">Importar</a>
