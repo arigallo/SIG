@@ -17,7 +17,7 @@
         </div>
 
         <h1>Ruda Macho Rugby Club</h1>
-        <h2>Sistema Integral de Gestion (SIG)</h2>
+        <h2>Sistema Integral de Gesti&oacute;n (SIG)</h2>
 
         <form method="post">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -36,8 +36,8 @@
 
         <div class="login-links">
             <a href="{{ url_for('portal_buscar') }}">Portal del jugador</a>
-            <span> · </span>
-            <a href="{{ url_for('solicitar_recuperacion_password') }}">Olvide mi clave</a>
+            <span> &middot; </span>
+            <a href="{{ url_for('solicitar_recuperacion_password') }}">Olvid&eacute; mi clave</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

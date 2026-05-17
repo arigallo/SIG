@@ -50,7 +50,7 @@
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Ficha m&eacute;dica</span>
                 <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
-                <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revisa el estado de tu documentacion.{% endif %}</span>
+                <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revisa el estado de tu documentaci&oacute;n.{% endif %}</span>
             </article>
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Pr&oacute;ximo evento</span>
@@ -169,7 +169,7 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p>No hay lesiones activas o en recuperacion.</p>
+                    <p>No hay lesiones activas o en recuperaci&oacute;n.</p>
                 {% endif %}
             </article>
         </section>
@@ -339,7 +339,7 @@
                                         {% if comprobante_estado == 'rechazado' %}
                                             <span class="badge badge-danger">Rechazado</span>
                                         {% else %}
-                                            <span class="badge badge-warning">En revision</span>
+                                            <span class="badge badge-warning">En revisi&oacute;n</span>
                                         {% endif %}
                                         <span class="muted-line">{{ cuota['comprobante_nombre'] or 'Comprobante recibido' }}</span>
                                         {% if cuota['comprobante_observaciones'] %}
@@ -437,7 +437,7 @@
                                         {% if comprobante_estado == 'rechazado' %}
                                             <span class="badge badge-danger">Rechazado</span>
                                         {% else %}
-                                            <span class="badge badge-warning">En revision</span>
+                                            <span class="badge badge-warning">En revisi&oacute;n</span>
                                         {% endif %}
                                         <span class="muted-line">{{ item['comprobante_nombre'] or 'Comprobante recibido' }}</span>
                                         {% if item['comprobante_observaciones'] %}
@@ -472,7 +472,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="empty">No tenes gastos compartidos asignados.</td>
+                            <td colspan="5" class="empty">No ten&eacute;s gastos compartidos asignados.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -697,9 +697,9 @@
             <article class="card portal-panel">
                 <h3>Ficha m&eacute;dica</h3>
                 {% if ficha %}
-                    <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Si{% else %}No{% endif %}</p>
+                    <p><strong>Presentada:</strong> {% if ficha['presentada'] %}Sí{% else %}No{% endif %}</p>
                     <p><strong>Vencimiento:</strong> {{ ficha['fecha_vencimiento'] or '-' }}</p>
-                    <p><strong>Apto fisico:</strong> {% if ficha['apto_fisico'] %}Si{% else %}No{% endif %}</p>
+                    <p><strong>Apto f&iacute;sico:</strong> {% if ficha['apto_fisico'] %}Sí{% else %}No{% endif %}</p>
                 {% else %}
                     <p>No hay ficha m&eacute;dica cargada.</p>
                 {% endif %}
