@@ -12064,6 +12064,37 @@ def cerrar_gasto_compartido(gasto_id):
     return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
 
 
+@app.route("/gastos-compartidos/<int:gasto_id>/reabrir", methods=["POST"])
+def reabrir_gasto_compartido(gasto_id):
+    if session.get("rol") != "admin":
+        flash("Solo admins pueden reabrir un gasto compartido cerrado.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+    conn = get_connection()
+    gasto = conn.execute("SELECT * FROM gastos_compartidos WHERE id = %s", (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if not gasto_compartido_esta_cerrado(gasto):
+        conn.close()
+        flash("Ese gasto compartido ya esta abierto.", "warning")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+    conn.execute("""
+        UPDATE gastos_compartidos
+        SET estado = 'Activo',
+            cerrado_en = NULL,
+            cerrado_por = NULL,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (gasto_id,))
+    conn.commit()
+    conn.close()
+    flash("Gasto compartido reabierto. El ingreso ya registrado en caja se conserva.", "ok")
+    return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+
 @app.route("/gastos-compartidos/<int:gasto_id>/eliminar", methods=["POST"])
 def eliminar_gasto_compartido(gasto_id):
     check = permiso_requerido("cuotas_gestionar")

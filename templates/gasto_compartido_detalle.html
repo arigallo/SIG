@@ -16,23 +16,34 @@
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Volver</a>
-        {% if puede('cuotas_gestionar') %}
+        {% if puede('cuotas_gestionar') or puede('caja_gestionar') %}
             <a class="button secondary" href="{{ url_for('exportar_gasto_compartido', gasto_id=gasto['id']) }}">Exportar CSV</a>
+        {% endif %}
+        {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
+            <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
+            <form method="post" action="{{ url_for('enviar_recordatorios_gasto_compartido_lote', gasto_id=gasto['id']) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button secondary" type="submit">Recordar pendientes</button>
+            </form>
+        {% endif %}
+        {% if puede('cuotas_gestionar') or puede('caja_gestionar') %}
             {% if gasto['estado'] != 'Cerrado' %}
-                <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
-                <form method="post" action="{{ url_for('enviar_recordatorios_gasto_compartido_lote', gasto_id=gasto['id']) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button class="button secondary" type="submit">Recordar pendientes</button>
-                </form>
                 <form method="post" action="{{ url_for('cerrar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('¿Cerrar este gasto compartido? Los cobros pagados se registrarán en caja como un único ingreso y ya no se podrá editar.');">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button class="button" type="submit">Cerrar gasto</button>
                 </form>
-                <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
+            {% elif session.get('rol') == 'admin' %}
+                <form method="post" action="{{ url_for('reabrir_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('¿Reabrir este gasto compartido? El ingreso ya registrado en caja se conservará.');">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button class="button danger" type="submit">Eliminar</button>
+                    <button class="button secondary" type="submit">Reabrir gasto</button>
                 </form>
             {% endif %}
+        {% endif %}
+        {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
+            <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button danger" type="submit">Eliminar</button>
+            </form>
         {% endif %}
     </div>
 </div>
