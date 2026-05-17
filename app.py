@@ -11619,7 +11619,7 @@ def descargar_comprobante_gasto_compartido(item_id):
         flash(mensaje_error_drive(error, accion="descargar el comprobante"), "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
     return send_file(
-        io.BytesIO(archivo),
+        archivo,
         mimetype=item.get("comprobante_mime_type") or "application/octet-stream",
         as_attachment=False,
         download_name=item.get("comprobante_nombre") or f"gasto_compartido_{item_id}",
@@ -11810,7 +11810,7 @@ def portal_ver_comprobante_gasto_compartido(token, item_id):
         flash(mensaje_error_drive(error, accion="descargar el comprobante"), "error")
         return redirect(url_for("portal_jugador", token=token))
     return send_file(
-        io.BytesIO(archivo),
+        archivo,
         mimetype=item.get("comprobante_mime_type") or "application/octet-stream",
         as_attachment=False,
         download_name=item.get("comprobante_nombre") or f"gasto_compartido_{item_id}",

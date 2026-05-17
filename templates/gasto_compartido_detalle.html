@@ -103,6 +103,16 @@
                             <span class="muted-line">{{ item['comprobante_observaciones'] }}</span>
                         {% endif %}
                         <a class="button secondary top-gap" href="{{ url_for('descargar_comprobante_gasto_compartido', item_id=item['id']) }}">Ver</a>
+                        <details class="embedded-preview-card top-gap">
+                            <summary>Vista previa</summary>
+                            {% with
+                                src=url_for('descargar_comprobante_gasto_compartido', item_id=item['id']),
+                                nombre=item['comprobante_nombre'],
+                                preview_tipo='pdf' if item['comprobante_mime_type'] == 'application/pdf' else 'image' if item['comprobante_mime_type'] and item['comprobante_mime_type'].startswith('image/') else 'other'
+                            %}
+                                {% include "_embedded_file_preview.html" %}
+                            {% endwith %}
+                        </details>
                     {% else %}
                         -
                     {% endif %}
