@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Nuevo gasto compartido{% endblock %}
+{% block title %}{% if modo_formulario == 'editar' %}Editar gasto compartido{% else %}Nuevo gasto compartido{% endif %}{% endblock %}
 
 {% block content %}
 <div class="section-header">
     <div>
-        <h2>Nuevo gasto compartido / tercer tiempo</h2>
+        <h2>{% if modo_formulario == 'editar' %}Editar gasto compartido / tercer tiempo{% else %}Nuevo gasto compartido / tercer tiempo{% endif %}</h2>
         <p class="page-intro">Defin&iacute; el cargo, eleg&iacute; qui&eacute;nes lo pagan y dej&aacute; listo el seguimiento en portal.</p>
+        {% if modo_formulario == 'editar' %}
+            <p class="report-note">Si un jugador ya tiene pago registrado o comprobante cargado, SIG lo conserva dentro del gasto aunque cambies la selecci&oacute;n.</p>
+        {% endif %}
     </div>
 </div>
 
@@ -90,8 +93,8 @@
     </div>
 
     <div class="actions-row">
-        <button class="button" type="submit">Crear gasto</button>
-        <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Cancelar</a>
+        <button class="button" type="submit">{% if modo_formulario == 'editar' %}Guardar cambios{% else %}Crear gasto{% endif %}</button>
+        <a class="button secondary" href="{% if modo_formulario == 'editar' and gasto %}{{ url_for('ver_gasto_compartido', gasto_id=gasto['id']) }}{% else %}{{ url_for('listar_gastos_compartidos') }}{% endif %}">Cancelar</a>
     </div>
 </form>
 

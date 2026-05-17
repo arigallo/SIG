@@ -11,6 +11,7 @@
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Volver</a>
         {% if puede('cuotas_gestionar') %}
+            <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
             <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button class="button danger" type="submit">Eliminar</button>

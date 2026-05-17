@@ -84,6 +84,7 @@ def inject_now():
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
         "notificaciones_count": obtener_contador_notificaciones() if has_request_context() else 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
+        "static_asset": static_asset,
     }
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -95,6 +96,14 @@ WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "").strip()
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
 WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v25.0").strip() or "v25.0"
 WHATSAPP_GRAPH_BASE = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
+
+
+def static_asset(filename):
+    try:
+        version = int((BASE_DIR / "static" / filename).stat().st_mtime)
+    except OSError:
+        version = 1
+    return url_for("static", filename=filename, v=version)
 
 
 def csrf_token():
@@ -1021,13 +1030,25 @@ def subir_comprobante_gasto_compartido_a_drive(file_storage, item):
 
     existing_file_id = item.get("comprobante_drive_file_id")
     if existing_file_id:
-        uploaded = service.files().update(
-            fileId=existing_file_id,
-            body={"name": drive_name},
-            media_body=media,
-            fields="id, name, mimeType, size, webViewLink",
-            supportsAllDrives=True,
-        ).execute()
+        try:
+            uploaded = service.files().update(
+                fileId=existing_file_id,
+                body={"name": drive_name},
+                media_body=media,
+                fields="id, name, mimeType, size, webViewLink",
+                supportsAllDrives=True,
+            ).execute()
+        except Exception:
+            app.logger.exception(
+                "No se pudo actualizar comprobante existente de gasto compartido %s; se intentara crear uno nuevo.",
+                item.get("id"),
+            )
+            uploaded = service.files().create(
+                body=body,
+                media_body=media,
+                fields="id, name, mimeType, size, webViewLink",
+                supportsAllDrives=True,
+            ).execute()
     else:
         uploaded = service.files().create(
             body=body,
@@ -11518,6 +11539,206 @@ def nuevo_gasto_compartido():
         categorias_jugadores=categorias_jugadores,
         form=form_defaults,
         seleccion_jugadores=form_defaults.get("jugadores_ids", []),
+        modo_formulario="nuevo",
+        gasto=None,
+    )
+
+
+@app.route("/gastos-compartidos/<int:gasto_id>/editar", methods=["GET", "POST"])
+def editar_gasto_compartido(gasto_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    gasto = conn.execute("""
+        SELECT *
+        FROM gastos_compartidos
+        WHERE id = %s
+    """, (gasto_id,)).fetchone()
+    if gasto is None:
+        conn.close()
+        flash("Gasto compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+
+    jugadores_activos = conn.execute("""
+        SELECT id, apellido, nombre, categoria
+        FROM jugadores
+        WHERE estado = 'Activo'
+        ORDER BY categoria NULLS LAST, apellido, nombre
+    """).fetchall()
+    eventos = opciones_eventos_gastos_compartidos(conn)
+    categorias_jugadores = sorted({(jugador["categoria"] or "").strip() for jugador in jugadores_activos if (jugador["categoria"] or "").strip()})
+    items_existentes = conn.execute("""
+        SELECT *
+        FROM gasto_compartido_items
+        WHERE gasto_id = %s
+        ORDER BY id
+    """, (gasto_id,)).fetchall()
+
+    seleccion_existente = [str(item["jugador_id"]) for item in items_existentes]
+    form_defaults = {
+        "titulo": gasto.get("titulo") or "",
+        "concepto": gasto.get("concepto") or "",
+        "calendario_evento_id": str(gasto.get("calendario_evento_id") or ""),
+        "fecha_vencimiento": gasto.get("fecha_vencimiento") or "",
+        "fuente_jugadores": gasto.get("fuente_jugadores") or "manual",
+        "modo_importe": gasto.get("modo_importe") or "por_jugador",
+        "monto": str(gasto.get("monto_total") if (gasto.get("modo_importe") or "por_jugador") == "total" else gasto.get("monto_por_jugador") or ""),
+        "observaciones": gasto.get("observaciones") or "",
+    }
+
+    if request.method == "POST":
+        titulo = request.form.get("titulo", "").strip()
+        concepto = request.form.get("concepto", "").strip()
+        calendario_evento_id_raw = request.form.get("calendario_evento_id", "").strip()
+        calendario_evento_id = int(calendario_evento_id_raw) if calendario_evento_id_raw.isdigit() else None
+        fuente = request.form.get("fuente_jugadores", "manual").strip()
+        jugadores_ids = request.form.getlist("jugadores_ids")
+        fecha_vencimiento = request.form.get("fecha_vencimiento", "").strip()
+        modo_importe = request.form.get("modo_importe", "por_jugador").strip()
+        monto_raw = request.form.get("monto", "").strip()
+        observaciones = request.form.get("observaciones", "").strip()
+
+        if not titulo or not monto_raw:
+            conn.close()
+            flash("Titulo e importe son obligatorios.", "error")
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                modo_formulario="editar",
+                gasto=gasto,
+            )
+
+        try:
+            monto = float(monto_raw)
+        except ValueError:
+            conn.close()
+            flash("El importe debe ser numerico.", "error")
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                modo_formulario="editar",
+                gasto=gasto,
+            )
+
+        seleccionados = jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids)
+        if not seleccionados:
+            conn.close()
+            flash("Tenes que definir al menos un jugador que deba pagar.", "error")
+            return render_template(
+                "gasto_compartido_form.html",
+                jugadores=jugadores_activos,
+                eventos=eventos,
+                categorias_jugadores=categorias_jugadores,
+                form=request.form,
+                seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                modo_formulario="editar",
+                gasto=gasto,
+            )
+
+        if modo_importe not in {"por_jugador", "total"}:
+            modo_importe = "por_jugador"
+
+        if modo_importe == "por_jugador":
+            importes = [round(monto, 2) for _ in seleccionados]
+            monto_total = round(sum(importes), 2)
+            monto_por_jugador = round(monto, 2)
+        else:
+            importes = repartir_importe_gasto(round(monto, 2), len(seleccionados))
+            monto_total = round(monto, 2)
+            monto_por_jugador = round(monto_total / len(seleccionados), 2) if seleccionados else 0
+
+        evento = None
+        if calendario_evento_id:
+            evento = conn.execute("""
+                SELECT id, fecha, titulo
+                FROM calendario_eventos
+                WHERE id = %s
+            """, (calendario_evento_id,)).fetchone()
+
+        conn.execute("""
+            UPDATE gastos_compartidos
+            SET titulo = %s,
+                concepto = %s,
+                calendario_evento_id = %s,
+                fecha_evento = %s,
+                fecha_vencimiento = %s,
+                fuente_jugadores = %s,
+                modo_importe = %s,
+                monto_total = %s,
+                monto_por_jugador = %s,
+                observaciones = %s,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (
+            titulo,
+            concepto or None,
+            calendario_evento_id,
+            evento["fecha"] if evento else None,
+            fecha_vencimiento or None,
+            fuente,
+            modo_importe,
+            monto_total,
+            monto_por_jugador,
+            observaciones or None,
+            gasto_id,
+        ))
+
+        seleccion_map = {jugador["id"]: importe for jugador, importe in zip(seleccionados, importes)}
+        existentes_map = {item["jugador_id"]: item for item in items_existentes}
+        protegidos = 0
+
+        for jugador_id, item in existentes_map.items():
+            if jugador_id in seleccion_map:
+                if item.get("estado") != "pagado":
+                    conn.execute("""
+                        UPDATE gasto_compartido_items
+                        SET importe = %s,
+                            actualizado_en = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (seleccion_map[jugador_id], item["id"]))
+                del seleccion_map[jugador_id]
+                continue
+
+            if item.get("estado") == "pagado" or item.get("comprobante_drive_file_id"):
+                protegidos += 1
+                continue
+
+            conn.execute("DELETE FROM gasto_compartido_items WHERE id = %s", (item["id"],))
+
+        for jugador_id, importe_item in seleccion_map.items():
+            conn.execute("""
+                INSERT INTO gasto_compartido_items (gasto_id, jugador_id, importe, estado)
+                VALUES (%s, %s, %s, 'pendiente')
+            """, (gasto_id, jugador_id, importe_item))
+
+        conn.commit()
+        conn.close()
+        if protegidos:
+            flash("Gasto actualizado. Se conservaron jugadores con pago o comprobante ya cargado.", "warning")
+        else:
+            flash("Gasto compartido actualizado correctamente.", "ok")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+    conn.close()
+    return render_template(
+        "gasto_compartido_form.html",
+        jugadores=jugadores_activos,
+        eventos=eventos,
+        categorias_jugadores=categorias_jugadores,
+        form=form_defaults,
+        seleccion_jugadores=seleccion_existente,
+        modo_formulario="editar",
+        gasto=gasto,
     )
 
 
