@@ -85,6 +85,7 @@ def inject_now():
         "puede": tiene_permiso,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
         "notificaciones_count": obtener_contador_notificaciones() if has_request_context() else 0,
+        "whatsapp_inbox_count": obtener_contador_whatsapp_inbox() if has_request_context() else 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
         "static_asset": static_asset,
     }
@@ -3599,6 +3600,191 @@ def registrar_whatsapp_webhook(event_type, payload, procesado=False):
             pass
 
 
+def resumir_contenido_whatsapp(tipo, mensaje):
+    tipo = (tipo or "").strip().lower()
+    if tipo == "text":
+        return ((mensaje or {}).get("text") or {}).get("body") or ""
+    etiquetas = {
+        "image": "[Imagen]",
+        "video": "[Video]",
+        "audio": "[Audio]",
+        "document": "[Documento]",
+        "sticker": "[Sticker]",
+        "location": "[Ubicación]",
+        "contacts": "[Contacto]",
+        "button": "[Botón]",
+        "interactive": "[Interactivo]",
+        "reaction": "[Reacción]",
+    }
+    return etiquetas.get(tipo, f"[{tipo or 'mensaje'}]")
+
+
+def buscar_jugador_por_whatsapp(telefono_normalizado):
+    telefono_normalizado = normalizar_telefono_whatsapp(telefono_normalizado)
+    if not telefono_normalizado:
+        return None
+    conn = get_connection()
+    jugadores = conn.execute("""
+        SELECT id, nombre, apellido, categoria, telefono, telefono_tutor
+        FROM jugadores
+        WHERE COALESCE(NULLIF(telefono, ''), NULLIF(telefono_tutor, '')) IS NOT NULL
+    """).fetchall()
+    conn.close()
+    for jugador in jugadores:
+        if normalizar_telefono_whatsapp(jugador.get("telefono")) == telefono_normalizado:
+            return jugador
+        if normalizar_telefono_whatsapp(jugador.get("telefono_tutor")) == telefono_normalizado:
+            return jugador
+    return None
+
+
+def registrar_whatsapp_mensaje(
+    *,
+    telefono,
+    wa_id=None,
+    jugador_id=None,
+    direccion,
+    tipo,
+    texto=None,
+    meta_message_id=None,
+    estado=None,
+    payload=None,
+    respuesta=None,
+    creado_por=None,
+):
+    conn = None
+    try:
+        telefono_normalizado = normalizar_telefono_whatsapp(telefono or wa_id)
+        conn = get_connection()
+        conn.execute("""
+            INSERT INTO whatsapp_mensajes (
+                jugador_id, telefono, wa_id, direccion, tipo, texto,
+                meta_message_id, estado, payload, respuesta, creado_por
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (meta_message_id) DO UPDATE SET
+                jugador_id = COALESCE(EXCLUDED.jugador_id, whatsapp_mensajes.jugador_id),
+                telefono = COALESCE(EXCLUDED.telefono, whatsapp_mensajes.telefono),
+                wa_id = COALESCE(EXCLUDED.wa_id, whatsapp_mensajes.wa_id),
+                direccion = EXCLUDED.direccion,
+                tipo = EXCLUDED.tipo,
+                texto = COALESCE(EXCLUDED.texto, whatsapp_mensajes.texto),
+                estado = COALESCE(EXCLUDED.estado, whatsapp_mensajes.estado),
+                payload = COALESCE(EXCLUDED.payload, whatsapp_mensajes.payload),
+                respuesta = COALESCE(EXCLUDED.respuesta, whatsapp_mensajes.respuesta),
+                creado_por = COALESCE(EXCLUDED.creado_por, whatsapp_mensajes.creado_por)
+        """, (
+            jugador_id,
+            telefono_normalizado or None,
+            normalizar_telefono_whatsapp(wa_id) or telefono_normalizado or None,
+            direccion,
+            tipo,
+            texto or None,
+            meta_message_id or None,
+            estado or ("recibido" if direccion == "in" else "enviado"),
+            json.dumps(payload or {}, ensure_ascii=False, default=str),
+            json.dumps(respuesta or {}, ensure_ascii=False, default=str),
+            creado_por or (session.get("username") if has_request_context() else None),
+        ))
+        conn.commit()
+        conn.close()
+    except Exception:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
+def listar_whatsapp_conversaciones():
+    conn = get_connection()
+    mensajes = conn.execute("""
+        SELECT
+            wm.id,
+            wm.jugador_id,
+            wm.telefono,
+            wm.wa_id,
+            wm.direccion,
+            wm.tipo,
+            wm.texto,
+            wm.meta_message_id,
+            wm.estado,
+            wm.leido,
+            wm.creado_en,
+            j.nombre,
+            j.apellido,
+            j.categoria
+        FROM whatsapp_mensajes wm
+        LEFT JOIN jugadores j ON j.id = wm.jugador_id
+        ORDER BY wm.creado_en DESC, wm.id DESC
+    """).fetchall()
+    conn.close()
+
+    conversaciones = []
+    vistos = set()
+    for mensaje in mensajes:
+        telefono = mensaje.get("wa_id") or mensaje.get("telefono")
+        if not telefono or telefono in vistos:
+            continue
+        vistos.add(telefono)
+        conversaciones.append({
+            "telefono": telefono,
+            "jugador_id": mensaje.get("jugador_id"),
+            "nombre": (
+                f"{(mensaje.get('apellido') or '').strip()}, {(mensaje.get('nombre') or '').strip()}".strip(", ")
+                or "Sin vincular"
+            ),
+            "categoria": mensaje.get("categoria") or "",
+            "ultimo_texto": mensaje.get("texto") or "",
+            "ultimo_tipo": mensaje.get("tipo") or "text",
+            "ultimo_direccion": mensaje.get("direccion") or "in",
+            "ultimo_estado": mensaje.get("estado") or "",
+            "ultimo_en": mensaje.get("creado_en"),
+            "sin_leer": sum(
+                1
+                for item in mensajes
+                if (item.get("wa_id") or item.get("telefono")) == telefono
+                and item.get("direccion") == "in"
+                and not item.get("leido")
+            ),
+        })
+    return conversaciones
+
+
+def obtener_whatsapp_conversacion(telefono):
+    telefono = normalizar_telefono_whatsapp(telefono)
+    if not telefono:
+        return []
+    conn = get_connection()
+    mensajes = conn.execute("""
+        SELECT
+            wm.*,
+            j.nombre,
+            j.apellido,
+            j.categoria
+        FROM whatsapp_mensajes wm
+        LEFT JOIN jugadores j ON j.id = wm.jugador_id
+        WHERE wm.telefono = %s OR wm.wa_id = %s
+        ORDER BY wm.creado_en ASC, wm.id ASC
+    """, (telefono, telefono)).fetchall()
+    conn.close()
+    return mensajes
+
+
+def obtener_contador_whatsapp_inbox():
+    try:
+        conn = get_connection()
+        fila = conn.execute("""
+            SELECT COUNT(*) AS total
+            FROM whatsapp_mensajes
+            WHERE direccion = 'in' AND COALESCE(leido, 0) = 0
+        """).fetchone()
+        conn.close()
+        return int((fila or {}).get("total") or 0)
+    except Exception:
+        return 0
+
+
 def mensaje_fallo_whatsapp(motivo, destinatario=None, detalle=None):
     if motivo == "sin_telefono":
         return "No hay un teléfono de WhatsApp configurado para este jugador."
@@ -3690,6 +3876,24 @@ def _enviar_whatsapp_payload(
                 respuesta=respuesta,
                 estado="enviado",
                 meta_message_id=message_id,
+            )
+            texto_conversacion = ""
+            if payload.get("type") == "text":
+                texto_conversacion = ((payload.get("text") or {}).get("body") or "").strip()
+            elif payload.get("type") == "template":
+                nombre_template = ((payload.get("template") or {}).get("name") or "").strip()
+                texto_conversacion = f"[Template] {nombre_template}" if nombre_template else "[Template]"
+            registrar_whatsapp_mensaje(
+                telefono=telefono_normalizado,
+                wa_id=telefono_normalizado,
+                jugador_id=jugador_id,
+                direccion="out",
+                tipo=payload.get("type") or "text",
+                texto=texto_conversacion or (mensaje_log or ""),
+                meta_message_id=message_id,
+                estado="enviado",
+                payload=payload,
+                respuesta=respuesta,
             )
             return True, telefono_normalizado, None, respuesta
         except HTTPError as error:
@@ -5271,6 +5475,42 @@ def init_db():
         ON whatsapp_webhook_eventos (recibido_en DESC)
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS whatsapp_mensajes (
+            id SERIAL PRIMARY KEY,
+            jugador_id INTEGER,
+            telefono TEXT,
+            wa_id TEXT,
+            direccion TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'text',
+            texto TEXT,
+            meta_message_id TEXT,
+            estado TEXT,
+            leido INTEGER NOT NULL DEFAULT 0,
+            payload TEXT,
+            respuesta TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_mensajes_telefono
+        ON whatsapp_mensajes (COALESCE(wa_id, telefono), creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_mensajes_leido
+        ON whatsapp_mensajes (leido, direccion, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_mensajes_meta_message_id
+        ON whatsapp_mensajes (meta_message_id)
+        WHERE meta_message_id IS NOT NULL
+    """)
+
     columnas_cuotas = get_columns(conn, "cuotas")
 
     if "fecha_vencimiento" not in columnas_cuotas:
@@ -6438,6 +6678,30 @@ def whatsapp_webhook_receive():
         for entry in payload.get("entry", []):
             for change in entry.get("changes", []):
                 value = change.get("value") or {}
+                contactos = {
+                    (item.get("wa_id") or item.get("input")): item
+                    for item in (value.get("contacts") or [])
+                    if item.get("wa_id") or item.get("input")
+                }
+                for mensaje in value.get("messages", []) or []:
+                    wa_id = normalizar_telefono_whatsapp(mensaje.get("from"))
+                    contacto = contactos.get(mensaje.get("from")) or contactos.get(wa_id) or {}
+                    tipo = (mensaje.get("type") or "text").strip().lower()
+                    texto = resumir_contenido_whatsapp(tipo, mensaje)
+                    jugador = buscar_jugador_por_whatsapp(wa_id)
+                    registrar_whatsapp_mensaje(
+                        telefono=wa_id,
+                        wa_id=contacto.get("wa_id") or wa_id,
+                        jugador_id=(jugador or {}).get("id"),
+                        direccion="in",
+                        tipo=tipo,
+                        texto=texto,
+                        meta_message_id=mensaje.get("id"),
+                        estado="recibido",
+                        payload=mensaje,
+                        respuesta=contacto,
+                    )
+                    procesado = True
                 for status_item in value.get("statuses", []) or []:
                     meta_message_id = status_item.get("id")
                     estado = status_item.get("status") or "status"
@@ -6460,6 +6724,16 @@ def whatsapp_webhook_receive():
                             estado,
                             error_codigo,
                             error_mensaje,
+                            json.dumps(status_item, ensure_ascii=False, default=str),
+                            meta_message_id,
+                        ))
+                        conn.execute("""
+                            UPDATE whatsapp_mensajes
+                            SET estado = %s,
+                                respuesta = %s
+                            WHERE meta_message_id = %s
+                        """, (
+                            estado,
                             json.dumps(status_item, ensure_ascii=False, default=str),
                             meta_message_id,
                         ))
@@ -14760,6 +15034,78 @@ def ver_notificaciones():
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
         cambios_portal=datos["cambios_portal"],
     )
+
+
+@app.route("/comunicacion/whatsapp")
+def ver_whatsapp_inbox():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conversaciones = listar_whatsapp_conversaciones()
+    telefono = normalizar_telefono_whatsapp(request.args.get("telefono", ""))
+    if not telefono and conversaciones:
+        telefono = conversaciones[0]["telefono"]
+
+    mensajes = obtener_whatsapp_conversacion(telefono) if telefono else []
+    if telefono and mensajes:
+        conn = get_connection()
+        conn.execute("""
+            UPDATE whatsapp_mensajes
+            SET leido = 1
+            WHERE direccion = 'in'
+              AND COALESCE(leido, 0) = 0
+              AND (telefono = %s OR wa_id = %s)
+        """, (telefono, telefono))
+        conn.commit()
+        conn.close()
+        mensajes = obtener_whatsapp_conversacion(telefono)
+
+    conversacion_actual = next((item for item in conversaciones if item["telefono"] == telefono), None)
+    return render_template(
+        "whatsapp_inbox.html",
+        conversaciones=conversaciones,
+        conversacion_actual=conversacion_actual,
+        mensajes=mensajes,
+        telefono_actual=telefono,
+    )
+
+
+@app.route("/comunicacion/whatsapp/responder", methods=["POST"])
+def responder_whatsapp_inbox():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    telefono = normalizar_telefono_whatsapp(request.form.get("telefono", ""))
+    mensaje = (request.form.get("mensaje", "") or "").strip()
+    if not telefono:
+        flash("No hay un teléfono válido para responder.", "error")
+        return redirect(url_for("ver_whatsapp_inbox"))
+    if not mensaje:
+        flash("Escribí un mensaje para responder por WhatsApp.", "error")
+        return redirect(url_for("ver_whatsapp_inbox", telefono=telefono))
+
+    jugador = buscar_jugador_por_whatsapp(telefono) or {}
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_meta(
+        telefono,
+        mensaje,
+        tipo="inbox_respuesta",
+        entidad="whatsapp_inbox",
+        entidad_id=telefono,
+        jugador_id=jugador.get("id"),
+    )
+    if enviado:
+        registrar_auditoria(
+            "responder",
+            "whatsapp_inbox",
+            telefono,
+            {"destinatario": destinatario, "jugador_id": jugador.get("id")},
+        )
+        flash("Respuesta enviada por WhatsApp.", "ok")
+    else:
+        flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_whatsapp_inbox", telefono=telefono))
 
 
 @app.route("/notificaciones/cuotas/<int:cuota_id>/email", methods=["POST"])

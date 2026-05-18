@@ -111,7 +111,7 @@
                 {% endif %}
 
                 {% if puede('comunicaciones_ver') %}
-                {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_notificaciones'] %}
+                {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_notificaciones', 'ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}
                 <details class="nav-group {% if comunicacion_actual %}current{% endif %}" {% if comunicacion_actual %}open{% endif %}>
                     <summary>Comunicaci&oacute;n</summary>
                     <div class="nav-menu">
@@ -120,6 +120,12 @@
                             Notificaciones
                             {% if notificaciones_count %}
                                 <span class="nav-badge">{{ notificaciones_count }}</span>
+                            {% endif %}
+                        </a>
+                        <a class="{% if endpoint in ['ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}active{% endif %}" href="{{ url_for('ver_whatsapp_inbox') }}">
+                            WhatsApp
+                            {% if whatsapp_inbox_count %}
+                                <span class="nav-badge">{{ whatsapp_inbox_count }}</span>
                             {% endif %}
                         </a>
                     </div>

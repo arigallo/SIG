@@ -1100,6 +1100,99 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.whatsapp-inbox-layout {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.whatsapp-inbox-sidebar,
+.whatsapp-inbox-thread {
+    margin-top: 0;
+}
+
+.whatsapp-conversation-list {
+    display: grid;
+    gap: 10px;
+}
+
+.whatsapp-conversation-item {
+    display: grid;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.whatsapp-conversation-item:hover,
+.whatsapp-conversation-item.active {
+    border-color: var(--accent);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.whatsapp-conversation-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.whatsapp-snippet {
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
+.whatsapp-thread-messages {
+    display: grid;
+    gap: 12px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.whatsapp-bubble {
+    max-width: 78%;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #f7fafc;
+    border: 1px solid var(--border);
+}
+
+.whatsapp-bubble.out {
+    margin-left: auto;
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.24);
+}
+
+.whatsapp-bubble.in {
+    margin-right: auto;
+}
+
+.whatsapp-bubble-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.whatsapp-bubble-text {
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.whatsapp-reply-form {
+    margin-top: 18px;
+}
+
 .report-progress {
     display: block;
     width: min(180px, 100%);
@@ -2380,6 +2473,18 @@ tbody tr:hover {
     .communication-message {
         max-width: none;
         min-width: 220px;
+    }
+
+    .whatsapp-inbox-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .whatsapp-thread-messages {
+        max-height: none;
+    }
+
+    .whatsapp-bubble {
+        max-width: 100%;
     }
 
     .actions form {
