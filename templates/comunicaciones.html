@@ -33,6 +33,11 @@
         <span class="report-note">
             Variables disponibles: {nombre}, {apellido}, {deuda}, {cuotas_pendientes}, {cuotas_vencidas}, {primer_vencimiento}
         </span>
+        {% if whatsapp_api_activa %}
+        <span class="report-note">
+            WhatsApp API inicia el contacto con la plantilla aprobada de Meta. Este texto sigue aplicando a emails y a "Abrir chat".
+        </span>
+        {% endif %}
     </div>
 
     <div class="actions-row">

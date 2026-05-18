@@ -98,6 +98,8 @@ WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "").strip()
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
 WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v25.0").strip() or "v25.0"
 WHATSAPP_GRAPH_BASE = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
+WHATSAPP_TEMPLATE_CUOTA = os.environ.get("WHATSAPP_TEMPLATE_CUOTA", "recordatorio_cuota").strip() or "recordatorio_cuota"
+WHATSAPP_TEMPLATE_CUOTA_LANG = os.environ.get("WHATSAPP_TEMPLATE_CUOTA_LANG", "es_AR").strip() or "es_AR"
 
 
 def static_asset(filename):
@@ -3639,7 +3641,16 @@ def resumir_envio_masivo_whatsapp(resultados, etiqueta):
     return f"No se enviaron {etiqueta}.", "error"
 
 
-def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema", entidad_id=None, jugador_id=None):
+def _enviar_whatsapp_payload(
+    telefono,
+    payload_builder,
+    *,
+    tipo="general",
+    entidad="sistema",
+    entidad_id=None,
+    jugador_id=None,
+    mensaje_log=None,
+):
     variantes = variantes_telefono_whatsapp(telefono)
     if not variantes:
         return False, None, "sin_telefono", None
@@ -3656,15 +3667,7 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
     ultimo_motivo = None
 
     for idx, telefono_normalizado in enumerate(variantes):
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": telefono_normalizado,
-            "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": mensaje,
-            },
-        }
+        payload = payload_builder(telefono_normalizado)
         data = json.dumps(payload).encode("utf-8")
         req = UrlRequest(url, data=data, headers=headers, method="POST")
 
@@ -3682,7 +3685,7 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
                 entidad=entidad,
                 entidad_id=entidad_id,
                 jugador_id=jugador_id,
-                mensaje=mensaje,
+                mensaje=mensaje_log,
                 payload=payload,
                 respuesta=respuesta,
                 estado="enviado",
@@ -3704,7 +3707,7 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
                 entidad=entidad,
                 entidad_id=entidad_id,
                 jugador_id=jugador_id,
-                mensaje=mensaje,
+                mensaje=mensaje_log,
                 payload=payload,
                 respuesta=detalle,
                 estado="error",
@@ -3724,7 +3727,7 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
                 entidad=entidad,
                 entidad_id=entidad_id,
                 jugador_id=jugador_id,
-                mensaje=mensaje,
+                mensaje=mensaje_log,
                 payload=payload,
                 respuesta={},
                 estado="error",
@@ -3733,6 +3736,67 @@ def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema"
             return False, telefono_normalizado, "network_error", None
 
     return False, ultimo_destino, ultimo_motivo or "http_error", ultimo_detalle
+
+
+def enviar_whatsapp_meta(telefono, mensaje, *, tipo="general", entidad="sistema", entidad_id=None, jugador_id=None):
+    return _enviar_whatsapp_payload(
+        telefono,
+        lambda telefono_normalizado: {
+            "messaging_product": "whatsapp",
+            "to": telefono_normalizado,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": mensaje,
+            },
+        },
+        tipo=tipo,
+        entidad=entidad,
+        entidad_id=entidad_id,
+        jugador_id=jugador_id,
+        mensaje_log=mensaje,
+    )
+
+
+def enviar_whatsapp_template_meta(
+    telefono,
+    template_name,
+    language_code,
+    body_params,
+    *,
+    tipo="general",
+    entidad="sistema",
+    entidad_id=None,
+    jugador_id=None,
+    mensaje_log=None,
+):
+    parametros = [
+        {"type": "text", "text": str(valor or "").strip() or "-"}
+        for valor in (body_params or [])
+    ]
+    return _enviar_whatsapp_payload(
+        telefono,
+        lambda telefono_normalizado: {
+            "messaging_product": "whatsapp",
+            "to": telefono_normalizado,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": language_code},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": parametros,
+                    }
+                ] if parametros else [],
+            },
+        },
+        tipo=tipo,
+        entidad=entidad,
+        entidad_id=entidad_id,
+        jugador_id=jugador_id,
+        mensaje_log=mensaje_log or f"template:{template_name}",
+    )
 
 
 def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugador", entidad_id=None):
@@ -3744,6 +3808,31 @@ def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugado
         entidad=entidad,
         entidad_id=entidad_id,
         jugador_id=(jugador or {}).get("id"),
+    )
+
+
+def enviar_whatsapp_recordatorio_cuota_template(
+    jugador,
+    *,
+    tipo="recordatorio_cuota",
+    entidad="cuota",
+    entidad_id=None,
+):
+    nombre = nombre_jugador_corto(jugador)
+    telefono = (
+        valor_texto_contacto((jugador or {}).get("telefono"))
+        or valor_texto_contacto((jugador or {}).get("telefono_tutor"))
+    )
+    return enviar_whatsapp_template_meta(
+        telefono,
+        WHATSAPP_TEMPLATE_CUOTA,
+        WHATSAPP_TEMPLATE_CUOTA_LANG,
+        [nombre],
+        tipo=tipo,
+        entidad=entidad,
+        entidad_id=entidad_id,
+        jugador_id=(jugador or {}).get("id") or (jugador or {}).get("jugador_id"),
+        mensaje_log=f"template:{WHATSAPP_TEMPLATE_CUOTA}:{nombre}",
     )
 
 
@@ -14550,10 +14639,8 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
         flash("Jugador no encontrado en el listado de deuda.", "error")
         return redirect(url_for("ver_comunicaciones", mensaje=template))
 
-    mensaje = mensaje_moroso(template, jugador)
-    enviado, destinatario, motivo, detalle = enviar_whatsapp_jugador(
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_recordatorio_cuota_template(
         jugador,
-        mensaje,
         tipo="comunicacion_moroso",
         entidad="moroso",
         entidad_id=str(jugador_id),
@@ -14582,10 +14669,8 @@ def enviar_whatsapp_comunicacion_morosos_lote():
     jugadores = obtener_morosos_para_comunicacion()
     resultados = []
     for jugador in jugadores:
-        mensaje = mensaje_moroso(template, jugador)
-        resultados.append(enviar_whatsapp_jugador(
+        resultados.append(enviar_whatsapp_recordatorio_cuota_template(
             jugador,
-            mensaje,
             tipo="comunicacion_moroso",
             entidad="moroso",
             entidad_id=str(jugador["id"]),
@@ -14750,10 +14835,8 @@ def enviar_recordatorio_cuota_whatsapp(cuota_id):
         flash("Cuota no encontrada.", "error")
         return redirect(url_for("ver_notificaciones"))
 
-    cuerpo = construir_texto_recordatorio_cuota(cuota)
-    enviado, destinatario, motivo, detalle = enviar_whatsapp_jugador(
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_recordatorio_cuota_template(
         cuota,
-        cuerpo,
         tipo="recordatorio_cuota",
         entidad="cuota",
         entidad_id=str(cuota_id),
@@ -14885,10 +14968,8 @@ def enviar_recordatorios_cuotas_whatsapp_lote():
     cuotas = datos["cuotas_vencidas"] if modo == "vencidas" else datos["cuotas_por_vencer"]
     resultados = []
     for cuota in cuotas:
-        cuerpo = construir_texto_recordatorio_cuota(cuota)
-        resultados.append(enviar_whatsapp_jugador(
+        resultados.append(enviar_whatsapp_recordatorio_cuota_template(
             cuota,
-            cuerpo,
             tipo="recordatorio_cuota",
             entidad="cuota",
             entidad_id=str(cuota["cuota_id"]),
