@@ -6949,7 +6949,7 @@ def whatsapp_webhook_receive():
     procesado = False
     try:
         resumen_previo = resumir_evento_webhook_whatsapp(json.dumps(payload, ensure_ascii=False, default=str))
-        app.logger.info(
+        app.logger.warning(
             "WhatsApp webhook recibido: messages=%s statuses=%s contacts=%s from=%s statuses_values=%s",
             resumen_previo["messages_count"],
             resumen_previo["statuses_count"],
