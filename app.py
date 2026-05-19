@@ -3795,36 +3795,67 @@ def registrar_whatsapp_mensaje(
     try:
         telefono_normalizado = normalizar_telefono_whatsapp(telefono or wa_id)
         conn = get_connection()
-        conn.execute("""
-            INSERT INTO whatsapp_mensajes (
-                jugador_id, telefono, wa_id, direccion, tipo, texto,
-                meta_message_id, estado, payload, respuesta, creado_por
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (meta_message_id) DO UPDATE SET
-                jugador_id = COALESCE(EXCLUDED.jugador_id, whatsapp_mensajes.jugador_id),
-                telefono = COALESCE(EXCLUDED.telefono, whatsapp_mensajes.telefono),
-                wa_id = COALESCE(EXCLUDED.wa_id, whatsapp_mensajes.wa_id),
-                direccion = EXCLUDED.direccion,
-                tipo = EXCLUDED.tipo,
-                texto = COALESCE(EXCLUDED.texto, whatsapp_mensajes.texto),
-                estado = COALESCE(EXCLUDED.estado, whatsapp_mensajes.estado),
-                payload = COALESCE(EXCLUDED.payload, whatsapp_mensajes.payload),
-                respuesta = COALESCE(EXCLUDED.respuesta, whatsapp_mensajes.respuesta),
-                creado_por = COALESCE(EXCLUDED.creado_por, whatsapp_mensajes.creado_por)
-        """, (
-            jugador_id,
-            telefono_normalizado or None,
-            normalizar_telefono_whatsapp(wa_id) or telefono_normalizado or None,
-            direccion,
-            tipo,
-            texto or None,
-            meta_message_id or None,
-            estado or ("recibido" if direccion == "in" else "enviado"),
-            json.dumps(payload or {}, ensure_ascii=False, default=str),
-            json.dumps(respuesta or {}, ensure_ascii=False, default=str),
-            creado_por or (session.get("username") if has_request_context() else None),
-        ))
+        wa_normalizado = normalizar_telefono_whatsapp(wa_id) or telefono_normalizado or None
+        estado_final = estado or ("recibido" if direccion == "in" else "enviado")
+        payload_json = json.dumps(payload or {}, ensure_ascii=False, default=str)
+        respuesta_json = json.dumps(respuesta or {}, ensure_ascii=False, default=str)
+        creado_por_final = creado_por or (session.get("username") if has_request_context() else None)
+
+        mensaje_existente = None
+        if meta_message_id:
+            mensaje_existente = conn.execute(
+                "SELECT id FROM whatsapp_mensajes WHERE meta_message_id = %s LIMIT 1",
+                (meta_message_id,)
+            ).fetchone()
+
+        if mensaje_existente:
+            conn.execute("""
+                UPDATE whatsapp_mensajes
+                SET
+                    jugador_id = COALESCE(%s, jugador_id),
+                    telefono = COALESCE(%s, telefono),
+                    wa_id = COALESCE(%s, wa_id),
+                    direccion = %s,
+                    tipo = %s,
+                    texto = COALESCE(%s, texto),
+                    estado = COALESCE(%s, estado),
+                    payload = COALESCE(%s, payload),
+                    respuesta = COALESCE(%s, respuesta),
+                    creado_por = COALESCE(%s, creado_por)
+                WHERE id = %s
+            """, (
+                jugador_id,
+                telefono_normalizado or None,
+                wa_normalizado,
+                direccion,
+                tipo,
+                texto or None,
+                estado_final,
+                payload_json,
+                respuesta_json,
+                creado_por_final,
+                mensaje_existente["id"],
+            ))
+        else:
+            conn.execute("""
+                INSERT INTO whatsapp_mensajes (
+                    jugador_id, telefono, wa_id, direccion, tipo, texto,
+                    meta_message_id, estado, payload, respuesta, creado_por
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                jugador_id,
+                telefono_normalizado or None,
+                wa_normalizado,
+                direccion,
+                tipo,
+                texto or None,
+                meta_message_id or None,
+                estado_final,
+                payload_json,
+                respuesta_json,
+                creado_por_final,
+            ))
         conn.commit()
         conn.close()
         return True
