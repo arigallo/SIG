@@ -132,6 +132,16 @@
                 </details>
                 {% endif %}
 
+                {% if puede('secretaria_ver', 'secretaria_gestionar') %}
+                {% set secretaria_actual = endpoint in ['listar_documentos_secretaria', 'nuevo_documento_secretaria', 'ver_documento_secretaria', 'eliminar_documento_secretaria'] %}
+                <details class="nav-group {% if secretaria_actual %}current{% endif %}" {% if secretaria_actual %}open{% endif %}>
+                    <summary>Secretar&iacute;a</summary>
+                    <div class="nav-menu">
+                        <a class="{% if endpoint in ['listar_documentos_secretaria', 'nuevo_documento_secretaria', 'ver_documento_secretaria', 'eliminar_documento_secretaria'] %}active{% endif %}" href="{{ url_for('listar_documentos_secretaria') }}">Documentos</a>
+                    </div>
+                </details>
+                {% endif %}
+
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') %}
                 {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_mantenimiento', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}

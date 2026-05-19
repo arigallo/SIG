@@ -1204,6 +1204,19 @@ tbody tr:hover {
     text-align: left;
 }
 
+.audit-json {
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 10px 0 0;
+    padding: 10px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    font-size: 12px;
+}
+
 .report-progress {
     display: block;
     width: min(180px, 100%);

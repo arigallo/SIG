@@ -10,6 +10,61 @@
     </div>
 </div>
 
+<div class="page-section">
+    <div class="section-header">
+        <h3>Diagnóstico reciente</h3>
+    </div>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">Estos son los últimos webhooks recibidos desde Meta, con un resumen rápido de mensajes y estados detectados.</p>
+        <table class="notification-detail-table">
+            <thead>
+                <tr>
+                    <th>Recibido</th>
+                    <th>Tipo</th>
+                    <th>Mensajes</th>
+                    <th>Estados</th>
+                    <th>Origen</th>
+                    <th>Procesado</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for evento in webhook_eventos %}
+                <tr>
+                    <td data-label="Recibido">{{ evento['recibido_en'] }}</td>
+                    <td data-label="Tipo">{{ evento['event_type'] }}</td>
+                    <td data-label="Mensajes">{{ evento['messages_count'] }}</td>
+                    <td data-label="Estados">
+                        {{ evento['statuses_count'] }}
+                        {% if evento['status_values'] %}
+                            <span class="muted-line">{{ evento['status_values']|join(', ') }}</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Origen">
+                        {% if evento['from_values'] %}
+                            {{ evento['from_values']|join(', ') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td data-label="Procesado">{{ 'Sí' if evento['procesado'] else 'No' }}</td>
+                    <td data-label="Detalle">
+                        <details>
+                            <summary>Ver payload</summary>
+                            <pre class="audit-json">{{ evento['payload'] }}</pre>
+                        </details>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty">Todavía no hay eventos webhook registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="whatsapp-inbox-layout">
     <aside class="page-section whatsapp-inbox-sidebar">
         <div class="section-header">
@@ -46,10 +101,29 @@
                     <h3>{{ conversacion_actual['nombre'] }}</h3>
                     <p class="page-intro">{{ conversacion_actual['telefono'] }}</p>
                 </div>
-                {% if conversacion_actual['jugador_id'] %}
-                    <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=conversacion_actual['jugador_id']) }}">Ver jugador</a>
-                {% endif %}
+                <div class="actions">
+                    {% if conversacion_actual['jugador_id'] %}
+                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=conversacion_actual['jugador_id']) }}">Ver jugador</a>
+                    {% endif %}
+                </div>
             </div>
+
+            <form class="page-section compact-form" method="post" action="{{ url_for('vincular_whatsapp_inbox') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="telefono" value="{{ telefono_actual }}">
+                <label for="jugador_id">Vincular conversación a jugador</label>
+                <div class="actions-row">
+                    <select id="jugador_id" name="jugador_id">
+                        <option value="">Sin vincular</option>
+                        {% for jugador in jugadores_disponibles %}
+                            <option value="{{ jugador['id'] }}" {% if conversacion_actual['jugador_id'] == jugador['id'] %}selected{% endif %}>
+                                {{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['categoria'] %} · {{ jugador['categoria'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button class="button secondary" type="submit">Guardar vínculo</button>
+                </div>
+            </form>
 
             <div class="whatsapp-thread-messages">
                 {% for mensaje in mensajes %}

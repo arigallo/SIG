@@ -14,10 +14,27 @@
         };
 
         groups.forEach((group) => {
+            if (!group.classList.contains("current")) {
+                group.removeAttribute("open");
+            }
+        });
+
+        groups.forEach((group) => {
             group.addEventListener("toggle", () => {
                 if (group.open) {
                     closeOthers(group);
                 }
+            });
+
+            group.addEventListener("mouseenter", () => {
+                group.setAttribute("open", "");
+                closeOthers(group);
+            });
+        });
+
+        document.querySelectorAll(".main-nav .nav-menu a").forEach((link) => {
+            link.addEventListener("click", () => {
+                closeOthers(null);
             });
         });
 
@@ -26,6 +43,13 @@
                 closeOthers(null);
             }
         });
+
+        const mainNav = document.querySelector(".main-nav");
+        if (mainNav) {
+            mainNav.addEventListener("mouseleave", () => {
+                closeOthers(null);
+            });
+        }
 
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {
@@ -49,12 +73,34 @@
         return parts.length > 1 ? parts.pop().toLowerCase() : "";
     };
 
-    const isAcceptedFile = (file) => {
+    const parseAcceptedTypes = (input) => {
+        const accept = (input?.getAttribute("accept") || "").trim();
+        if (!accept) {
+            return {
+                mimeTypes: acceptedMimeTypes,
+                extensions: acceptedExtensions,
+            };
+        }
+
+        const mimeTypes = new Set();
+        const extensions = new Set();
+        accept.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean).forEach((item) => {
+            if (item.startsWith(".")) {
+                extensions.add(item.slice(1));
+            } else {
+                mimeTypes.add(item);
+            }
+        });
+        return { mimeTypes, extensions };
+    };
+
+    const isAcceptedFile = (file, input) => {
         if (!file) {
             return false;
         }
 
-        return acceptedMimeTypes.has(file.type) || acceptedExtensions.has(fileExtension(file.name));
+        const allowed = parseAcceptedTypes(input);
+        return allowed.mimeTypes.has((file.type || "").toLowerCase()) || allowed.extensions.has(fileExtension(file.name));
     };
 
     const filesLabel = (files) => {
@@ -118,8 +164,12 @@
             .filter(Boolean);
         const nextFiles = input.multiple ? selected : selected.slice(0, 1);
 
-        if (!nextFiles.length || nextFiles.some((file) => !isAcceptedFile(file))) {
-            setDropzoneStatus(dropzone, "Solo se aceptan PDF, JPG o PNG.", true);
+        if (!nextFiles.length || nextFiles.some((file) => !isAcceptedFile(file, input))) {
+            const accept = input.getAttribute("accept");
+            const humanAccept = accept
+                ? accept.replaceAll(",", ", ").replaceAll(".", "").toUpperCase()
+                : "PDF, JPG o PNG";
+            setDropzoneStatus(dropzone, `Solo se aceptan ${humanAccept}.`, true);
             return false;
         }
 

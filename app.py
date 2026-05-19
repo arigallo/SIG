@@ -250,6 +250,15 @@ DRIVE_FICHAS_MEDICAS_SUBFOLDER = (
     or os.environ.get("DRIVE_FICHAS_MEDICAS_SUBFOLDER")
     or "Fichas m?dicas"
 )
+DRIVE_SECRETARIA_FOLDER_ID = (
+    os.environ.get("GOOGLE_DRIVE_SECRETARIA_FOLDER_ID")
+    or os.environ.get("DRIVE_SECRETARIA_FOLDER_ID")
+)
+DRIVE_SECRETARIA_SUBFOLDER = (
+    os.environ.get("GOOGLE_DRIVE_SECRETARIA_SUBFOLDER")
+    or os.environ.get("DRIVE_SECRETARIA_SUBFOLDER")
+    or "Secretaria"
+)
 COMPROBANTE_MAX_BYTES = int(os.environ.get("COMPROBANTE_MAX_BYTES", str(10 * 1024 * 1024)))
 COMPROBANTE_EXTENSIONS = {
     ".pdf": "application/pdf",
@@ -264,6 +273,32 @@ FICHA_MEDICA_EXTENSIONS = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
 }
+SECRETARIA_MAX_BYTES = int(os.environ.get("SECRETARIA_MAX_BYTES", str(25 * 1024 * 1024)))
+SECRETARIA_EXTENSIONS = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".csv": "text/csv",
+    ".txt": "text/plain",
+}
+SECRETARIA_CATEGORIAS = [
+    "Actas",
+    "Asambleas",
+    "Notas",
+    "Legales",
+    "Tesoreria",
+    "Convenios",
+    "Proveedores",
+    "Institucional",
+    "Otro",
+]
 FICHA_MEDICA_OCR_LANGUAGE = os.environ.get("FICHA_MEDICA_OCR_LANGUAGE", "es")
 MAX_LOGIN_ATTEMPTS = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
 LOGIN_ATTEMPT_WINDOW_MINUTES = int(os.environ.get("LOGIN_ATTEMPT_WINDOW_MINUTES", "15"))
@@ -415,6 +450,16 @@ PERMISOS = {
         "grupo": "Salud",
         "nombre": "Gestionar documentos",
         "descripcion": "Carga, edicion y baja de documentos manuales.",
+    },
+    "secretaria_ver": {
+        "grupo": "Administracion",
+        "nombre": "Ver secretaria",
+        "descripcion": "Consultar documentos administrativos internos y su archivo historico.",
+    },
+    "secretaria_gestionar": {
+        "grupo": "Administracion",
+        "nombre": "Gestionar secretaria",
+        "descripcion": "Subir, categorizar y eliminar documentos administrativos internos.",
     },
     "calendario_ver": {
         "grupo": "Deportivo",
@@ -770,6 +815,14 @@ def require_drive_fichas_medicas_folder():
     return DRIVE_FICHAS_MEDICAS_FOLDER_ID
 
 
+def require_drive_secretaria_folder():
+    if not DRIVE_SECRETARIA_FOLDER_ID and not DRIVE_SHARED_DRIVE_ID:
+        raise RuntimeError(
+            "Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."
+        )
+    return DRIVE_SECRETARIA_FOLDER_ID
+
+
 def drive_query_escape(value):
     return str(value or "").replace("\\", "\\\\").replace("'", "\\'")
 
@@ -868,6 +921,18 @@ def get_drive_fichas_medicas_base_folder(service):
         return get_or_create_drive_subfolder(service, root_folder, subfolder)
 
     subfolder = (DRIVE_FICHAS_MEDICAS_SUBFOLDER or "Fichas m?dicas").strip()
+    return get_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
+
+
+def get_drive_secretaria_base_folder(service):
+    root_folder = require_drive_secretaria_folder()
+    if root_folder:
+        subfolder = (DRIVE_SECRETARIA_SUBFOLDER or "").strip()
+        if not subfolder:
+            return root_folder
+        return get_or_create_drive_subfolder(service, root_folder, subfolder)
+
+    subfolder = (DRIVE_SECRETARIA_SUBFOLDER or "Secretaria").strip()
     return get_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
 
 
@@ -976,6 +1041,71 @@ def validar_comprobante_upload_dict(file_storage):
         "ext": ext,
         "content": content,
         "mime_type": mime_type,
+    }
+
+
+def validar_documento_secretaria_upload(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None
+
+    filename = secure_filename(file_storage.filename)
+    ext = Path(filename).suffix.lower()
+    if ext not in SECRETARIA_EXTENSIONS:
+        raise ValueError("El archivo debe ser PDF, imagen, Word, Excel, PowerPoint, CSV o TXT.")
+
+    content = file_storage.read()
+    if not content:
+        raise ValueError("El archivo está vacío.")
+    if len(content) > SECRETARIA_MAX_BYTES:
+        max_mb = max(1, SECRETARIA_MAX_BYTES // (1024 * 1024))
+        raise ValueError(f"El archivo supera el tamaño máximo permitido ({max_mb} MB).")
+
+    mime_type = SECRETARIA_EXTENSIONS[ext]
+    guessed_mime = mimetypes.guess_type(filename)[0]
+    if guessed_mime:
+        mime_type = guessed_mime
+
+    return {
+        "filename": filename,
+        "ext": ext,
+        "content": content,
+        "mime_type": mime_type,
+    }
+
+
+def get_drive_secretaria_folder(service, categoria, fecha_base=None):
+    root_folder = get_drive_secretaria_base_folder(service)
+    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    periodo_folder = get_drive_periodo_folder(service, root_folder, periodo)
+    categoria_slug = secure_filename(categoria or "General") or "General"
+    return get_or_create_drive_subfolder(service, periodo_folder, categoria_slug)
+
+
+def subir_documento_secretaria_a_drive(validado, categoria, titulo, fecha_base=None):
+    if not validado:
+        return None
+
+    service = drive_service()
+    folder_id = get_drive_secretaria_folder(service, categoria, fecha_base=fecha_base)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    titulo_slug = secure_filename(titulo or Path(validado["filename"]).stem or "documento") or "documento"
+    drive_name = f"secretaria_{titulo_slug}_{timestamp}{validado['ext']}"
+    media = MediaIoBaseUpload(io.BytesIO(validado["content"]), mimetype=validado["mime_type"], resumable=False)
+
+    uploaded = service.files().create(
+        body={"name": drive_name, "parents": [folder_id]},
+        media_body=media,
+        fields="id, name, mimeType, size, webViewLink",
+        supportsAllDrives=True,
+    ).execute()
+
+    return {
+        "file_id": uploaded["id"],
+        "nombre": uploaded.get("name") or validado["filename"],
+        "mime_type": uploaded.get("mimeType") or validado["mime_type"],
+        "tamano": int(uploaded.get("size") or len(validado["content"])),
+        "web_url": uploaded.get("webViewLink"),
+        "folder_id": folder_id,
     }
 
 
@@ -3760,6 +3890,17 @@ def listar_whatsapp_conversaciones():
     return conversaciones
 
 
+def listar_jugadores_basicos_para_whatsapp():
+    conn = get_connection()
+    jugadores = conn.execute("""
+        SELECT id, nombre, apellido, categoria
+        FROM jugadores
+        ORDER BY apellido ASC, nombre ASC
+    """).fetchall()
+    conn.close()
+    return jugadores
+
+
 def obtener_whatsapp_conversacion(telefono):
     telefono = normalizar_telefono_whatsapp(telefono)
     if not telefono:
@@ -3792,6 +3933,71 @@ def obtener_contador_whatsapp_inbox():
         return int((fila or {}).get("total") or 0)
     except Exception:
         return 0
+
+
+def resumir_evento_webhook_whatsapp(payload_texto):
+    try:
+        payload = json.loads(payload_texto or "{}")
+    except Exception:
+        return {
+            "messages_count": 0,
+            "statuses_count": 0,
+            "contacts_count": 0,
+            "from_values": [],
+            "status_values": [],
+        }
+
+    messages_count = 0
+    statuses_count = 0
+    contacts_count = 0
+    from_values = []
+    status_values = []
+    for entry in payload.get("entry", []) or []:
+        for change in entry.get("changes", []) or []:
+            value = change.get("value") or {}
+            messages = value.get("messages", []) or []
+            statuses = value.get("statuses", []) or []
+            contacts = value.get("contacts", []) or []
+            messages_count += len(messages)
+            statuses_count += len(statuses)
+            contacts_count += len(contacts)
+            from_values.extend(
+                normalizar_telefono_whatsapp(item.get("from"))
+                for item in messages
+                if item.get("from")
+            )
+            status_values.extend(
+                str(item.get("status") or "").strip()
+                for item in statuses
+                if item.get("status")
+            )
+    return {
+        "messages_count": messages_count,
+        "statuses_count": statuses_count,
+        "contacts_count": contacts_count,
+        "from_values": [item for item in from_values if item],
+        "status_values": [item for item in status_values if item],
+    }
+
+
+def listar_whatsapp_webhook_eventos(limit=15):
+    conn = get_connection()
+    filas = conn.execute("""
+        SELECT id, event_type, meta_object, procesado, payload, recibido_en
+        FROM whatsapp_webhook_eventos
+        ORDER BY id DESC
+        LIMIT %s
+    """, (limit,)).fetchall()
+    conn.close()
+
+    eventos = []
+    for fila in filas:
+        resumen = resumir_evento_webhook_whatsapp(fila.get("payload"))
+        eventos.append({
+            **fila,
+            **resumen,
+        })
+    return eventos
 
 
 def parse_meta_signed_request(signed_request):
@@ -5455,6 +5661,32 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS secretaria_documentos (
+            id SERIAL PRIMARY KEY,
+            categoria TEXT NOT NULL,
+            titulo TEXT NOT NULL,
+            descripcion TEXT,
+            fecha_documento TEXT,
+            drive_file_id TEXT NOT NULL,
+            drive_folder_id TEXT,
+            archivo_nombre TEXT,
+            archivo_mime_type TEXT,
+            archivo_tamano INTEGER,
+            archivo_web_url TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_secretaria_documentos_categoria
+        ON secretaria_documentos (categoria, creado_en DESC)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_secretaria_documentos_fecha
+        ON secretaria_documentos (creado_en DESC)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS whatsapp_envios (
             id SERIAL PRIMARY KEY,
             jugador_id INTEGER,
@@ -6657,6 +6889,9 @@ def proteger_rutas():
         if not csrf_valido():
             abort(400)
 
+    if request.path in {"/meta/data-deletion", "/meta/data-deletion-callback"}:
+        return
+
     if request.endpoint in rutas_publicas:
         return
 
@@ -6713,6 +6948,15 @@ def whatsapp_webhook_receive():
 
     procesado = False
     try:
+        resumen_previo = resumir_evento_webhook_whatsapp(json.dumps(payload, ensure_ascii=False, default=str))
+        app.logger.info(
+            "WhatsApp webhook recibido: messages=%s statuses=%s contacts=%s from=%s statuses_values=%s",
+            resumen_previo["messages_count"],
+            resumen_previo["statuses_count"],
+            resumen_previo["contacts_count"],
+            ",".join(resumen_previo["from_values"][:5]),
+            ",".join(resumen_previo["status_values"][:5]),
+        )
         for entry in payload.get("entry", []):
             for change in entry.get("changes", []):
                 value = change.get("value") or {}
@@ -8652,6 +8896,214 @@ def eliminar_documento_jugador(documento_id):
 
     flash("Documento eliminado.", "ok")
     return redirect(url_for("detalle_jugador", jugador_id=documento["jugador_id"]))
+
+
+def categorias_secretaria_disponibles(conn):
+    existentes = conn.execute("""
+        SELECT DISTINCT categoria
+        FROM secretaria_documentos
+        WHERE NULLIF(TRIM(categoria), '') IS NOT NULL
+        ORDER BY categoria
+    """).fetchall()
+    categorias = {categoria for categoria in SECRETARIA_CATEGORIAS}
+    categorias.update((fila["categoria"] or "").strip() for fila in existentes if (fila["categoria"] or "").strip())
+    return sorted(categorias, key=lambda item: item.lower())
+
+
+def render_documentos_secretaria(categoria_filtro="", form_data=None):
+    conn = get_connection()
+    categorias = categorias_secretaria_disponibles(conn)
+
+    if categoria_filtro:
+        documentos = conn.execute("""
+            SELECT *
+            FROM secretaria_documentos
+            WHERE categoria = %s
+            ORDER BY COALESCE(fecha_documento, creado_en::text) DESC, id DESC
+        """, (categoria_filtro,)).fetchall()
+    else:
+        documentos = conn.execute("""
+            SELECT *
+            FROM secretaria_documentos
+            ORDER BY COALESCE(fecha_documento, creado_en::text) DESC, id DESC
+        """).fetchall()
+
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(DISTINCT categoria) AS categorias
+        FROM secretaria_documentos
+    """).fetchone()
+    conn.close()
+
+    documentos_preview = [dict(item, preview_tipo=obtener_preview_tipo(item.get("archivo_mime_type"))) for item in documentos]
+    return render_template(
+        "secretaria_documentos.html",
+        documentos=documentos_preview,
+        categorias=categorias,
+        categoria_filtro=categoria_filtro,
+        form_data=form_data or {},
+        resumen=resumen or {"total": 0, "categorias": 0},
+        secretaria_accept=",".join(SECRETARIA_EXTENSIONS.keys()),
+    )
+
+
+@app.route("/secretaria/documentos")
+def listar_documentos_secretaria():
+    check = permiso_requerido("secretaria_ver", "secretaria_gestionar")
+    if check:
+        return check
+
+    categoria_filtro = request.args.get("categoria", "").strip()
+    return render_documentos_secretaria(categoria_filtro=categoria_filtro)
+
+
+@app.route("/secretaria/documentos/nuevo", methods=["POST"])
+def nuevo_documento_secretaria():
+    check = permiso_requerido("secretaria_gestionar")
+    if check:
+        return check
+
+    data = {
+        "categoria": request.form.get("categoria", "").strip(),
+        "titulo": request.form.get("titulo", "").strip(),
+        "descripcion": request.form.get("descripcion", "").strip(),
+        "fecha_documento": request.form.get("fecha_documento", "").strip(),
+    }
+    categoria_filtro = request.form.get("categoria_filtro", "").strip()
+    archivo = request.files.get("archivo")
+
+    if not data["categoria"]:
+        flash("La categoría es obligatoria.", "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+    if not data["titulo"]:
+        flash("El título del documento es obligatorio.", "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+    if data["fecha_documento"] and not validar_fecha_movimiento(data["fecha_documento"]):
+        flash("La fecha del documento no es válida.", "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+
+    try:
+        validado = validar_documento_secretaria_upload(archivo)
+    except ValueError as error:
+        flash(str(error), "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+
+    if not validado:
+        flash("Tenés que adjuntar un archivo.", "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+
+    try:
+        documento_drive = subir_documento_secretaria_a_drive(
+            validado,
+            data["categoria"],
+            data["titulo"],
+            fecha_base=data["fecha_documento"] or None,
+        )
+    except Exception as error:
+        app.logger.exception("No se pudo guardar documento de secretaria en Drive.")
+        flash(mensaje_error_drive(error, carpeta="Secretaria", accion="guardar el documento"), "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+
+    conn = get_connection()
+    documento = conn.execute("""
+        INSERT INTO secretaria_documentos (
+            categoria, titulo, descripcion, fecha_documento,
+            drive_file_id, drive_folder_id, archivo_nombre, archivo_mime_type,
+            archivo_tamano, archivo_web_url, creado_por
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """, (
+        data["categoria"],
+        data["titulo"],
+        data["descripcion"] or None,
+        data["fecha_documento"] or None,
+        documento_drive["file_id"],
+        documento_drive["folder_id"],
+        documento_drive["nombre"],
+        documento_drive["mime_type"],
+        documento_drive["tamano"],
+        documento_drive["web_url"],
+        session.get("username"),
+    )).fetchone()
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("subir", "documento_secretaria", str(documento["id"]), {
+        "categoria": data["categoria"],
+        "titulo": data["titulo"],
+    })
+    flash("Documento de secretaría guardado.", "ok")
+    return redirect(url_for("listar_documentos_secretaria", categoria=data["categoria"]))
+
+
+@app.route("/secretaria/documentos/<int:documento_id>/archivo")
+def ver_documento_secretaria(documento_id):
+    check = permiso_requerido("secretaria_ver", "secretaria_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    documento = conn.execute(
+        "SELECT * FROM secretaria_documentos WHERE id = %s",
+        (documento_id,),
+    ).fetchone()
+    conn.close()
+    if not documento:
+        flash("Documento de secretaría no encontrado.", "error")
+        return redirect(url_for("listar_documentos_secretaria"))
+
+    try:
+        archivo = descargar_drive_file(documento["drive_file_id"])
+    except Exception as error:
+        flash(mensaje_error_drive(error, carpeta="Secretaria", accion="descargar el documento"), "error")
+        return redirect(url_for("listar_documentos_secretaria", categoria=documento.get("categoria") or ""))
+
+    registrar_auditoria("ver", "documento_secretaria", str(documento_id), {
+        "archivo": documento.get("archivo_nombre"),
+        "drive_file_id": documento.get("drive_file_id"),
+    })
+    return send_file(
+        archivo,
+        mimetype=documento.get("archivo_mime_type") or "application/octet-stream",
+        as_attachment=False,
+        download_name=documento.get("archivo_nombre") or f"secretaria_{documento_id}",
+    )
+
+
+@app.route("/secretaria/documentos/<int:documento_id>/eliminar", methods=["POST"])
+def eliminar_documento_secretaria(documento_id):
+    check = permiso_requerido("secretaria_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    documento = conn.execute(
+        "SELECT * FROM secretaria_documentos WHERE id = %s",
+        (documento_id,),
+    ).fetchone()
+    if not documento:
+        conn.close()
+        flash("Documento de secretaría no encontrado.", "error")
+        return redirect(url_for("listar_documentos_secretaria"))
+
+    conn.execute("DELETE FROM secretaria_documentos WHERE id = %s", (documento_id,))
+    conn.commit()
+    conn.close()
+
+    if documento.get("drive_file_id"):
+        try:
+            eliminar_drive_file(documento["drive_file_id"])
+        except Exception:
+            app.logger.warning("No se pudo eliminar el archivo de Drive del documento de secretaria %s.", documento_id)
+
+    registrar_auditoria("eliminar", "documento_secretaria", str(documento_id), {
+        "categoria": documento.get("categoria"),
+        "titulo": documento.get("titulo"),
+    })
+    flash("Documento de secretaría eliminado.", "ok")
+    return redirect(url_for("listar_documentos_secretaria", categoria=documento.get("categoria") or ""))
 
 
 @app.route("/jugadores")
@@ -15140,6 +15592,8 @@ def ver_whatsapp_inbox():
         return check
 
     conversaciones = listar_whatsapp_conversaciones()
+    jugadores_disponibles = listar_jugadores_basicos_para_whatsapp()
+    webhook_eventos = listar_whatsapp_webhook_eventos()
     telefono = normalizar_telefono_whatsapp(request.args.get("telefono", ""))
     if not telefono and conversaciones:
         telefono = conversaciones[0]["telefono"]
@@ -15165,6 +15619,8 @@ def ver_whatsapp_inbox():
         conversacion_actual=conversacion_actual,
         mensajes=mensajes,
         telefono_actual=telefono,
+        jugadores_disponibles=jugadores_disponibles,
+        webhook_eventos=webhook_eventos,
     )
 
 
@@ -15202,6 +15658,41 @@ def responder_whatsapp_inbox():
         flash("Respuesta enviada por WhatsApp.", "ok")
     else:
         flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_whatsapp_inbox", telefono=telefono))
+
+
+@app.route("/comunicacion/whatsapp/vincular", methods=["POST"])
+def vincular_whatsapp_inbox():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    telefono = normalizar_telefono_whatsapp(request.form.get("telefono", ""))
+    jugador_id_raw = (request.form.get("jugador_id", "") or "").strip()
+    if not telefono:
+        flash("No hay un teléfono válido para vincular.", "error")
+        return redirect(url_for("ver_whatsapp_inbox"))
+
+    jugador_id = int(jugador_id_raw) if jugador_id_raw.isdigit() else None
+    conn = get_connection()
+    conn.execute("""
+        UPDATE whatsapp_mensajes
+        SET jugador_id = %s
+        WHERE telefono = %s OR wa_id = %s
+    """, (jugador_id, telefono, telefono))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "vincular",
+        "whatsapp_inbox",
+        telefono,
+        {"jugador_id": jugador_id},
+    )
+    if jugador_id:
+        flash("Conversación vinculada al jugador.", "ok")
+    else:
+        flash("Conversación desvinculada del jugador.", "ok")
     return redirect(url_for("ver_whatsapp_inbox", telefono=telefono))
 
 
