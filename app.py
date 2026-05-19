@@ -3827,12 +3827,22 @@ def registrar_whatsapp_mensaje(
         ))
         conn.commit()
         conn.close()
+        return True
     except Exception:
+        app.logger.exception(
+            "No se pudo registrar mensaje de WhatsApp. telefono=%s wa_id=%s direccion=%s tipo=%s meta_message_id=%s",
+            telefono,
+            wa_id,
+            direccion,
+            tipo,
+            meta_message_id,
+        )
         try:
             if conn:
                 conn.close()
         except Exception:
             pass
+        return False
 
 
 def listar_whatsapp_conversaciones():
