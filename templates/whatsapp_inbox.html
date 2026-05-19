@@ -6,16 +6,118 @@
 <div class="section-header">
     <div>
         <h2>Inbox WhatsApp</h2>
-        <p class="page-intro">Seguimiento de conversaciones entrantes y respuestas directas desde SIG.</p>
+        <p class="page-intro">Bandeja para leer y responder conversaciones del número del club desde SIG.</p>
     </div>
 </div>
 
-<div class="page-section">
-    <div class="section-header">
-        <h3>Diagnóstico reciente</h3>
-    </div>
-    <div class="table-wrapper notification-table">
-        <p class="table-hint">Estos son los últimos webhooks recibidos desde Meta, con un resumen rápido de mensajes y estados detectados.</p>
+<div class="whatsapp-inbox-layout">
+    <aside class="page-section whatsapp-inbox-sidebar">
+        <div class="section-header">
+            <h3>Conversaciones</h3>
+        </div>
+        <div class="whatsapp-conversation-list">
+            {% for conversacion in conversaciones %}
+                <a
+                    class="whatsapp-conversation-item {% if telefono_actual == conversacion['telefono'] %}active{% endif %}"
+                    href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}"
+                >
+                    <div class="whatsapp-conversation-top">
+                        <strong>{{ conversacion['nombre'] }}</strong>
+                        {% if conversacion['sin_leer'] %}
+                            <span class="nav-badge">{{ conversacion['sin_leer'] }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="muted-line">{{ conversacion['telefono'] }}</div>
+                    <div class="muted-line">Último mensaje: {{ conversacion['ultimo_en'] or '-' }}</div>
+                    {% if conversacion['categoria'] %}
+                        <div class="muted-line">{{ conversacion['categoria'] }}</div>
+                    {% endif %}
+                    <div class="whatsapp-snippet">{{ conversacion['ultimo_texto'] or '[Sin contenido]' }}</div>
+                </a>
+            {% else %}
+                <p class="empty">Todavía no hay conversaciones registradas.</p>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <section class="page-section whatsapp-inbox-thread">
+        {% if conversacion_actual %}
+            <div class="section-header">
+                <div>
+                    <h3>{{ conversacion_actual['nombre'] }}</h3>
+                    <p class="page-intro">{{ conversacion_actual['telefono'] }}</p>
+                    {% if conversacion_actual['jugador_id'] %}
+                        <p class="report-note">Conversación vinculada a jugador.</p>
+                    {% else %}
+                        <p class="report-note">Todavía no está vinculada a un jugador.</p>
+                    {% endif %}
+                </div>
+                <div class="actions">
+                    {% if conversacion_actual['jugador_id'] %}
+                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=conversacion_actual['jugador_id']) }}">Ver jugador</a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form class="page-section compact-form" method="post" action="{{ url_for('vincular_whatsapp_inbox') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="telefono" value="{{ telefono_actual }}">
+                <label for="jugador_id">Vincular conversación a jugador</label>
+                <div class="actions-row">
+                    <select id="jugador_id" name="jugador_id">
+                        <option value="">Sin vincular</option>
+                        {% for jugador in jugadores_disponibles %}
+                            <option value="{{ jugador['id'] }}" {% if conversacion_actual['jugador_id'] == jugador['id'] %}selected{% endif %}>
+                                {{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['categoria'] %} · {{ jugador['categoria'] }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button class="button secondary" type="submit">Guardar vínculo</button>
+                </div>
+            </form>
+
+            <form class="page-section compact-form whatsapp-reply-form" method="post" action="{{ url_for('responder_whatsapp_inbox') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="telefono" value="{{ telefono_actual }}">
+                <label for="mensaje">Responder por WhatsApp</label>
+                <textarea id="mensaje" name="mensaje" rows="4" placeholder="Escribí una respuesta breve para esta conversación." required></textarea>
+                <div class="form-actions">
+                    <button class="button" type="submit">Enviar respuesta</button>
+                </div>
+            </form>
+
+            <div class="whatsapp-thread-messages">
+                {% for mensaje in mensajes %}
+                    <article class="whatsapp-bubble {% if mensaje['direccion'] == 'out' %}out{% else %}in{% endif %}">
+                        <div class="whatsapp-bubble-meta">
+                            <strong>{% if mensaje['direccion'] == 'out' %}SIG{% else %}Contacto{% endif %}</strong>
+                            <span>{{ mensaje['creado_en'] }}</span>
+                        </div>
+                        <div class="whatsapp-bubble-text">{{ mensaje['texto'] or '[Sin contenido]' }}</div>
+                        <div class="muted-line">
+                            {{ mensaje['tipo']|upper }}
+                            {% if mensaje['estado'] %}
+                                · {{ mensaje['estado'] }}
+                            {% endif %}
+                        </div>
+                    </article>
+                {% else %}
+                    <p class="empty">No hay mensajes en esta conversación todavía.</p>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="card spaced-small">
+                <h3>Elegí una conversación</h3>
+                <p class="page-intro">Cuando abras una conversación vas a ver el historial y la caja de respuesta arriba del hilo.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+<details class="page-section top-gap">
+    <summary><strong>Diagnóstico técnico</strong></summary>
+    <div class="table-wrapper notification-table top-gap">
+        <p class="table-hint">Esto queda para revisar qué está llegando desde Meta si una conversación no aparece todavía.</p>
         <table class="notification-detail-table">
             <thead>
                 <tr>
@@ -63,100 +165,5 @@
             </tbody>
         </table>
     </div>
-</div>
-
-<div class="whatsapp-inbox-layout">
-    <aside class="page-section whatsapp-inbox-sidebar">
-        <div class="section-header">
-            <h3>Conversaciones</h3>
-        </div>
-        <div class="whatsapp-conversation-list">
-            {% for conversacion in conversaciones %}
-                <a
-                    class="whatsapp-conversation-item {% if telefono_actual == conversacion['telefono'] %}active{% endif %}"
-                    href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}"
-                >
-                    <div class="whatsapp-conversation-top">
-                        <strong>{{ conversacion['nombre'] }}</strong>
-                        {% if conversacion['sin_leer'] %}
-                            <span class="nav-badge">{{ conversacion['sin_leer'] }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="muted-line">{{ conversacion['telefono'] }}</div>
-                    {% if conversacion['categoria'] %}
-                        <div class="muted-line">{{ conversacion['categoria'] }}</div>
-                    {% endif %}
-                    <div class="whatsapp-snippet">{{ conversacion['ultimo_texto'] or '[Sin contenido]' }}</div>
-                </a>
-            {% else %}
-                <p class="empty">Todavía no hay conversaciones registradas.</p>
-            {% endfor %}
-        </div>
-    </aside>
-
-    <section class="page-section whatsapp-inbox-thread">
-        {% if conversacion_actual %}
-            <div class="section-header">
-                <div>
-                    <h3>{{ conversacion_actual['nombre'] }}</h3>
-                    <p class="page-intro">{{ conversacion_actual['telefono'] }}</p>
-                </div>
-                <div class="actions">
-                    {% if conversacion_actual['jugador_id'] %}
-                        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=conversacion_actual['jugador_id']) }}">Ver jugador</a>
-                    {% endif %}
-                </div>
-            </div>
-
-            <form class="page-section compact-form" method="post" action="{{ url_for('vincular_whatsapp_inbox') }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="telefono" value="{{ telefono_actual }}">
-                <label for="jugador_id">Vincular conversación a jugador</label>
-                <div class="actions-row">
-                    <select id="jugador_id" name="jugador_id">
-                        <option value="">Sin vincular</option>
-                        {% for jugador in jugadores_disponibles %}
-                            <option value="{{ jugador['id'] }}" {% if conversacion_actual['jugador_id'] == jugador['id'] %}selected{% endif %}>
-                                {{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['categoria'] %} · {{ jugador['categoria'] }}{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <button class="button secondary" type="submit">Guardar vínculo</button>
-                </div>
-            </form>
-
-            <div class="whatsapp-thread-messages">
-                {% for mensaje in mensajes %}
-                    <article class="whatsapp-bubble {% if mensaje['direccion'] == 'out' %}out{% else %}in{% endif %}">
-                        <div class="whatsapp-bubble-meta">
-                            <strong>{% if mensaje['direccion'] == 'out' %}SIG{% else %}Jugador{% endif %}</strong>
-                            <span>{{ mensaje['creado_en'] }}</span>
-                        </div>
-                        <div class="whatsapp-bubble-text">{{ mensaje['texto'] or '[Sin contenido]' }}</div>
-                        <div class="muted-line">
-                            {{ mensaje['tipo']|upper }}
-                            {% if mensaje['estado'] %}
-                                · {{ mensaje['estado'] }}
-                            {% endif %}
-                        </div>
-                    </article>
-                {% else %}
-                    <p class="empty">No hay mensajes en esta conversación todavía.</p>
-                {% endfor %}
-            </div>
-
-            <form class="page-section compact-form whatsapp-reply-form" method="post" action="{{ url_for('responder_whatsapp_inbox') }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="telefono" value="{{ telefono_actual }}">
-                <label for="mensaje">Responder por WhatsApp</label>
-                <textarea id="mensaje" name="mensaje" rows="4" placeholder="Escribí una respuesta breve para esta conversación."></textarea>
-                <div class="form-actions">
-                    <button class="button" type="submit">Enviar respuesta</button>
-                </div>
-            </form>
-        {% else %}
-            <p class="empty">Elegí una conversación para ver el hilo y responder.</p>
-        {% endif %}
-    </section>
-</div>
+</details>
 {% endblock %}

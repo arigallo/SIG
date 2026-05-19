@@ -1112,6 +1112,11 @@ tbody tr:hover {
     margin-top: 0;
 }
 
+.whatsapp-inbox-thread {
+    display: grid;
+    gap: 16px;
+}
+
 .whatsapp-conversation-list {
     display: grid;
     gap: 10px;
@@ -1155,6 +1160,7 @@ tbody tr:hover {
     max-height: 62vh;
     overflow-y: auto;
     padding-right: 4px;
+    padding-top: 4px;
 }
 
 .whatsapp-bubble {
@@ -1190,7 +1196,7 @@ tbody tr:hover {
 }
 
 .whatsapp-reply-form {
-    margin-top: 18px;
+    margin-top: 0;
 }
 
 .public-info-card {
