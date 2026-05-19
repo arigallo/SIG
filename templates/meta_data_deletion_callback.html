@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Callback de eliminación de datos - SIG</title>
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="login-body">
+
+    <div class="login-card public-info-card">
+        <div class="login-logo">
+            <picture>
+                <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+            </picture>
+        </div>
+
+        <h1>Callback de eliminación de datos</h1>
+        <h2>Ruda Macho Rugby Club · SIG</h2>
+
+        <p class="page-intro">
+            Este endpoint está activo y reservado para solicitudes automáticas de Meta relacionadas
+            con eliminación de datos.
+        </p>
+
+        <p class="page-intro">
+            Si querés ver las instrucciones públicas de eliminación, usá
+            <a href="{{ url_for('meta_data_deletion') }}">esta página</a>.
+        </p>
+    </div>
+
+</body>
+</html>

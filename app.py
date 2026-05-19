@@ -6633,6 +6633,7 @@ def proteger_rutas():
         "static",
         "meta_data_deletion",
         "meta_data_deletion_callback",
+        "meta_data_deletion_callback_info",
         "meta_data_deletion_status",
         "portal_buscar",
         "portal_jugador",
@@ -7398,7 +7399,12 @@ def meta_data_deletion():
     return render_template("meta_data_deletion.html")
 
 
-@app.route("/meta/data-deletion-callback", methods=["POST"])
+@app.route("/meta/data-deletion-callback", methods=["GET"], endpoint="meta_data_deletion_callback_info")
+def meta_data_deletion_callback_info():
+    return render_template("meta_data_deletion_callback.html")
+
+
+@app.route("/meta/data-deletion-callback", methods=["POST"], endpoint="meta_data_deletion_callback")
 def meta_data_deletion_callback():
     signed_request = request.form.get("signed_request", "")
     payload = parse_meta_signed_request(signed_request)
