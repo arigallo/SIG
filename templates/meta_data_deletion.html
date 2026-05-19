@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminación de datos - SIG</title>
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="login-body">
+
+    <div class="login-card public-info-card">
+        <div class="login-logo">
+            <picture>
+                <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+            </picture>
+        </div>
+
+        <h1>Eliminación de datos</h1>
+        <h2>Ruda Macho Rugby Club · SIG</h2>
+
+        <p class="page-intro">
+            Si querés solicitar la eliminación de tus datos personales del Sistema Integral de Gestión (SIG),
+            podés escribirnos a <strong>rudamachorugby@gmail.com</strong> indicando tu nombre completo,
+            DNI y el motivo de la solicitud.
+        </p>
+
+        <p class="page-intro">
+            Una vez recibida la solicitud, el club revisará la información y gestionará la baja o eliminación
+            correspondiente según las obligaciones administrativas y legales aplicables.
+        </p>
+
+        <div class="login-links">
+            <a href="mailto:rudamachorugby@gmail.com">Solicitar por email</a>
+            <span> &middot; </span>
+            <a href="{{ url_for('login') }}">Volver al login</a>
+        </div>
+    </div>
+
+</body>
+</html>

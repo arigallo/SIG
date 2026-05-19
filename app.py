@@ -6597,6 +6597,7 @@ def proteger_rutas():
         "restablecer_password",
         "logout",
         "static",
+        "meta_data_deletion",
         "portal_buscar",
         "portal_jugador",
         "portal_actualizar_contacto",
@@ -7354,6 +7355,11 @@ def login():
             flash("Usuario o contraseña incorrectos", "error")
 
     return render_template("login.html")
+
+
+@app.route("/meta/data-deletion")
+def meta_data_deletion():
+    return render_template("meta_data_deletion.html")
 
 
 @app.route("/password/recuperar", methods=["GET", "POST"])

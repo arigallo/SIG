@@ -1193,6 +1193,17 @@ tbody tr:hover {
     margin-top: 18px;
 }
 
+.public-info-card {
+    display: grid;
+    gap: 16px;
+}
+
+.public-info-card .page-intro {
+    margin: 0;
+    max-width: none;
+    text-align: left;
+}
+
 .report-progress {
     display: block;
     width: min(180px, 100%);
