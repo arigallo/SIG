@@ -25,11 +25,6 @@
                     closeOthers(group);
                 }
             });
-
-            group.addEventListener("mouseenter", () => {
-                group.setAttribute("open", "");
-                closeOthers(group);
-            });
         });
 
         document.querySelectorAll(".main-nav .nav-menu a").forEach((link) => {
@@ -43,13 +38,6 @@
                 closeOthers(null);
             }
         });
-
-        const mainNav = document.querySelector(".main-nav");
-        if (mainNav) {
-            mainNav.addEventListener("mouseleave", () => {
-                closeOthers(null);
-            });
-        }
 
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {
