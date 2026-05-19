@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado de eliminación de datos - SIG</title>
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="login-body">
+
+    <div class="login-card public-info-card">
+        <div class="login-logo">
+            <picture>
+                <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+            </picture>
+        </div>
+
+        <h1>Solicitud recibida</h1>
+        <h2>Ruda Macho Rugby Club · SIG</h2>
+
+        <p class="page-intro">
+            Recibimos correctamente la solicitud de eliminación de datos enviada desde Meta.
+        </p>
+
+        <p class="page-intro">
+            Código de confirmación: <strong>{{ confirmation_code }}</strong>
+        </p>
+
+        <p class="page-intro">
+            El club revisará la solicitud y gestionará la eliminación o baja correspondiente según
+            las obligaciones administrativas y legales aplicables.
+        </p>
+
+        <div class="login-links">
+            <a href="mailto:rudamachorugby@gmail.com">Contactar por email</a>
+            <span> &middot; </span>
+            <a href="{{ url_for('login') }}">Volver al login</a>
+        </div>
+    </div>
+
+</body>
+</html>

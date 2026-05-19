@@ -3,6 +3,7 @@ import psycopg
 from psycopg.rows import dict_row
 from pathlib import Path
 import csv
+import base64
 import html
 import io
 import json
@@ -109,6 +110,14 @@ def static_asset(filename):
     except OSError:
         version = 1
     return url_for("static", filename=filename, v=version)
+
+
+def base64url_decode(value):
+    texto = (value or "").strip()
+    if not texto:
+        return b""
+    padding = "=" * (-len(texto) % 4)
+    return base64.urlsafe_b64decode(texto + padding)
 
 
 def csrf_token():
@@ -3785,6 +3794,31 @@ def obtener_contador_whatsapp_inbox():
         return 0
 
 
+def parse_meta_signed_request(signed_request):
+    partes = str(signed_request or "").split(".", 1)
+    if len(partes) != 2:
+        return None
+    firma_codificada, payload_codificado = partes
+    try:
+        payload = json.loads(base64url_decode(payload_codificado).decode("utf-8"))
+    except Exception:
+        return None
+
+    if WHATSAPP_APP_SECRET:
+        try:
+            firma = base64url_decode(firma_codificada)
+            esperado = hmac.new(
+                WHATSAPP_APP_SECRET.encode("utf-8"),
+                payload_codificado.encode("utf-8"),
+                hashlib.sha256,
+            ).digest()
+            if not hmac.compare_digest(firma, esperado):
+                return None
+        except Exception:
+            return None
+    return payload
+
+
 def mensaje_fallo_whatsapp(motivo, destinatario=None, detalle=None):
     if motivo == "sin_telefono":
         return "No hay un teléfono de WhatsApp configurado para este jugador."
@@ -6598,6 +6632,8 @@ def proteger_rutas():
         "logout",
         "static",
         "meta_data_deletion",
+        "meta_data_deletion_callback",
+        "meta_data_deletion_status",
         "portal_buscar",
         "portal_jugador",
         "portal_actualizar_contacto",
@@ -6614,7 +6650,7 @@ def proteger_rutas():
         "whatsapp_webhook_receive",
     }
 
-    csrf_exentas = {"static", "whatsapp_webhook_receive"}
+    csrf_exentas = {"static", "whatsapp_webhook_receive", "meta_data_deletion_callback"}
 
     if request.method == "POST" and request.endpoint not in csrf_exentas:
         if not csrf_valido():
@@ -7360,6 +7396,55 @@ def login():
 @app.route("/meta/data-deletion")
 def meta_data_deletion():
     return render_template("meta_data_deletion.html")
+
+
+@app.route("/meta/data-deletion-callback", methods=["POST"])
+def meta_data_deletion_callback():
+    signed_request = request.form.get("signed_request", "")
+    payload = parse_meta_signed_request(signed_request)
+    if not payload:
+        return Response("invalid signed_request", status=400, mimetype="text/plain")
+
+    confirmation_code = secrets.token_hex(12)
+    status_url = url_for(
+        "meta_data_deletion_status",
+        confirmation_code=confirmation_code,
+        _external=True,
+    )
+    try:
+        registrar_auditoria(
+            "solicitud_eliminacion_datos",
+            "meta_app",
+            str((payload or {}).get("user_id") or ""),
+            {
+                "confirmation_code": confirmation_code,
+                "algorithm": (payload or {}).get("algorithm"),
+                "issued_at": (payload or {}).get("issued_at"),
+            },
+            username="meta",
+            rol="sistema",
+        )
+    except Exception:
+        pass
+    return Response(
+        json.dumps(
+            {
+                "url": status_url,
+                "confirmation_code": confirmation_code,
+            },
+            ensure_ascii=False,
+        ),
+        status=200,
+        mimetype="application/json",
+    )
+
+
+@app.route("/meta/data-deletion-status/<confirmation_code>")
+def meta_data_deletion_status(confirmation_code):
+    return render_template(
+        "meta_data_deletion_status.html",
+        confirmation_code=confirmation_code,
+    )
 
 
 @app.route("/password/recuperar", methods=["GET", "POST"])
