@@ -191,6 +191,60 @@
     </div>
 </div>
 
+{% if secretaria_documentos is defined and puede('secretaria_ver', 'secretaria_gestionar') %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Documentos de Secretaría</h3>
+        {% if puede('secretaria_ver', 'secretaria_gestionar') %}
+            <a class="button secondary" href="{{ url_for('listar_documentos_secretaria', vencimiento='por_vencer') }}">Ver archivo</a>
+        {% endif %}
+    </div>
+    <div class="table-wrapper notification-table">
+        <p class="table-hint">Documentos administrativos vencidos o con vencimiento dentro de los próximos 30 días.</p>
+        <table class="notification-detail-table">
+            <thead>
+                <tr>
+                    <th>Documento</th>
+                    <th>Categoría</th>
+                    <th>Vencimiento</th>
+                    <th>Detalle</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for documento in secretaria_documentos %}
+                <tr>
+                    <td data-label="Documento">{{ documento['titulo'] }}</td>
+                    <td data-label="Categoría">{{ documento['categoria'] }}</td>
+                    <td data-label="Vencimiento">
+                        {{ documento['fecha_vencimiento'] }}
+                        {% if documento['estado_vencimiento'] == 'vencido' %}
+                            <span class="badge badge-danger">Vencido hace {{ documento['dias'] }} días</span>
+                        {% else %}
+                            <span class="badge badge-warning">Vence en {{ documento['dias'] }} días</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Detalle">
+                        {{ documento['descripcion'] or '-' }}
+                        <span class="muted-line">{{ documento['archivo_nombre'] or '-' }}</span>
+                        <span class="muted-line">Cargado por {{ documento['creado_por'] or '-' }}</span>
+                    </td>
+                    <td data-label="Acción" class="actions">
+                        <a class="button secondary" href="{{ url_for('ver_documento_secretaria', documento_id=documento['id']) }}" target="_blank" rel="noopener">Ver</a>
+                        <a class="button secondary" href="{{ url_for('listar_documentos_secretaria', categoria=documento['categoria']) }}">Secretaría</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay documentos de Secretaría por vencer.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="page-section">
     <div class="section-header">
         <h3>Ahijadxs listos para ingresar</h3>

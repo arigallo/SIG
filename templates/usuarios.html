@@ -55,11 +55,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if usuario['ultimo_login'] %}
-                        {{ usuario['ultimo_login'].strftime('%Y-%m-%d %H:%M') }}
-                    {% else %}
-                        -
-                    {% endif %}
+                    {{ usuario['ultimo_login'] | fecha_hora }}
                 </td>
                 <td class="actions">
                     <a class="button secondary" href="{{ url_for('editar_usuario', usuario_id=usuario['id']) }}">

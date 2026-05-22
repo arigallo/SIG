@@ -40,7 +40,11 @@
                     </a>
                     <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar CSV</a>
                     {% if puede('asistencia_gestionar') %}
-                        <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar</a>
+                        {% if evento.get('calendario_evento_id') %}
+                            <a class="button secondary" href="{{ url_for('editar_evento_calendario', evento_id=evento['calendario_evento_id'], origen='asistencia') }}">Editar</a>
+                        {% else %}
+                            <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar</a>
+                        {% endif %}
                         {% if not evento['cerrado'] %}
                             <form method="post" action="{{ url_for('cerrar_evento_asistencia', evento_id=evento['id']) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

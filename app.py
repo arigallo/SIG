@@ -73,10 +73,24 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 def formato_moneda(valor):
     try:
         return "${:,.0f}".format(float(valor)).replace(",", ".")
-    except:
+    except (TypeError, ValueError):
         return "$0"
 
 app.jinja_env.filters["moneda"] = formato_moneda
+
+
+def formato_fecha_hora(valor):
+    if not valor:
+        return "-"
+    if isinstance(valor, datetime):
+        return valor.strftime("%Y-%m-%d %H:%M")
+    texto = str(valor).strip()
+    if len(texto) >= 16:
+        return texto[:16].replace("T", " ")
+    return texto
+
+
+app.jinja_env.filters["fecha_hora"] = formato_fecha_hora
 
 @app.context_processor
 def inject_now():
@@ -4500,6 +4514,35 @@ def obtener_notificaciones_operativas():
         LIMIT 50
     """).fetchall()
 
+    secretaria_documentos = []
+    if tiene_permiso("secretaria_ver", "secretaria_gestionar"):
+        secretaria_documentos = conn.execute("""
+            SELECT
+                id,
+                categoria,
+                titulo,
+                descripcion,
+                fecha_documento,
+                fecha_vencimiento,
+                archivo_nombre,
+                creado_por,
+                CASE
+                    WHEN fecha_vencimiento::date < CURRENT_DATE THEN 'vencido'
+                    ELSE 'por_vencer'
+                END AS estado_vencimiento,
+                CASE
+                    WHEN fecha_vencimiento::date < CURRENT_DATE THEN CURRENT_DATE - fecha_vencimiento::date
+                    ELSE fecha_vencimiento::date - CURRENT_DATE
+                END AS dias
+            FROM secretaria_documentos
+            WHERE fecha_vencimiento IS NOT NULL
+              AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+              AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+              AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+            ORDER BY fecha_vencimiento ASC, categoria, titulo
+            LIMIT 50
+        """).fetchall()
+
     ahijadxs_objetivo = conn.execute("""
         SELECT
             a.id AS aspirante_id,
@@ -4548,6 +4591,7 @@ def obtener_notificaciones_operativas():
         "fichas": fichas,
         "asistencia_baja": asistencia_baja,
         "comprobantes_pendientes": comprobantes_pendientes,
+        "secretaria_documentos": secretaria_documentos,
         "ahijadxs_objetivo": ahijadxs_objetivo,
         "cambios_portal": cambios_portal,
     }
@@ -4591,6 +4635,15 @@ def obtener_contador_notificaciones():
                 ) AS comprobantes,
                 (
                     SELECT COUNT(*)
+                    FROM secretaria_documentos sd
+                    WHERE %s = 1
+                      AND sd.fecha_vencimiento IS NOT NULL
+                      AND NULLIF(sd.fecha_vencimiento::text, '') IS NOT NULL
+                      AND sd.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                      AND sd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+                ) AS secretaria,
+                (
+                    SELECT COUNT(*)
                     FROM aspirantes a
                     WHERE a.estado = 'Aspirante'
                       AND (
@@ -4608,13 +4661,17 @@ def obtener_contador_notificaciones():
                       AND a.accion = 'actualizar_contacto'
                       AND a.fecha >= CURRENT_TIMESTAMP - INTERVAL '14 days'
                 ) AS cambios_portal
-        """, (ASPIRANTE_ENTRENAMIENTOS_OBJETIVO, 1 if incluir_portal else 0)).fetchone()
+        """, (
+            1 if tiene_permiso("secretaria_ver", "secretaria_gestionar") else 0,
+            ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,
+            1 if incluir_portal else 0,
+        )).fetchone()
         conn.close()
     except Exception:
         app.logger.exception("No se pudo calcular el contador de notificaciones.")
         return 0
 
-    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "ahijadxs", "cambios_portal"))
+    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "secretaria", "ahijadxs", "cambios_portal"))
 
 
 def whatsapp_mensaje(telefono, mensaje):
@@ -5725,6 +5782,13 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_secretaria_documentos_fecha
         ON secretaria_documentos (creado_en DESC)
+    """)
+    columnas_secretaria_documentos = get_columns(conn, "secretaria_documentos")
+    if "fecha_vencimiento" not in columnas_secretaria_documentos:
+        conn.execute("ALTER TABLE secretaria_documentos ADD COLUMN fecha_vencimiento TEXT")
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_secretaria_documentos_vencimiento
+        ON secretaria_documentos (fecha_vencimiento)
     """)
 
     conn.execute("""
@@ -8951,28 +9015,76 @@ def categorias_secretaria_disponibles(conn):
     return sorted(categorias, key=lambda item: item.lower())
 
 
-def render_documentos_secretaria(categoria_filtro="", form_data=None):
+def render_documentos_secretaria(categoria_filtro="", vencimiento_filtro="", form_data=None):
     conn = get_connection()
     categorias = categorias_secretaria_disponibles(conn)
 
+    condiciones = []
+    params = []
     if categoria_filtro:
-        documentos = conn.execute("""
-            SELECT *
-            FROM secretaria_documentos
-            WHERE categoria = %s
-            ORDER BY COALESCE(fecha_documento, creado_en::text) DESC, id DESC
-        """, (categoria_filtro,)).fetchall()
-    else:
-        documentos = conn.execute("""
-            SELECT *
-            FROM secretaria_documentos
-            ORDER BY COALESCE(fecha_documento, creado_en::text) DESC, id DESC
-        """).fetchall()
+        condiciones.append("categoria = %s")
+        params.append(categoria_filtro)
+    if vencimiento_filtro == "vencidos":
+        condiciones.extend([
+            "fecha_vencimiento IS NOT NULL",
+            "NULLIF(fecha_vencimiento::text, '') IS NOT NULL",
+            "fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'",
+            "fecha_vencimiento::date < CURRENT_DATE",
+        ])
+    elif vencimiento_filtro == "por_vencer":
+        condiciones.extend([
+            "fecha_vencimiento IS NOT NULL",
+            "NULLIF(fecha_vencimiento::text, '') IS NOT NULL",
+            "fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'",
+            "fecha_vencimiento::date >= CURRENT_DATE",
+            "fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'",
+        ])
+    elif vencimiento_filtro == "sin_vencimiento":
+        condiciones.append("(fecha_vencimiento IS NULL OR NULLIF(fecha_vencimiento::text, '') IS NULL)")
+
+    where_sql = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
+    documentos = conn.execute(f"""
+        SELECT
+            *,
+            CASE
+                WHEN NULLIF(fecha_vencimiento::text, '') IS NULL THEN 'sin_vencimiento'
+                WHEN fecha_vencimiento::text !~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$' THEN 'sin_vencimiento'
+                WHEN fecha_vencimiento::date < CURRENT_DATE THEN 'vencido'
+                WHEN fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'
+                ELSE 'vigente'
+            END AS estado_vencimiento
+        FROM secretaria_documentos
+        {where_sql}
+        ORDER BY
+            CASE
+                WHEN NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+                 AND fecha_vencimiento::text ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+                 AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+                THEN 0
+                ELSE 1
+            END,
+            fecha_vencimiento ASC NULLS LAST,
+            COALESCE(fecha_documento, creado_en::text) DESC,
+            id DESC
+    """, params).fetchall()
 
     resumen = conn.execute("""
         SELECT
             COUNT(*) AS total,
-            COUNT(DISTINCT categoria) AS categorias
+            COUNT(DISTINCT categoria) AS categorias,
+            COUNT(*) FILTER (
+                WHERE fecha_vencimiento IS NOT NULL
+                  AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+                  AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                  AND fecha_vencimiento::date < CURRENT_DATE
+            ) AS vencidos,
+            COUNT(*) FILTER (
+                WHERE fecha_vencimiento IS NOT NULL
+                  AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+                  AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                  AND fecha_vencimiento::date >= CURRENT_DATE
+                  AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
+            ) AS por_vencer
         FROM secretaria_documentos
     """).fetchone()
     conn.close()
@@ -8983,8 +9095,9 @@ def render_documentos_secretaria(categoria_filtro="", form_data=None):
         documentos=documentos_preview,
         categorias=categorias,
         categoria_filtro=categoria_filtro,
+        vencimiento_filtro=vencimiento_filtro,
         form_data=form_data or {},
-        resumen=resumen or {"total": 0, "categorias": 0},
+        resumen=resumen or {"total": 0, "categorias": 0, "vencidos": 0, "por_vencer": 0},
         secretaria_accept=",".join(SECRETARIA_EXTENSIONS.keys()),
     )
 
@@ -8996,7 +9109,10 @@ def listar_documentos_secretaria():
         return check
 
     categoria_filtro = request.args.get("categoria", "").strip()
-    return render_documentos_secretaria(categoria_filtro=categoria_filtro)
+    vencimiento_filtro = request.args.get("vencimiento", "").strip()
+    if vencimiento_filtro not in {"", "vencidos", "por_vencer", "sin_vencimiento"}:
+        vencimiento_filtro = ""
+    return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro)
 
 
 @app.route("/secretaria/documentos/nuevo", methods=["POST"])
@@ -9010,29 +9126,34 @@ def nuevo_documento_secretaria():
         "titulo": request.form.get("titulo", "").strip(),
         "descripcion": request.form.get("descripcion", "").strip(),
         "fecha_documento": request.form.get("fecha_documento", "").strip(),
+        "fecha_vencimiento": request.form.get("fecha_vencimiento", "").strip(),
     }
     categoria_filtro = request.form.get("categoria_filtro", "").strip()
+    vencimiento_filtro = request.form.get("vencimiento_filtro", "").strip()
     archivo = request.files.get("archivo")
 
     if not data["categoria"]:
         flash("La categoría es obligatoria.", "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
     if not data["titulo"]:
         flash("El título del documento es obligatorio.", "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
     if data["fecha_documento"] and not validar_fecha_movimiento(data["fecha_documento"]):
         flash("La fecha del documento no es válida.", "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
+    if data["fecha_vencimiento"] and not validar_fecha_movimiento(data["fecha_vencimiento"]):
+        flash("La fecha de vencimiento no es válida.", "error")
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
 
     try:
         validado = validar_documento_secretaria_upload(archivo)
     except ValueError as error:
         flash(str(error), "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
 
     if not validado:
         flash("Tenés que adjuntar un archivo.", "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
 
     try:
         documento_drive = subir_documento_secretaria_a_drive(
@@ -9044,22 +9165,23 @@ def nuevo_documento_secretaria():
     except Exception as error:
         app.logger.exception("No se pudo guardar documento de secretaria en Drive.")
         flash(mensaje_error_drive(error, carpeta="Secretaria", accion="guardar el documento"), "error")
-        return render_documentos_secretaria(categoria_filtro=categoria_filtro, form_data=data)
+        return render_documentos_secretaria(categoria_filtro=categoria_filtro, vencimiento_filtro=vencimiento_filtro, form_data=data)
 
     conn = get_connection()
     documento = conn.execute("""
         INSERT INTO secretaria_documentos (
-            categoria, titulo, descripcion, fecha_documento,
+            categoria, titulo, descripcion, fecha_documento, fecha_vencimiento,
             drive_file_id, drive_folder_id, archivo_nombre, archivo_mime_type,
             archivo_tamano, archivo_web_url, creado_por
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """, (
         data["categoria"],
         data["titulo"],
         data["descripcion"] or None,
         data["fecha_documento"] or None,
+        data["fecha_vencimiento"] or None,
         documento_drive["file_id"],
         documento_drive["folder_id"],
         documento_drive["nombre"],
@@ -9074,6 +9196,7 @@ def nuevo_documento_secretaria():
     registrar_auditoria("subir", "documento_secretaria", str(documento["id"]), {
         "categoria": data["categoria"],
         "titulo": data["titulo"],
+        "fecha_vencimiento": data["fecha_vencimiento"] or None,
     })
     flash("Documento de secretaría guardado.", "ok")
     return redirect(url_for("listar_documentos_secretaria", categoria=data["categoria"]))
@@ -11971,7 +12094,7 @@ def detalle_jugador(jugador_id):
         ORDER BY
             CASE
                 WHEN estado = 'Activa' THEN 0
-                WHEN estado = "En recuperación" THEN 1
+                WHEN estado = 'En recuperación' THEN 1
                 ELSE 2
             END,
             fecha_lesion DESC,
@@ -14372,9 +14495,15 @@ def ver_calendario():
 
 @app.route("/calendario/nuevo", methods=["GET", "POST"])
 def nuevo_evento_calendario():
-    check = permiso_requerido("calendario_gestionar")
+    check = permiso_requerido("calendario_gestionar", "asistencia_gestionar")
     if check:
         return check
+    origen = request.form.get("origen") or request.args.get("origen", "")
+    if origen != "asistencia":
+        origen = ""
+    if not tiene_permiso("calendario_gestionar") and origen != "asistencia":
+        flash("No tenes permiso para acceder a esa seccion.", "error")
+        return redirect(url_for("index"))
 
     if request.method == "POST":
         data = {
@@ -14391,10 +14520,13 @@ def nuevo_evento_calendario():
             "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
+            "origen": origen,
         }
 
         if calendario_evento_requiere_asistencia(data["tipo"]):
             data["crear_asistencia"] = 1 if request.form.get("crear_asistencia", "on") == "on" else 0
+        if origen == "asistencia":
+            data["crear_asistencia"] = 1
 
         if not data["fecha"] or not data["tipo"] or not data["titulo"]:
             flash("Fecha, tipo y titulo son obligatorios.", "error")
@@ -14451,19 +14583,27 @@ def nuevo_evento_calendario():
             flash("Evento agregado al calendario y listo para tomar asistencia.", "ok")
         else:
             flash("Evento agregado al calendario.", "ok")
+        if origen == "asistencia":
+            return redirect(url_for("listar_eventos_asistencia"))
         return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
 
     return render_template(
         "calendario_evento_form.html",
-        evento={"publicar_portal": 1, "crear_asistencia": 1, "duracion_minutos": 90},
+        evento={"publicar_portal": 1, "crear_asistencia": 1, "duracion_minutos": 90, "origen": origen},
     )
 
 
 @app.route("/calendario/<int:evento_id>/editar", methods=["GET", "POST"])
 def editar_evento_calendario(evento_id):
-    check = permiso_requerido("calendario_gestionar")
+    check = permiso_requerido("calendario_gestionar", "asistencia_gestionar")
     if check:
         return check
+    origen = request.form.get("origen") or request.args.get("origen", "")
+    if origen != "asistencia":
+        origen = ""
+    if not tiene_permiso("calendario_gestionar") and origen != "asistencia":
+        flash("No tenes permiso para acceder a esa seccion.", "error")
+        return redirect(url_for("index"))
 
     conn = get_connection()
     evento = conn.execute("""
@@ -14475,6 +14615,10 @@ def editar_evento_calendario(evento_id):
         conn.close()
         flash("Evento no encontrado.", "error")
         return redirect(url_for("ver_calendario"))
+    if not tiene_permiso("calendario_gestionar") and not evento.get("asistencia_evento_id"):
+        conn.close()
+        flash("No tenes permiso para acceder a esa seccion.", "error")
+        return redirect(url_for("index"))
 
     if request.method == "POST":
         data = {
@@ -14491,10 +14635,13 @@ def editar_evento_calendario(evento_id):
             "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
+            "origen": origen,
         }
 
         if calendario_evento_requiere_asistencia(data["tipo"]):
             data["crear_asistencia"] = 1 if request.form.get("crear_asistencia", "on") == "on" else 0
+        if origen == "asistencia":
+            data["crear_asistencia"] = 1
 
         if not data["fecha"] or not data["tipo"] or not data["titulo"]:
             conn.close()
@@ -14582,11 +14729,14 @@ def editar_evento_calendario(evento_id):
         })
 
         flash("Evento actualizado.", "ok")
+        if origen == "asistencia":
+            return redirect(url_for("listar_eventos_asistencia"))
         return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
 
     conn.close()
     evento = dict(evento)
     evento["crear_asistencia"] = 1 if evento.get("asistencia_evento_id") else 0
+    evento["origen"] = origen
     return render_template("calendario_evento_form.html", evento=evento)
 
 
@@ -14838,9 +14988,19 @@ def agregar_hoja_reporte(wb, titulo, encabezados, filas):
     ws = wb.create_sheet(titulo)
     ws.append(encabezados)
     for fila in filas:
-        ws.append(fila)
+        append_fila_reporte(ws, fila)
     estilizar_hoja_reporte(ws)
     return ws
+
+
+def normalizar_valor_excel_reporte(valor):
+    if isinstance(valor, datetime) and valor.tzinfo is not None and valor.utcoffset() is not None:
+        return valor.strftime("%Y-%m-%d %H:%M:%S")
+    return valor
+
+
+def append_fila_reporte(ws, fila):
+    ws.append([normalizar_valor_excel_reporte(valor) for valor in fila])
 
 
 def aplicar_formato_columnas(ws, formatos):
@@ -14863,20 +15023,20 @@ def exportar_reportes():
     ws = wb.active
     ws.title = "Resumen"
     ws.append(["Reporte", "Valor"])
-    ws.append(["Periodo", f"{filtros['desde']} a {filtros['hasta']}"])
-    ws.append(["Ingresos", reportes["resumen"]["ingresos"]])
-    ws.append(["Egresos", reportes["resumen"]["egresos"]])
-    ws.append(["Resultado", reportes["resumen"]["resultado"]])
-    ws.append(["Cuotas cobradas", reportes["resumen"]["cuotas_cobradas"]])
-    ws.append(["Cuotas pagadas", reportes["resumen"]["cuotas_pagadas"]])
-    ws.append(["Deuda total pendiente", reportes["resumen"]["deuda"]])
-    ws.append(["Deuda vencida", reportes["resumen"]["deuda_vencida"]])
-    ws.append(["Total bonificado por becas", reportes["resumen"]["total_bonificado_becas"]])
-    ws.append(["Cuotas becadas", reportes["resumen"]["cuotas_becadas"]])
-    ws.append(["Becas totales", reportes["resumen"]["becas_totales"]])
-    ws.append(["Becas parciales", reportes["resumen"]["becas_parciales"]])
-    ws.append(["Jugadores activos", reportes["resumen"]["jugadores_activos"]])
-    ws.append(["Asistencia promedio", f"{reportes['resumen']['asistencia_porcentaje']}%"])
+    append_fila_reporte(ws, ["Periodo", f"{filtros['desde']} a {filtros['hasta']}"])
+    append_fila_reporte(ws, ["Ingresos", reportes["resumen"]["ingresos"]])
+    append_fila_reporte(ws, ["Egresos", reportes["resumen"]["egresos"]])
+    append_fila_reporte(ws, ["Resultado", reportes["resumen"]["resultado"]])
+    append_fila_reporte(ws, ["Cuotas cobradas", reportes["resumen"]["cuotas_cobradas"]])
+    append_fila_reporte(ws, ["Cuotas pagadas", reportes["resumen"]["cuotas_pagadas"]])
+    append_fila_reporte(ws, ["Deuda total pendiente", reportes["resumen"]["deuda"]])
+    append_fila_reporte(ws, ["Deuda vencida", reportes["resumen"]["deuda_vencida"]])
+    append_fila_reporte(ws, ["Total bonificado por becas", reportes["resumen"]["total_bonificado_becas"]])
+    append_fila_reporte(ws, ["Cuotas becadas", reportes["resumen"]["cuotas_becadas"]])
+    append_fila_reporte(ws, ["Becas totales", reportes["resumen"]["becas_totales"]])
+    append_fila_reporte(ws, ["Becas parciales", reportes["resumen"]["becas_parciales"]])
+    append_fila_reporte(ws, ["Jugadores activos", reportes["resumen"]["jugadores_activos"]])
+    append_fila_reporte(ws, ["Asistencia promedio", f"{reportes['resumen']['asistencia_porcentaje']}%"])
     estilizar_hoja_reporte(ws)
     for row in (3, 4, 5, 6, 8, 9):
         ws.cell(row=row, column=2).number_format = '$ #,##0'
@@ -15191,7 +15351,7 @@ def exportar_datos_integral():
         "Beca activa", "Beca %", "Beca desde", "Beca hasta", "Motivo beca"
     ])
     for jugador in jugadores:
-        ws.append([
+        append_fila_reporte(ws, [
             jugador["id"],
             jugador["apellido"],
             jugador["nombre"],
@@ -15621,6 +15781,7 @@ def ver_notificaciones():
         fichas=fichas,
         asistencia_baja=asistencia_baja,
         comprobantes_pendientes=datos["comprobantes_pendientes"],
+        secretaria_documentos=datos["secretaria_documentos"],
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
         cambios_portal=datos["cambios_portal"],
     )
@@ -18054,7 +18215,7 @@ def exportar_tests():
 
     resumen = {}
     for item in resultados:
-        ws.append([
+        append_fila_reporte(ws, [
             item["fecha"],
             item["test_nombre"],
             item["unidad"] or "",
@@ -18269,9 +18430,23 @@ def listar_eventos_asistencia():
     conn = get_connection()
 
     eventos = conn.execute("""
-        SELECT *
-        FROM eventos_asistencia
-        ORDER BY fecha DESC, id DESC
+        SELECT
+            e.*,
+            ce.id AS calendario_evento_id
+        FROM eventos_asistencia e
+        LEFT JOIN calendario_eventos ce ON ce.asistencia_evento_id = e.id
+        ORDER BY
+            CASE
+                WHEN e.fecha >= CURRENT_DATE::text THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha
+            END ASC,
+            CASE
+                WHEN e.fecha < CURRENT_DATE::text THEN e.fecha
+            END DESC,
+            e.id DESC
     """).fetchall()
 
     conn.close()
@@ -18284,6 +18459,9 @@ def nuevo_evento_asistencia():
     check = permiso_requerido("asistencia_gestionar")
     if check:
         return check
+
+    if request.method == "GET":
+        return redirect(url_for("nuevo_evento_calendario", origen="asistencia"))
 
     if request.method == "POST":
         fecha = request.form.get("fecha", "").strip()
@@ -18324,6 +18502,15 @@ def editar_evento_asistencia(evento_id):
         conn.close()
         flash("Evento no encontrado.", "error")
         return redirect(url_for("listar_eventos_asistencia"))
+
+    calendario_evento = conn.execute("""
+        SELECT id
+        FROM calendario_eventos
+        WHERE asistencia_evento_id = %s
+    """, (evento_id,)).fetchone()
+    if calendario_evento is not None:
+        conn.close()
+        return redirect(url_for("editar_evento_calendario", evento_id=calendario_evento["id"], origen="asistencia"))
 
     if request.method == "POST":
         fecha = request.form.get("fecha", "").strip()

@@ -7,6 +7,9 @@
 
 <form method="post" class="card form-card form-card-wide">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    {% if evento and evento.get('origen') %}
+        <input type="hidden" name="origen" value="{{ evento.get('origen') }}">
+    {% endif %}
     <div class="form-grid">
         <div>
             <label>Fecha *</label>
@@ -83,7 +86,7 @@
 
     <div class="actions-row stack-gap">
         <button class="button" type="submit">Guardar</button>
-        <a class="button secondary" href="{{ url_for('ver_calendario') }}">Cancelar</a>
+        <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') if evento and evento.get('origen') == 'asistencia' else url_for('ver_calendario') }}">Cancelar</a>
         {% if evento and evento.get('id') %}
             <form method="post" action="{{ url_for('eliminar_evento_calendario', evento_id=evento['id']) }}" onsubmit="return confirm('Eliminar este evento?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
