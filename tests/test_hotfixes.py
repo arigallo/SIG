@@ -84,6 +84,36 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha", source)
         self.assertIn("WHEN e.fecha < CURRENT_DATE::text THEN e.fecha", source)
 
+    def test_whatsapp_unsupported_message_shows_meta_reason(self):
+        resumen = app.resumir_contenido_whatsapp(
+            "unsupported",
+            {
+                "type": "unsupported",
+                "errors": [
+                    {
+                        "code": 131051,
+                        "title": "Unsupported message type",
+                        "details": "Message type is not currently supported",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(resumen, "[Mensaje no compatible] Unsupported message type")
+
+    def test_whatsapp_interactive_and_contact_messages_are_readable(self):
+        interactive = app.resumir_contenido_whatsapp(
+            "interactive",
+            {"interactive": {"button_reply": {"id": "ok", "title": "Confirmar"}}},
+        )
+        contacto = app.resumir_contenido_whatsapp(
+            "contacts",
+            {"contacts": [{"name": {"formatted_name": "Ariel Gallo"}}]},
+        )
+
+        self.assertEqual(interactive, "Confirmar")
+        self.assertEqual(contacto, "[Contacto] Ariel Gallo")
+
 
 if __name__ == "__main__":
     unittest.main()

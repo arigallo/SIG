@@ -3757,6 +3757,68 @@ def resumir_contenido_whatsapp(tipo, mensaje):
     tipo = (tipo or "").strip().lower()
     if tipo == "text":
         return ((mensaje or {}).get("text") or {}).get("body") or ""
+    if tipo == "button":
+        button = (mensaje or {}).get("button") or {}
+        return button.get("text") or button.get("payload") or "[Botón]"
+    if tipo == "interactive":
+        interactive = (mensaje or {}).get("interactive") or {}
+        if interactive.get("button_reply"):
+            reply = interactive["button_reply"]
+            return reply.get("title") or reply.get("id") or "[Botón]"
+        if interactive.get("list_reply"):
+            reply = interactive["list_reply"]
+            return reply.get("title") or reply.get("description") or reply.get("id") or "[Lista]"
+        return "[Interactivo]"
+    if tipo == "reaction":
+        reaction = (mensaje or {}).get("reaction") or {}
+        emoji = reaction.get("emoji")
+        return f"[Reacción] {emoji}" if emoji else "[Reacción]"
+    if tipo == "location":
+        location = (mensaje or {}).get("location") or {}
+        partes = [
+            location.get("name"),
+            location.get("address"),
+            ", ".join(
+                str(location.get(campo))
+                for campo in ("latitude", "longitude")
+                if location.get(campo) is not None
+            ),
+        ]
+        detalle = " - ".join(parte for parte in partes if parte)
+        return f"[Ubicación] {detalle}" if detalle else "[Ubicación]"
+    if tipo == "contacts":
+        contactos = (mensaje or {}).get("contacts") or []
+        nombres = []
+        for contacto in contactos:
+            nombre = (contacto.get("name") or {}).get("formatted_name")
+            if nombre:
+                nombres.append(nombre)
+        return f"[Contacto] {', '.join(nombres)}" if nombres else "[Contacto]"
+    if tipo in {"image", "video", "audio", "document", "sticker"}:
+        media = (mensaje or {}).get(tipo) or {}
+        caption = media.get("caption")
+        filename = media.get("filename")
+        etiqueta = {
+            "image": "Imagen",
+            "video": "Video",
+            "audio": "Audio",
+            "document": "Documento",
+            "sticker": "Sticker",
+        }[tipo]
+        detalle = caption or filename
+        return f"[{etiqueta}] {detalle}" if detalle else f"[{etiqueta}]"
+    if tipo == "unsupported":
+        errores = (mensaje or {}).get("errors") or []
+        if errores:
+            error = errores[0] or {}
+            detalle = (
+                error.get("title")
+                or error.get("message")
+                or error.get("details")
+                or error.get("code")
+            )
+            return f"[Mensaje no compatible] {detalle}" if detalle else "[Mensaje no compatible]"
+        return "[Mensaje no compatible]"
     etiquetas = {
         "image": "[Imagen]",
         "video": "[Video]",
