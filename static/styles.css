@@ -2234,6 +2234,52 @@ tbody tr:hover {
     display: block;
 }
 
+.notification-overview {
+    margin-bottom: 18px;
+}
+
+.notification-center {
+    display: grid;
+    gap: 14px;
+}
+
+.notification-feed {
+    display: grid;
+    gap: 10px;
+}
+
+.notification-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.notification-item-whatsapp {
+    border-left-color: #16a34a;
+}
+
+.notification-item h4 {
+    margin: 6px 0 6px;
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.notification-item p {
+    margin: 0 0 6px;
+}
+
+.notification-empty {
+    padding: 18px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+}
+
 .finance-table details summary {
     cursor: pointer;
 }
@@ -2442,6 +2488,15 @@ tbody tr:hover {
     .actions-row {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .notification-item {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .notification-item .button {
+        width: 100%;
     }
 
     .search-form,

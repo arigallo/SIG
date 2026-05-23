@@ -48,6 +48,97 @@
 
     setupNavigationGroups();
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+    const username = document.body?.dataset.username || "";
+
+    const postPresenceHeartbeat = () => {
+        if (!username || !csrfToken) {
+            return;
+        }
+        fetch("/presencia/heartbeat", {
+            method: "POST",
+            headers: {
+                "X-CSRF-Token": csrfToken,
+            },
+            credentials: "same-origin",
+            keepalive: true,
+        }).catch(() => {});
+    };
+
+    if (username) {
+        postPresenceHeartbeat();
+        window.setInterval(postPresenceHeartbeat, 30000);
+    }
+
+    const whatsappBadge = document.querySelector("[data-whatsapp-inbox-badge]");
+    const notificationsBadge = document.querySelector("[data-notifications-badge]");
+    let lastWhatsappInboxId = null;
+
+    const setWhatsappBadge = (count) => {
+        if (!whatsappBadge) {
+            return;
+        }
+        const normalized = Number(count) || 0;
+        whatsappBadge.textContent = String(normalized);
+        whatsappBadge.hidden = normalized <= 0;
+    };
+
+    const setNotificationsBadgeFromWhatsapp = (whatsappCount) => {
+        if (!notificationsBadge) {
+            return;
+        }
+        const baseCount = Number(notificationsBadge.dataset.baseCount) || 0;
+        const normalized = baseCount + (Number(whatsappCount) || 0);
+        notificationsBadge.textContent = String(normalized);
+        notificationsBadge.hidden = normalized <= 0;
+    };
+
+    const pollWhatsappInbox = async () => {
+        if (!whatsappBadge) {
+            return;
+        }
+        try {
+            const response = await fetch("/comunicacion/whatsapp/estado", {
+                credentials: "same-origin",
+                headers: {"Accept": "application/json"},
+            });
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            const latestId = Number(data.ultimo_id) || 0;
+            const previousId = lastWhatsappInboxId;
+            lastWhatsappInboxId = latestId;
+            setWhatsappBadge(data.sin_leer);
+            setNotificationsBadgeFromWhatsapp(data.sin_leer);
+
+            if (
+                previousId !== null
+                && latestId > previousId
+                && document.body?.dataset.endpoint === "ver_whatsapp_inbox"
+                && !document.hidden
+            ) {
+                window.location.reload();
+            }
+
+            if (
+                previousId !== null
+                && latestId > previousId
+                && document.body?.dataset.endpoint === "ver_notificaciones"
+                && !document.hidden
+            ) {
+                window.location.reload();
+            }
+        } catch (error) {
+            // Best effort: the next poll will try again.
+        }
+    };
+
+    if (whatsappBadge) {
+        pollWhatsappInbox();
+        window.setInterval(pollWhatsappInbox, 10000);
+    }
+
     const acceptedMimeTypes = new Set([
         "application/pdf",
         "image/jpeg",

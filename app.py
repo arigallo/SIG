@@ -116,6 +116,12 @@ WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v25.0").strip() o
 WHATSAPP_GRAPH_BASE = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
 WHATSAPP_TEMPLATE_CUOTA = os.environ.get("WHATSAPP_TEMPLATE_CUOTA", "recordatorio_cuota").strip() or "recordatorio_cuota"
 WHATSAPP_TEMPLATE_CUOTA_LANG = os.environ.get("WHATSAPP_TEMPLATE_CUOTA_LANG", "es_AR").strip() or "es_AR"
+WHATSAPP_EMAIL_SUPPRESS_USERNAMES = {
+    item.strip().lower()
+    for item in re.split(r"[;,]", os.environ.get("WHATSAPP_EMAIL_SUPPRESS_USERNAMES", "arielgallo"))
+    if item.strip()
+}
+WHATSAPP_EMAIL_SUPPRESS_SECONDS = int(os.environ.get("WHATSAPP_EMAIL_SUPPRESS_SECONDS", "120"))
 
 
 def static_asset(filename):
@@ -699,6 +705,49 @@ def guardar_app_setting(conn, clave, valor, usuario=None):
             actualizado_en = EXCLUDED.actualizado_en,
             actualizado_por = EXCLUDED.actualizado_por
     """, (clave, valor, usuario))
+
+
+def presence_key(username):
+    username = normalizar_username(username)
+    return f"presence:{username}" if username else ""
+
+
+def registrar_presencia_usuario(username):
+    clave = presence_key(username)
+    if not clave:
+        return False
+    conn = get_connection()
+    guardar_app_setting(conn, clave, "active", usuario=username)
+    conn.commit()
+    conn.close()
+    return True
+
+
+def usuario_activo_reciente(username, segundos=120):
+    clave = presence_key(username)
+    if not clave:
+        return False
+    try:
+        conn = get_connection()
+        fila = conn.execute("""
+            SELECT 1 AS activo
+            FROM app_settings
+            WHERE clave = %s
+              AND actualizado_en >= CURRENT_TIMESTAMP - (%s * INTERVAL '1 second')
+            LIMIT 1
+        """, (clave, max(1, int(segundos)))).fetchone()
+        conn.close()
+        return bool(fila)
+    except Exception:
+        app.logger.exception("No se pudo consultar presencia reciente de %s.", username)
+        return False
+
+
+def suprimir_email_whatsapp_por_presencia():
+    for username in WHATSAPP_EMAIL_SUPPRESS_USERNAMES:
+        if usuario_activo_reciente(username, WHATSAPP_EMAIL_SUPPRESS_SECONDS):
+            return True
+    return False
 
 
 def drive_service():
@@ -3969,6 +4018,10 @@ def destinatarios_notificacion_whatsapp_inbox():
 
 
 def enviar_notificacion_whatsapp_inbox_email(*, mensaje, telefono, jugador=None):
+    if suprimir_email_whatsapp_por_presencia():
+        app.logger.info("Notificacion WhatsApp por email suprimida por usuario activo en SIG.")
+        return False
+
     destinatarios = destinatarios_notificacion_whatsapp_inbox()
     if not destinatarios:
         return False
@@ -4110,6 +4163,27 @@ def obtener_contador_whatsapp_inbox():
         return int((fila or {}).get("total") or 0)
     except Exception:
         return 0
+
+
+def obtener_estado_whatsapp_inbox():
+    try:
+        conn = get_connection()
+        fila = conn.execute("""
+            SELECT
+                COUNT(*) FILTER (
+                    WHERE direccion = 'in'
+                      AND COALESCE(leido, 0) = 0
+                ) AS sin_leer,
+                COALESCE(MAX(id), 0) AS ultimo_id
+            FROM whatsapp_mensajes
+        """).fetchone()
+        conn.close()
+        return {
+            "sin_leer": int((fila or {}).get("sin_leer") or 0),
+            "ultimo_id": int((fila or {}).get("ultimo_id") or 0),
+        }
+    except Exception:
+        return {"sin_leer": 0, "ultimo_id": 0}
 
 
 def resumir_evento_webhook_whatsapp(payload_texto):
@@ -4636,6 +4710,52 @@ def obtener_notificaciones_operativas():
         LIMIT 50
     """).fetchall()
 
+    whatsapp_conversaciones = []
+    if tiene_permiso("comunicaciones_ver"):
+        whatsapp_conversaciones = conn.execute("""
+            WITH mensajes AS (
+                SELECT
+                    wm.id,
+                    wm.jugador_id,
+                    COALESCE(NULLIF(wm.wa_id, ''), NULLIF(wm.telefono, '')) AS telefono,
+                    wm.tipo,
+                    wm.texto,
+                    wm.creado_en,
+                    j.nombre,
+                    j.apellido,
+                    j.categoria
+                FROM whatsapp_mensajes wm
+                LEFT JOIN jugadores j ON j.id = wm.jugador_id
+                WHERE wm.direccion = 'in'
+                  AND COALESCE(wm.leido, 0) = 0
+                  AND COALESCE(NULLIF(wm.wa_id, ''), NULLIF(wm.telefono, '')) IS NOT NULL
+            ),
+            conteos AS (
+                SELECT telefono, COUNT(*) AS sin_leer
+                FROM mensajes
+                GROUP BY telefono
+            ),
+            ultimos AS (
+                SELECT DISTINCT ON (telefono)
+                    id,
+                    jugador_id,
+                    telefono,
+                    tipo,
+                    texto,
+                    creado_en,
+                    nombre,
+                    apellido,
+                    categoria
+                FROM mensajes
+                ORDER BY telefono, creado_en DESC, id DESC
+            )
+            SELECT u.*, c.sin_leer
+            FROM ultimos u
+            JOIN conteos c ON c.telefono = u.telefono
+            ORDER BY u.creado_en DESC, u.id DESC
+            LIMIT 20
+        """).fetchall()
+
     secretaria_documentos = []
     if tiene_permiso("secretaria_ver", "secretaria_gestionar"):
         secretaria_documentos = conn.execute("""
@@ -4713,6 +4833,7 @@ def obtener_notificaciones_operativas():
         "fichas": fichas,
         "asistencia_baja": asistencia_baja,
         "comprobantes_pendientes": comprobantes_pendientes,
+        "whatsapp_conversaciones": whatsapp_conversaciones,
         "secretaria_documentos": secretaria_documentos,
         "ahijadxs_objetivo": ahijadxs_objetivo,
         "cambios_portal": cambios_portal,
@@ -4757,6 +4878,12 @@ def obtener_contador_notificaciones():
                 ) AS comprobantes,
                 (
                     SELECT COUNT(*)
+                    FROM whatsapp_mensajes wm
+                    WHERE wm.direccion = 'in'
+                      AND COALESCE(wm.leido, 0) = 0
+                ) AS whatsapp,
+                (
+                    SELECT COUNT(*)
                     FROM secretaria_documentos sd
                     WHERE %s = 1
                       AND sd.fecha_vencimiento IS NOT NULL
@@ -4793,7 +4920,7 @@ def obtener_contador_notificaciones():
         app.logger.exception("No se pudo calcular el contador de notificaciones.")
         return 0
 
-    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "secretaria", "ahijadxs", "cambios_portal"))
+    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "whatsapp", "secretaria", "ahijadxs", "cambios_portal"))
 
 
 def whatsapp_mensaje(telefono, mensaje):
@@ -7267,7 +7394,7 @@ def auditar_acciones(response):
     if request.method != "POST":
         return response
 
-    if request.endpoint in {"login", "static"}:
+    if request.endpoint in {"login", "static", "presencia_heartbeat"}:
         return response
 
     accion_base, entidad = AUDIT_ENDPOINTS.get(
@@ -15909,6 +16036,7 @@ def ver_notificaciones():
         fichas=fichas,
         asistencia_baja=asistencia_baja,
         comprobantes_pendientes=datos["comprobantes_pendientes"],
+        whatsapp_conversaciones=datos["whatsapp_conversaciones"],
         secretaria_documentos=datos["secretaria_documentos"],
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
         cambios_portal=datos["cambios_portal"],
@@ -15951,6 +16079,36 @@ def ver_whatsapp_inbox():
         telefono_actual=telefono,
         jugadores_disponibles=jugadores_disponibles,
         webhook_eventos=webhook_eventos,
+    )
+
+
+@app.route("/comunicacion/whatsapp/estado")
+def estado_whatsapp_inbox():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    return Response(
+        json.dumps(obtener_estado_whatsapp_inbox(), ensure_ascii=False),
+        status=200,
+        mimetype="application/json",
+    )
+
+
+@app.route("/presencia/heartbeat", methods=["POST"])
+def presencia_heartbeat():
+    if "user_id" not in session:
+        return Response("unauthorized", status=401, mimetype="text/plain")
+
+    username = normalizar_username(session.get("username", ""))
+    if not username:
+        return Response("bad request", status=400, mimetype="text/plain")
+
+    registrar_presencia_usuario(username)
+    return Response(
+        json.dumps({"ok": True}, ensure_ascii=False),
+        status=200,
+        mimetype="application/json",
     )
 
 

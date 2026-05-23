@@ -123,12 +123,13 @@ class HotfixTests(unittest.TestCase):
 
         with app.app.test_request_context("/webhooks/whatsapp", base_url="https://sig.example.test"):
             with patch.object(app, "WHATSAPP_INBOX_NOTIFY_EMAILS", ["avisos@example.com"]):
-                with patch.object(app, "enviar_email", side_effect=fake_enviar_email):
-                    enviado = app.enviar_notificacion_whatsapp_inbox_email(
-                        mensaje={"tipo": "text", "texto": "Hola"},
-                        telefono="5491112345678",
-                        jugador={"apellido": "Gallo", "nombre": "Ariel"},
-                    )
+                with patch.object(app, "suprimir_email_whatsapp_por_presencia", return_value=False):
+                    with patch.object(app, "enviar_email", side_effect=fake_enviar_email):
+                        enviado = app.enviar_notificacion_whatsapp_inbox_email(
+                            mensaje={"tipo": "text", "texto": "Hola"},
+                            telefono="5491112345678",
+                            jugador={"apellido": "Gallo", "nombre": "Ariel"},
+                        )
 
         self.assertTrue(enviado)
         self.assertEqual(enviados[0][0], "avisos@example.com")
@@ -143,6 +144,101 @@ class HotfixTests(unittest.TestCase):
                     app.destinatarios_notificacion_whatsapp_inbox(),
                     ["tesoreria@example.com"],
                 )
+
+    def test_whatsapp_email_notification_is_suppressed_by_presence(self):
+        with patch.object(app, "suprimir_email_whatsapp_por_presencia", return_value=True):
+            with patch.object(app, "enviar_email") as enviar_email:
+                enviado = app.enviar_notificacion_whatsapp_inbox_email(
+                    mensaje={"tipo": "text", "texto": "Hola"},
+                    telefono="5491112345678",
+                    jugador=None,
+                )
+
+        self.assertFalse(enviado)
+        enviar_email.assert_not_called()
+
+    def test_presence_heartbeat_requires_session_and_records_user(self):
+        with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
+            with patch.object(app, "registrar_presencia_usuario", return_value=True) as registrar:
+                client = app.app.test_client()
+                with client.session_transaction() as session:
+                    session["user_id"] = 1
+                    session["username"] = "arielgallo"
+                    session["rol"] = "admin"
+                    session["permisos"] = []
+                    session["_csrf_token"] = "token"
+
+                response = client.post(
+                    "/presencia/heartbeat",
+                    headers={"X-CSRF-Token": "token"},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        registrar.assert_called_once_with("arielgallo")
+
+    def test_whatsapp_status_endpoint_returns_json(self):
+        with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
+            with patch.object(app, "permiso_requerido", return_value=None):
+                with patch.object(app, "obtener_estado_whatsapp_inbox", return_value={"sin_leer": 2, "ultimo_id": 10}):
+                    client = app.app.test_client()
+                    with client.session_transaction() as session:
+                        session["user_id"] = 1
+                        session["username"] = "arielgallo"
+                        session["rol"] = "admin"
+                        session["permisos"] = ["comunicaciones_ver"]
+
+                    response = client.get("/comunicacion/whatsapp/estado")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"sin_leer": 2, "ultimo_id": 10})
+
+    def test_notificaciones_template_highlights_sig_user_events(self):
+        with app.app.test_request_context("/notificaciones"):
+            with patch.object(app, "obtener_contador_notificaciones", return_value=3):
+                with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=1):
+                    html = render_template(
+                        "notificaciones.html",
+                        cuotas_vencidas=[],
+                        cuotas_por_vencer=[],
+                        fichas=[],
+                        asistencia_baja=[],
+                        comprobantes_pendientes=[{
+                            "apellido": "Gallo",
+                            "nombre": "Ariel",
+                            "periodo": "2026-05",
+                            "importe": 1000,
+                            "comprobante_fecha": "2026-05-23",
+                            "comprobante_usuario": "portal",
+                            "comprobante_nombre": "ticket.pdf",
+                            "jugador_id": 1,
+                        }],
+                        whatsapp_conversaciones=[{
+                            "apellido": None,
+                            "nombre": None,
+                            "jugador_id": None,
+                            "telefono": "5491111111111",
+                            "categoria": "",
+                            "texto": "Hola",
+                            "tipo": "text",
+                            "sin_leer": 1,
+                            "creado_en": "2026-05-23 10:00",
+                        }],
+                        secretaria_documentos=[],
+                        ahijadxs_objetivo=[],
+                        cambios_portal=[{
+                            "apellido": "Perez",
+                            "nombre": "Juan",
+                            "detalle_resumen": "Cambio telefono",
+                            "fecha": "2026-05-23 09:00",
+                            "jugador_id": 2,
+                        }],
+                        whatsapp_api_activa=False,
+                    )
+
+        self.assertIn("Hay un nuevo mensaje de WhatsApp", html)
+        self.assertIn("Sin vincular", html)
+        self.assertIn("Perez, Juan modific", html)
+        self.assertIn("Hay comprobantes por verificar", html)
 
 
 if __name__ == "__main__":

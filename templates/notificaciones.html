@@ -6,7 +6,7 @@
 <div class="section-header">
     <div>
         <h2>Notificaciones</h2>
-        <p class="page-intro">Seguimiento de deuda, fichas, portal y comprobantes con acciones directas.</p>
+        <p class="page-intro">Avisos directos para operar el SIG: mensajes nuevos, cambios de datos y pendientes de revisi&oacute;n.</p>
     </div>
 </div>
 
@@ -103,6 +103,87 @@
     </div>
 </div>
 {% endmacro %}
+
+<div class="dashboard-cards notification-overview">
+    <div class="card stat-card alert-card-info">
+        <h3>WhatsApp</h3>
+        <p class="stat-number compact">{{ whatsapp_conversaciones|length }}</p>
+        <p class="muted-line">Conversaciones con mensajes sin leer</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Datos personales</h3>
+        <p class="stat-number compact">{{ cambios_portal|length }}</p>
+        <p class="muted-line">Cambios recientes desde el portal</p>
+    </div>
+    <div class="card stat-card alert-card-critical">
+        <h3>Comprobantes</h3>
+        <p class="stat-number compact">{{ comprobantes_pendientes|length }}</p>
+        <p class="muted-line">Pagos pendientes de verificar</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Operativas</h3>
+        <p class="stat-number compact">{{ cuotas_vencidas|length + cuotas_por_vencer|length + fichas|length + asistencia_baja|length }}</p>
+        <p class="muted-line">Cuotas, fichas y asistencia</p>
+    </div>
+</div>
+
+<div class="page-section notification-center">
+    <div class="section-header compact">
+        <div>
+            <h3>Prioridad para hoy</h3>
+            <p class="page-intro">Lo que conviene atender primero desde el usuario del SIG.</p>
+        </div>
+    </div>
+    <div class="notification-feed">
+        {% for conversacion in whatsapp_conversaciones %}
+            <article class="notification-item notification-item-whatsapp">
+                <div>
+                    <span class="badge badge-info">WhatsApp</span>
+                    <h4>Hay un nuevo mensaje de WhatsApp</h4>
+                    {% set nombre_conversacion = ((conversacion['apellido'] or '') ~ ', ' ~ (conversacion['nombre'] or '')).strip(', ') %}
+                    <p>
+                        <strong>{{ nombre_conversacion or 'Sin vincular' }}</strong>
+                        <span class="muted-line">{{ conversacion['telefono'] }}{% if conversacion['categoria'] %} - {{ conversacion['categoria'] }}{% endif %}</span>
+                    </p>
+                    <p class="communication-message">{{ conversacion['texto'] or '[' ~ (conversacion['tipo'] or 'mensaje') ~ ']' }}</p>
+                    <span class="muted-line">{{ conversacion['sin_leer'] }} sin leer - {{ conversacion['creado_en'] }}</span>
+                </div>
+                <a class="button" href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}">Abrir inbox</a>
+            </article>
+        {% endfor %}
+
+        {% for cambio in cambios_portal[:5] %}
+            <article class="notification-item">
+                <div>
+                    <span class="badge badge-warning">Portal</span>
+                    <h4>{{ cambio['apellido'] }}, {{ cambio['nombre'] }} modific&oacute; sus datos personales</h4>
+                    <p class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</p>
+                    <span class="muted-line">{{ cambio['fecha'] }}</span>
+                </div>
+                <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
+            </article>
+        {% endfor %}
+
+        {% for cuota in comprobantes_pendientes[:5] %}
+            <article class="notification-item">
+                <div>
+                    <span class="badge badge-danger">Comprobante</span>
+                    <h4>Hay comprobantes por verificar</h4>
+                    <p>
+                        <strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong>
+                        <span class="muted-line">{{ cuota['periodo'] }} - {{ cuota['importe'] | moneda }}</span>
+                    </p>
+                    <span class="muted-line">{{ cuota['comprobante_fecha'] or '-' }} - {{ cuota['comprobante_usuario'] or '-' }}</span>
+                </div>
+                <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar</a>
+            </article>
+        {% endfor %}
+
+        {% if not whatsapp_conversaciones and not cambios_portal and not comprobantes_pendientes %}
+            <div class="empty notification-empty">No hay notificaciones prioritarias ahora.</div>
+        {% endif %}
+    </div>
+</div>
 
 {{ tabla_notificaciones('Cuotas vencidas', cuotas_vencidas, 'cuota', url_for('enviar_recordatorios_cuotas_lote'), 'vencidas') }}
 {{ tabla_notificaciones('Cuotas por vencer', cuotas_por_vencer, 'cuota', url_for('enviar_recordatorios_cuotas_lote'), 'por_vencer') }}

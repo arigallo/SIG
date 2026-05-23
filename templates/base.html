@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SIG{% endblock %}</title>
+    {% if session.get('user_id') %}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% endif %}
 
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 
-<body>
-
+<body data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}">
     <header class="topbar">
         <div class="container topbar-content">
 
@@ -27,6 +29,13 @@
             <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
                 {% set endpoint = request.endpoint or '' %}
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
+                {% if puede('comunicaciones_ver') %}
+                    {% set notificaciones_base_count = (notificaciones_count or 0) - (whatsapp_inbox_count or 0) %}
+                    <a class="nav-link {% if endpoint == 'ver_notificaciones' %}active{% endif %}" href="{{ url_for('ver_notificaciones') }}">
+                        Notificaciones
+                        <span class="nav-badge" data-notifications-badge data-base-count="{{ notificaciones_base_count if notificaciones_base_count > 0 else 0 }}" {% if not notificaciones_count %}hidden{% endif %}>{{ notificaciones_count or 0 }}</span>
+                    </a>
+                {% endif %}
 
                 {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
                 {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_circulares_urba'] %}
@@ -59,7 +68,7 @@
                 {% endif %}
 
                 {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('presupuesto_ver') or puede('reportes_ver') %}
-                {% set finanzas_actual = endpoint in ['generar_cuotas', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'ver_presupuesto', 'ver_reportes', 'ver_comunicaciones', 'ver_notificaciones'] %}
+                {% set finanzas_actual = endpoint in ['generar_cuotas', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'ver_presupuesto', 'ver_reportes', 'ver_comunicaciones'] %}
                 {% if mostrar_finanzas %}
                 <details class="nav-group {% if finanzas_actual %}current{% endif %}" {% if finanzas_actual %}open{% endif %}>
                     <summary>Finanzas</summary>
@@ -111,22 +120,14 @@
                 {% endif %}
 
                 {% if puede('comunicaciones_ver') %}
-                {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_notificaciones', 'ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}
+                {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}
                 <details class="nav-group {% if comunicacion_actual %}current{% endif %}" {% if comunicacion_actual %}open{% endif %}>
                     <summary>Comunicaci&oacute;n</summary>
                     <div class="nav-menu">
                         <a class="{% if endpoint == 'ver_comunicaciones' %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicaci&oacute;n</a>
-                        <a class="{% if endpoint == 'ver_notificaciones' %}active{% endif %}" href="{{ url_for('ver_notificaciones') }}">
-                            Notificaciones
-                            {% if notificaciones_count %}
-                                <span class="nav-badge">{{ notificaciones_count }}</span>
-                            {% endif %}
-                        </a>
                         <a class="{% if endpoint in ['ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}active{% endif %}" href="{{ url_for('ver_whatsapp_inbox') }}">
                             WhatsApp
-                            {% if whatsapp_inbox_count %}
-                                <span class="nav-badge">{{ whatsapp_inbox_count }}</span>
-                            {% endif %}
+                            <span class="nav-badge" data-whatsapp-inbox-badge {% if not whatsapp_inbox_count %}hidden{% endif %}>{{ whatsapp_inbox_count or 0 }}</span>
                         </a>
                     </div>
                 </details>
