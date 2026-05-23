@@ -19,6 +19,14 @@
 </form>
 {% endmacro %}
 
+{% macro checkbox_prioridad(item) %}
+<label class="notification-select">
+    <input type="checkbox" name="items" value="{{ item['_notificacion_tipo'] }}|{{ item['_notificacion_id'] }}" data-priority-notification>
+    <span>Seleccionar</span>
+</label>
+<input type="hidden" name="all_items" value="{{ item['_notificacion_tipo'] }}|{{ item['_notificacion_id'] }}">
+{% endmacro %}
+
 {% macro tabla_notificaciones(titulo, items, tipo, lote_url=None, lote_label=None) %}
 <div class="page-section">
     <div class="section-header">
@@ -137,16 +145,44 @@
     </div>
 </div>
 
+{% set cambios_prioridad = cambios_portal[:5] %}
+{% set comprobantes_prioridad = comprobantes_pendientes[:5] %}
+{% set prioridad_visible = whatsapp_conversaciones|length + cambios_prioridad|length + comprobantes_prioridad|length %}
+{% set prioridad_total = whatsapp_conversaciones|length + cambios_portal|length + comprobantes_pendientes|length %}
+{% set prioridad_restante = prioridad_total - prioridad_visible %}
+
 <div class="page-section notification-center">
     <div class="section-header compact">
         <div>
             <h3>Prioridad para hoy</h3>
             <p class="page-intro">Lo que conviene atender primero desde el usuario del SIG.</p>
         </div>
+        {% if prioridad_restante > 0 %}
+            <span class="notification-more-badge">+{{ prioridad_restante }} m&aacute;s</span>
+        {% endif %}
     </div>
+    {% if prioridad_total %}
+    <form class="notification-bulk-form" method="post" action="{{ url_for('descartar_notificaciones_lote') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {% for cambio in cambios_portal[5:] %}
+            <input type="hidden" name="all_items" value="{{ cambio['_notificacion_tipo'] }}|{{ cambio['_notificacion_id'] }}">
+        {% endfor %}
+        {% for cuota in comprobantes_pendientes[5:] %}
+            <input type="hidden" name="all_items" value="{{ cuota['_notificacion_tipo'] }}|{{ cuota['_notificacion_id'] }}">
+        {% endfor %}
+        <div class="notification-bulk-actions">
+            <label class="notification-select-all">
+                <input type="checkbox" data-priority-select-all>
+                <span>Seleccionar visibles</span>
+            </label>
+            <button class="button secondary" type="submit" name="modo" value="seleccionadas">Ignorar seleccionadas</button>
+            <button class="button secondary" type="submit" name="modo" value="todas">Ignorar todas</button>
+        </div>
+    {% endif %}
     <div class="notification-feed">
         {% for conversacion in whatsapp_conversaciones %}
             <article class="notification-item notification-item-whatsapp">
+                {{ checkbox_prioridad(conversacion) }}
                 <div>
                     <span class="badge badge-info">WhatsApp</span>
                     <h4>Hay un nuevo mensaje de WhatsApp</h4>
@@ -160,13 +196,13 @@
                 </div>
                 <div class="notification-actions">
                     <a class="button" href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}">Abrir inbox</a>
-                    {{ boton_descartar(conversacion) }}
                 </div>
             </article>
         {% endfor %}
 
-        {% for cambio in cambios_portal[:5] %}
+        {% for cambio in cambios_prioridad %}
             <article class="notification-item">
+                {{ checkbox_prioridad(cambio) }}
                 <div>
                     <span class="badge badge-warning">Portal</span>
                     <h4>{{ cambio['apellido'] }}, {{ cambio['nombre'] }} modific&oacute; sus datos personales</h4>
@@ -175,13 +211,13 @@
                 </div>
                 <div class="notification-actions">
                     <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
-                    {{ boton_descartar(cambio) }}
                 </div>
             </article>
         {% endfor %}
 
-        {% for cuota in comprobantes_pendientes[:5] %}
+        {% for cuota in comprobantes_prioridad %}
             <article class="notification-item">
+                {{ checkbox_prioridad(cuota) }}
                 <div>
                     <span class="badge badge-danger">Comprobante</span>
                     <h4>Hay comprobantes por verificar</h4>
@@ -193,7 +229,6 @@
                 </div>
                 <div class="notification-actions">
                     <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar</a>
-                    {{ boton_descartar(cuota) }}
                 </div>
             </article>
         {% endfor %}
@@ -202,6 +237,9 @@
             <div class="empty notification-empty">No hay notificaciones prioritarias ahora.</div>
         {% endif %}
     </div>
+    {% if prioridad_total %}
+    </form>
+    {% endif %}
 </div>
 
 {{ tabla_notificaciones('Cuotas vencidas', cuotas_vencidas, 'cuota', url_for('enviar_recordatorios_cuotas_lote'), 'vencidas') }}

@@ -2250,7 +2250,7 @@ tbody tr:hover {
 
 .notification-item {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 16px;
     padding: 16px;
@@ -2279,6 +2279,45 @@ tbody tr:hover {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+}
+
+.notification-bulk-form {
+    display: grid;
+    gap: 12px;
+}
+
+.notification-bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.notification-select,
+.notification-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.notification-select {
+    align-self: start;
+    margin-top: 4px;
+}
+
+.notification-more-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    color: var(--secondary);
+    font-size: 13px;
+    font-weight: 800;
 }
 
 .notification-empty {

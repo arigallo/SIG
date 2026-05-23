@@ -196,25 +196,36 @@ class HotfixTests(unittest.TestCase):
         with app.app.test_request_context("/notificaciones"):
             with patch.object(app, "obtener_contador_notificaciones", return_value=3):
                 with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=1):
+                    cambios = [{
+                        "apellido": "Perez",
+                        "nombre": "Juan",
+                        "detalle_resumen": "Cambio telefono",
+                        "fecha": f"2026-05-23 09:0{i}",
+                        "jugador_id": 2 + i,
+                        "_notificacion_tipo": "cambio_portal",
+                        "_notificacion_id": str(20 + i),
+                        "_notificacion_key": f"cambio_portal:{20 + i}",
+                    } for i in range(6)]
+                    comprobantes = [{
+                        "apellido": "Gallo",
+                        "nombre": "Ariel",
+                        "periodo": f"2026-0{i + 1}",
+                        "importe": 1000,
+                        "comprobante_fecha": "2026-05-23",
+                        "comprobante_usuario": "portal",
+                        "comprobante_nombre": "ticket.pdf",
+                        "jugador_id": 1,
+                        "_notificacion_tipo": "comprobante",
+                        "_notificacion_id": f"{i + 1}:2026-05-23",
+                        "_notificacion_key": f"comprobante:{i + 1}:2026-05-23",
+                    } for i in range(6)]
                     html = render_template(
                         "notificaciones.html",
                         cuotas_vencidas=[],
                         cuotas_por_vencer=[],
                         fichas=[],
                         asistencia_baja=[],
-                        comprobantes_pendientes=[{
-                            "apellido": "Gallo",
-                            "nombre": "Ariel",
-                            "periodo": "2026-05",
-                            "importe": 1000,
-                            "comprobante_fecha": "2026-05-23",
-                            "comprobante_usuario": "portal",
-                            "comprobante_nombre": "ticket.pdf",
-                            "jugador_id": 1,
-                            "_notificacion_tipo": "comprobante",
-                            "_notificacion_id": "1:2026-05-23",
-                            "_notificacion_key": "comprobante:1:2026-05-23",
-                        }],
+                        comprobantes_pendientes=comprobantes,
                         whatsapp_conversaciones=[{
                             "apellido": None,
                             "nombre": None,
@@ -231,16 +242,7 @@ class HotfixTests(unittest.TestCase):
                         }],
                         secretaria_documentos=[],
                         ahijadxs_objetivo=[],
-                        cambios_portal=[{
-                            "apellido": "Perez",
-                            "nombre": "Juan",
-                            "detalle_resumen": "Cambio telefono",
-                            "fecha": "2026-05-23 09:00",
-                            "jugador_id": 2,
-                            "_notificacion_tipo": "cambio_portal",
-                            "_notificacion_id": "20",
-                            "_notificacion_key": "cambio_portal:20",
-                        }],
+                        cambios_portal=cambios,
                         whatsapp_api_activa=False,
                     )
 
@@ -249,6 +251,10 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Perez, Juan modific", html)
         self.assertIn("Hay comprobantes por verificar", html)
         self.assertIn("Ignorar", html)
+        self.assertIn("+2 m", html)
+        self.assertIn("Seleccionar visibles", html)
+        self.assertIn("Ignorar seleccionadas", html)
+        self.assertIn("Ignorar todas", html)
 
     def test_dismiss_notification_records_user_setting(self):
         with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
@@ -280,6 +286,34 @@ class HotfixTests(unittest.TestCase):
             "comprobante:1:2026-05-23",
             {"tipo": "comprobante", "entidad_id": "1:2026-05-23"},
         )
+
+    def test_bulk_dismiss_notifications_uses_selected_or_all_items(self):
+        with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
+            with patch.object(app, "descartar_notificaciones_usuario", return_value=2) as descartar:
+                client = app.app.test_client()
+                with client.session_transaction() as session:
+                    session["user_id"] = 1
+                    session["username"] = "arielgallo"
+                    session["rol"] = "admin"
+                    session["permisos"] = ["comunicaciones_ver"]
+                    session["_csrf_token"] = "token"
+
+                response = client.post(
+                    "/notificaciones/descartar-lote",
+                    data={
+                        "_csrf_token": "token",
+                        "modo": "todas",
+                        "items": ["whatsapp|5491111111111:10"],
+                        "all_items": ["whatsapp|5491111111111:10", "comprobante|1:2026-05-23"],
+                    },
+                )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/notificaciones", response.headers["Location"])
+        descartar.assert_called_once_with([
+            ("whatsapp", "5491111111111:10"),
+            ("comprobante", "1:2026-05-23"),
+        ])
 
 
 if __name__ == "__main__":

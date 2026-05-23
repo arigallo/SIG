@@ -806,6 +806,45 @@ def descartar_notificacion_usuario(tipo, entidad_id, username=None):
     return True
 
 
+def descartar_notificaciones_usuario(items, username=None):
+    username = normalizar_username(username or session.get("username", ""))
+    clave_setting = clave_notificaciones_descartadas(username)
+    if not clave_setting:
+        return 0
+
+    claves = {
+        clave_notificacion(tipo, entidad_id)
+        for tipo, entidad_id in items
+        if clave_notificacion(tipo, entidad_id)
+    }
+    if not claves:
+        return 0
+
+    descartadas = obtener_notificaciones_descartadas(username)
+    nuevas = claves - descartadas
+    if not nuevas:
+        return 0
+
+    descartadas.update(nuevas)
+    conn = get_connection()
+    guardar_app_setting(
+        conn,
+        clave_setting,
+        json.dumps(sorted(descartadas), ensure_ascii=False),
+        username,
+    )
+    conn.commit()
+    conn.close()
+    return len(nuevas)
+
+
+def parsear_notificacion_form_value(valor):
+    tipo, separador, entidad_id = str(valor or "").partition("|")
+    if not separador:
+        return "", ""
+    return tipo, entidad_id
+
+
 def preparar_notificaciones_para_usuario(items, tipo, id_func, descartadas):
     preparadas = []
     for item in items:
@@ -16107,6 +16146,32 @@ def descartar_notificacion():
         flash("Notificación descartada.", "ok")
     else:
         flash("No se pudo descartar la notificación.", "error")
+    return redirect(url_for("ver_notificaciones"))
+
+
+@app.route("/notificaciones/descartar-lote", methods=["POST"])
+def descartar_notificaciones_lote():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    modo = request.form.get("modo", "seleccionadas")
+    campo = "all_items" if modo == "todas" else "items"
+    items = [
+        parsear_notificacion_form_value(valor)
+        for valor in request.form.getlist(campo)
+    ]
+    cantidad = descartar_notificaciones_usuario(items)
+    if cantidad:
+        registrar_auditoria(
+            "descartar_lote",
+            "notificacion",
+            None,
+            {"cantidad": cantidad, "modo": modo},
+        )
+        flash(f"{cantidad} notificaciones descartadas.", "ok")
+    else:
+        flash("No seleccionaste notificaciones para descartar.", "error")
     return redirect(url_for("ver_notificaciones"))
 
 

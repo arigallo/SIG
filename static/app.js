@@ -139,6 +139,27 @@
         window.setInterval(pollWhatsappInbox, 10000);
     }
 
+    const prioritySelectAll = document.querySelector("[data-priority-select-all]");
+    const priorityCheckboxes = Array.from(document.querySelectorAll("[data-priority-notification]"));
+    if (prioritySelectAll && priorityCheckboxes.length) {
+        const syncPrioritySelectAll = () => {
+            const selected = priorityCheckboxes.filter((checkbox) => checkbox.checked).length;
+            prioritySelectAll.checked = selected === priorityCheckboxes.length;
+            prioritySelectAll.indeterminate = selected > 0 && selected < priorityCheckboxes.length;
+        };
+
+        prioritySelectAll.addEventListener("change", () => {
+            priorityCheckboxes.forEach((checkbox) => {
+                checkbox.checked = prioritySelectAll.checked;
+            });
+            syncPrioritySelectAll();
+        });
+
+        priorityCheckboxes.forEach((checkbox) => {
+            checkbox.addEventListener("change", syncPrioritySelectAll);
+        });
+    }
+
     const acceptedMimeTypes = new Set([
         "application/pdf",
         "image/jpeg",
