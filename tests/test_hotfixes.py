@@ -114,6 +114,36 @@ class HotfixTests(unittest.TestCase):
         self.assertEqual(interactive, "Confirmar")
         self.assertEqual(contacto, "[Contacto] Ariel Gallo")
 
+    def test_whatsapp_inbox_email_notification_uses_configured_recipients(self):
+        enviados = []
+
+        def fake_enviar_email(destinatario, asunto, cuerpo):
+            enviados.append((destinatario, asunto, cuerpo))
+            return True, None
+
+        with app.app.test_request_context("/webhooks/whatsapp", base_url="https://sig.example.test"):
+            with patch.object(app, "WHATSAPP_INBOX_NOTIFY_EMAILS", ["avisos@example.com"]):
+                with patch.object(app, "enviar_email", side_effect=fake_enviar_email):
+                    enviado = app.enviar_notificacion_whatsapp_inbox_email(
+                        mensaje={"tipo": "text", "texto": "Hola"},
+                        telefono="5491112345678",
+                        jugador={"apellido": "Gallo", "nombre": "Ariel"},
+                    )
+
+        self.assertTrue(enviado)
+        self.assertEqual(enviados[0][0], "avisos@example.com")
+        self.assertIn("Nueva respuesta WhatsApp - Gallo, Ariel", enviados[0][1])
+        self.assertIn("Mensaje: Hola", enviados[0][2])
+        self.assertIn("/comunicacion/whatsapp?telefono=5491112345678", enviados[0][2])
+
+    def test_whatsapp_inbox_email_notification_falls_back_to_smtp_from(self):
+        with patch.object(app, "WHATSAPP_INBOX_NOTIFY_EMAILS", []):
+            with patch.object(app, "SMTP_FROM", "tesoreria@example.com"):
+                self.assertEqual(
+                    app.destinatarios_notificacion_whatsapp_inbox(),
+                    ["tesoreria@example.com"],
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

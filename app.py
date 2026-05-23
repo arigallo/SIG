@@ -324,6 +324,11 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER).strip()
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Tesoreria - RMR").strip() or "Tesoreria - RMR"
+WHATSAPP_INBOX_NOTIFY_EMAILS = [
+    email.strip()
+    for email in re.split(r"[;,]", os.environ.get("WHATSAPP_INBOX_NOTIFY_EMAILS", ""))
+    if email.strip()
+]
 TESORERO_FIRMA_NOMBRE = os.environ.get("TESORERO_FIRMA_NOMBRE", "Ariel Gallo").strip() or "Ariel Gallo"
 TESORERO_FIRMA_CARGO = os.environ.get("TESORERO_FIRMA_CARGO", "Tesorero").strip() or "Tesorero"
 ASPIRANTE_ENTRENAMIENTOS_OBJETIVO = int(os.environ.get("ASPIRANTE_ENTRENAMIENTOS_OBJETIVO", "8"))
@@ -3912,6 +3917,7 @@ def registrar_whatsapp_mensaje(
                 creado_por_final,
                 mensaje_existente["id"],
             ))
+            resultado = "updated"
         else:
             conn.execute("""
                 INSERT INTO whatsapp_mensajes (
@@ -3932,9 +3938,10 @@ def registrar_whatsapp_mensaje(
                 respuesta_json,
                 creado_por_final,
             ))
+            resultado = "inserted"
         conn.commit()
         conn.close()
-        return True
+        return resultado
     except Exception:
         app.logger.exception(
             "No se pudo registrar mensaje de WhatsApp. telefono=%s wa_id=%s direccion=%s tipo=%s meta_message_id=%s",
@@ -3950,6 +3957,59 @@ def registrar_whatsapp_mensaje(
         except Exception:
             pass
         return False
+
+
+def destinatarios_notificacion_whatsapp_inbox():
+    destinatarios = [normalizar_email(email) for email in WHATSAPP_INBOX_NOTIFY_EMAILS]
+    destinatarios = [email for email in destinatarios if email]
+    if destinatarios:
+        return list(dict.fromkeys(destinatarios))
+    fallback = normalizar_email(SMTP_FROM)
+    return [fallback] if fallback else []
+
+
+def enviar_notificacion_whatsapp_inbox_email(*, mensaje, telefono, jugador=None):
+    destinatarios = destinatarios_notificacion_whatsapp_inbox()
+    if not destinatarios:
+        return False
+
+    jugador_nombre = ""
+    if jugador:
+        jugador_nombre = (
+            f"{(jugador.get('apellido') or '').strip()}, {(jugador.get('nombre') or '').strip()}".strip(", ")
+        )
+    telefono = normalizar_telefono_whatsapp(telefono) or str(telefono or "").strip()
+    texto = (mensaje.get("texto") or "").strip() or "[Sin contenido]"
+    tipo = (mensaje.get("tipo") or "mensaje").strip()
+    inbox_url = url_for("ver_whatsapp_inbox", telefono=telefono, _external=True) if has_request_context() else ""
+
+    asunto = "Nueva respuesta por WhatsApp en SIG"
+    if jugador_nombre:
+        asunto = f"Nueva respuesta WhatsApp - {jugador_nombre}"
+    cuerpo = (
+        "Entró una nueva respuesta por WhatsApp en SIG.\n\n"
+        f"Contacto: {telefono or '-'}\n"
+        f"Jugador vinculado: {jugador_nombre or 'Sin vincular'}\n"
+        f"Tipo: {tipo}\n"
+        f"Mensaje: {texto}\n"
+    )
+    if inbox_url:
+        cuerpo += f"\nAbrir conversación: {inbox_url}\n"
+
+    enviado_alguno = False
+    for destinatario in destinatarios:
+        try:
+            enviado, motivo = enviar_email(destinatario, asunto, cuerpo)
+            enviado_alguno = enviado_alguno or bool(enviado)
+            if not enviado:
+                app.logger.warning(
+                    "No se pudo notificar respuesta WhatsApp por email a %s. motivo=%s",
+                    destinatario,
+                    motivo,
+                )
+        except Exception:
+            app.logger.exception("No se pudo notificar respuesta WhatsApp por email a %s.", destinatario)
+    return enviado_alguno
 
 
 def listar_whatsapp_conversaciones():
@@ -7138,7 +7198,7 @@ def whatsapp_webhook_receive():
                     tipo = (mensaje.get("type") or "text").strip().lower()
                     texto = resumir_contenido_whatsapp(tipo, mensaje)
                     jugador = buscar_jugador_por_whatsapp(wa_id)
-                    registrar_whatsapp_mensaje(
+                    registro = registrar_whatsapp_mensaje(
                         telefono=wa_id,
                         wa_id=contacto.get("wa_id") or wa_id,
                         jugador_id=(jugador or {}).get("id"),
@@ -7150,6 +7210,12 @@ def whatsapp_webhook_receive():
                         payload=mensaje,
                         respuesta=contacto,
                     )
+                    if registro == "inserted":
+                        enviar_notificacion_whatsapp_inbox_email(
+                            mensaje={"tipo": tipo, "texto": texto},
+                            telefono=wa_id,
+                            jugador=jugador,
+                        )
                     procesado = True
                 for status_item in value.get("statuses", []) or []:
                     meta_message_id = status_item.get("id")
