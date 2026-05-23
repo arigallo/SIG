@@ -397,6 +397,13 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("data-whatsapp-reply", html)
         self.assertIn("Gracias, lo revisamos.", html)
 
+    def test_urba_sync_timeout_is_user_facing_error(self):
+        with patch.object(app, "urlopen", side_effect=TimeoutError()):
+            with self.assertRaises(RuntimeError) as contexto:
+                app.sincronizar_circulares_urba(None, 2026, "admin")
+
+        self.assertIn("URBA no respondio", str(contexto.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

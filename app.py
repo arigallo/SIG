@@ -13269,6 +13269,10 @@ def sincronizar_circulares_urba(conn, anio, usuario=None):
         raise RuntimeError(f"URBA devolvio {error.code} al consultar {url}.")
     except URLError as error:
         raise RuntimeError(f"No se pudo conectar con URBA: {error.reason}.")
+    except TimeoutError:
+        raise RuntimeError("URBA no respondio dentro del tiempo de espera. Probá sincronizar nuevamente en unos minutos.")
+    except OSError as error:
+        raise RuntimeError(f"No se pudo consultar URBA: {error}.")
 
     parser = UrbaCircularesParser(url)
     parser.feed(html_text)
