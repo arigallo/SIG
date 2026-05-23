@@ -16,7 +16,7 @@ import secrets
 import unicodedata
 import hashlib
 import hmac
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from urllib.parse import quote
@@ -103,6 +103,7 @@ def inject_now():
         "whatsapp_inbox_count": obtener_contador_whatsapp_inbox() if has_request_context() else 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
         "static_asset": static_asset,
+        "current_month": lambda: datetime.now().strftime("%Y-%m"),
     }
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -122,6 +123,13 @@ WHATSAPP_EMAIL_SUPPRESS_USERNAMES = {
     if item.strip()
 }
 WHATSAPP_EMAIL_SUPPRESS_SECONDS = int(os.environ.get("WHATSAPP_EMAIL_SUPPRESS_SECONDS", "120"))
+WHATSAPP_RESPUESTAS_RAPIDAS = [
+    "Gracias, lo revisamos y te avisamos.",
+    "Recibido. En breve verificamos el comprobante.",
+    "Tu mensaje quedo registrado en el SIG.",
+    "Cuando puedas, envianos el comprobante o el detalle del pago.",
+    "Perfecto, lo derivamos al area correspondiente.",
+]
 
 
 def static_asset(filename):
@@ -5008,6 +5016,143 @@ def obtener_contador_notificaciones():
     )
 
 
+def listar_tareas_sig(estado="pendiente", limite=80):
+    conn = get_connection()
+    tareas = conn.execute("""
+        SELECT
+            t.*,
+            j.apellido,
+            j.nombre,
+            j.categoria
+        FROM tareas_sig t
+        LEFT JOIN jugadores j ON j.id = t.jugador_id
+        WHERE (%s = 'todas' OR t.estado = %s)
+        ORDER BY
+            CASE t.prioridad WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
+            NULLIF(t.fecha_vencimiento, '') ASC NULLS LAST,
+            t.creado_en DESC
+        LIMIT %s
+    """, (estado, estado, limite)).fetchall()
+    conn.close()
+    return tareas
+
+
+def obtener_revision_diaria():
+    notificaciones = obtener_notificaciones_operativas() if tiene_permiso("comunicaciones_ver") else {}
+    conn = get_connection()
+    proximos_eventos = []
+    if tiene_permiso("calendario_ver", "asistencia_ver"):
+        proximos_eventos = conn.execute("""
+            SELECT id, fecha, hora_inicio, tipo, descripcion
+            FROM calendario_eventos
+            WHERE fecha >= CURRENT_DATE::text
+            ORDER BY fecha ASC, hora_inicio ASC NULLS LAST
+            LIMIT 5
+        """).fetchall()
+
+    tareas_vencidas = conn.execute("""
+        SELECT COUNT(*) AS total
+        FROM tareas_sig
+        WHERE estado = 'pendiente'
+          AND NULLIF(fecha_vencimiento, '') IS NOT NULL
+          AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          AND fecha_vencimiento::date < CURRENT_DATE
+    """).fetchone()
+    conn.close()
+
+    def cantidad(clave):
+        return len(notificaciones.get(clave, []))
+
+    return {
+        "whatsapp": cantidad("whatsapp_conversaciones"),
+        "comprobantes": cantidad("comprobantes_pendientes"),
+        "cambios_portal": cantidad("cambios_portal"),
+        "cuotas": cantidad("cuotas_vencidas") + cantidad("cuotas_por_vencer"),
+        "fichas": cantidad("fichas"),
+        "asistencia_baja": cantidad("asistencia_baja"),
+        "secretaria": cantidad("secretaria_documentos"),
+        "ahijadxs": cantidad("ahijadxs_objetivo"),
+        "proximos_eventos": proximos_eventos,
+        "tareas_vencidas": int((tareas_vencidas or {}).get("total") or 0),
+    }
+
+
+def obtener_panel_cobranzas():
+    conn = get_connection()
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) FILTER (WHERE COALESCE(anulada, 0) = 0) AS emitidas,
+            COUNT(*) FILTER (WHERE COALESCE(anulada, 0) = 0 AND pagado = 1) AS pagadas,
+            COUNT(*) FILTER (
+                WHERE COALESCE(anulada, 0) = 0
+                  AND pagado = 0
+                  AND COALESCE(importe, 0) > 0
+            ) AS pendientes,
+            COUNT(*) FILTER (
+                WHERE COALESCE(anulada, 0) = 0
+                  AND pagado = 0
+                  AND COALESCE(importe, 0) > 0
+                  AND fecha_vencimiento IS NOT NULL
+                  AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
+                  AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                  AND fecha_vencimiento::date < CURRENT_DATE
+            ) AS vencidas,
+            COUNT(*) FILTER (
+                WHERE comprobante_drive_file_id IS NOT NULL
+                  AND COALESCE(anulada, 0) = 0
+                  AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
+            ) AS comprobantes,
+            COALESCE(SUM(CASE WHEN COALESCE(anulada, 0) = 0 AND pagado = 1 THEN importe ELSE 0 END), 0) AS cobrado,
+            COALESCE(SUM(CASE WHEN COALESCE(anulada, 0) = 0 AND pagado = 0 THEN importe ELSE 0 END), 0) AS pendiente_importe
+        FROM cuotas
+    """).fetchone()
+    por_categoria = conn.execute("""
+        SELECT
+            COALESCE(j.categoria, 'Sin categoria') AS categoria,
+            COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0) AS pendientes,
+            COALESCE(SUM(CASE WHEN c.pagado = 0 AND COALESCE(c.anulada, 0) = 0 THEN c.importe ELSE 0 END), 0) AS deuda
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        GROUP BY COALESCE(j.categoria, 'Sin categoria')
+        HAVING COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0) > 0
+        ORDER BY deuda DESC, categoria
+        LIMIT 20
+    """).fetchall()
+    recientes = conn.execute("""
+        SELECT c.id, c.periodo, c.importe, c.comprobante_fecha, c.comprobante_usuario, j.id AS jugador_id, j.apellido, j.nombre
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.comprobante_drive_file_id IS NOT NULL
+          AND COALESCE(c.anulada, 0) = 0
+          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
+        ORDER BY c.comprobante_fecha DESC NULLS LAST, c.id DESC
+        LIMIT 12
+    """).fetchall()
+    conn.close()
+    emitidas = int((resumen or {}).get("emitidas") or 0)
+    pagadas = int((resumen or {}).get("pagadas") or 0)
+    avance = round((pagadas / emitidas) * 100, 1) if emitidas else None
+    return {
+        "resumen": resumen or {},
+        "avance": avance,
+        "por_categoria": por_categoria,
+        "comprobantes_recientes": recientes,
+    }
+
+
+def inicio_mes_actual():
+    return date.today().replace(day=1).strftime("%Y-%m-%d")
+
+
+def fin_mes_actual():
+    hoy = date.today()
+    if hoy.month == 12:
+        siguiente = date(hoy.year + 1, 1, 1)
+    else:
+        siguiente = date(hoy.year, hoy.month + 1, 1)
+    return (siguiente - timedelta(days=1)).strftime("%Y-%m-%d")
+
+
 def whatsapp_mensaje(telefono, mensaje):
     telefono_whatsapp = normalizar_telefono_whatsapp(telefono)
     if telefono_whatsapp:
@@ -6341,6 +6486,35 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS tareas_sig (
+            id SERIAL PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            descripcion TEXT,
+            modulo TEXT NOT NULL DEFAULT 'general',
+            prioridad TEXT NOT NULL DEFAULT 'media',
+            estado TEXT NOT NULL DEFAULT 'pendiente',
+            responsable TEXT,
+            fecha_vencimiento TEXT,
+            jugador_id INTEGER,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_por TEXT,
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tareas_sig_estado
+        ON tareas_sig (estado, fecha_vencimiento, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tareas_sig_jugador
+        ON tareas_sig (jugador_id, estado)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS planes_pago (
             id SERIAL PRIMARY KEY,
             jugador_id INTEGER NOT NULL,
@@ -7570,6 +7744,28 @@ def filtrar_bitacora_visible(items):
     return [item for item in items if puede_ver_bitacora_tipo(item["tipo"])]
 
 
+def puede_ver_operacion():
+    return tiene_permiso(
+        "jugadores_ver",
+        "cuotas_ver",
+        "salud_ver",
+        "asistencia_ver",
+        "comunicaciones_ver",
+        "secretaria_ver",
+    )
+
+
+def puede_gestionar_tareas_sig():
+    return tiene_permiso(
+        "jugadores_gestionar",
+        "cuotas_gestionar",
+        "salud_gestionar",
+        "asistencia_gestionar",
+        "comunicaciones_ver",
+        "secretaria_gestionar",
+    )
+
+
 def validar_password_nueva(password, confirmacion):
     if not password or not confirmacion:
         return "La contraseña y la confirmación son obligatorias."
@@ -8546,6 +8742,100 @@ def index():
         puede_ver_finanzas=tiene_permiso("cuotas_ver", "cuotas_gestionar"),
         puede_ver_salud=tiene_permiso("salud_ver"),
     )
+
+
+@app.route("/operacion")
+def ver_operacion_diaria():
+    if not puede_ver_operacion():
+        flash("No tenes permiso para acceder a esa seccion.", "error")
+        return redirect(url_for("index"))
+
+    estado = request.args.get("estado", "pendiente")
+    if estado not in {"pendiente", "hecha", "cancelada", "todas"}:
+        estado = "pendiente"
+    return render_template(
+        "operacion.html",
+        revision=obtener_revision_diaria(),
+        tareas=listar_tareas_sig(estado=estado),
+        estado=estado,
+        puede_gestionar_tareas=puede_gestionar_tareas_sig(),
+    )
+
+
+@app.route("/tareas", methods=["POST"])
+def crear_tarea_sig():
+    if not puede_gestionar_tareas_sig():
+        flash("No tenes permiso para crear tareas.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
+
+    titulo = (request.form.get("titulo") or "").strip()
+    if not titulo:
+        flash("La tarea necesita un titulo.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
+
+    jugador_id_raw = (request.form.get("jugador_id") or "").strip()
+    jugador_id = int(jugador_id_raw) if jugador_id_raw.isdigit() else None
+    modulo = (request.form.get("modulo") or "general").strip().lower()
+    prioridad = (request.form.get("prioridad") or "media").strip().lower()
+    if prioridad not in {"alta", "media", "baja"}:
+        prioridad = "media"
+
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO tareas_sig (
+            titulo, descripcion, modulo, prioridad, responsable,
+            fecha_vencimiento, jugador_id, creado_por, actualizado_por
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        titulo,
+        (request.form.get("descripcion") or "").strip(),
+        modulo,
+        prioridad,
+        (request.form.get("responsable") or "").strip(),
+        (request.form.get("fecha_vencimiento") or "").strip(),
+        jugador_id,
+        session.get("username"),
+        session.get("username"),
+    ))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("crear", "tarea_sig", None, {"titulo": titulo, "modulo": modulo, "prioridad": prioridad})
+    flash("Tarea creada.", "ok")
+    return redirect(url_for("ver_operacion_diaria"))
+
+
+@app.route("/tareas/<int:tarea_id>/estado", methods=["POST"])
+def actualizar_estado_tarea_sig(tarea_id):
+    if not puede_gestionar_tareas_sig():
+        flash("No tenes permiso para actualizar tareas.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
+
+    estado = (request.form.get("estado") or "hecha").strip().lower()
+    if estado not in {"pendiente", "hecha", "cancelada"}:
+        estado = "hecha"
+    conn = get_connection()
+    conn.execute("""
+        UPDATE tareas_sig
+        SET estado = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (estado, session.get("username"), tarea_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("actualizar_estado", "tarea_sig", str(tarea_id), {"estado": estado})
+    flash("Tarea actualizada.", "ok")
+    return redirect(url_for("ver_operacion_diaria"))
+
+
+@app.route("/finanzas/cobranzas")
+def ver_panel_cobranzas():
+    check = permiso_requerido("cuotas_ver", "cuotas_gestionar")
+    if check:
+        return check
+
+    return render_template("cobranzas.html", panel=obtener_panel_cobranzas())
 
 @app.route("/jugadores/<int:jugador_id>/ficha-medica")
 def ver_ficha_medica(jugador_id):
@@ -12356,6 +12646,37 @@ def timeline_jugador(jugador_id):
             "tipo": f"Bitacora {BITACORA_TIPOS.get(nota['tipo'], nota['tipo'])}",
             "titulo": nota["creado_por"] or "SIG",
             "detalle": nota["nota"],
+        })
+
+    if tiene_permiso("comunicaciones_ver"):
+        mensajes = conn.execute("""
+            SELECT direccion, tipo, texto, creado_en, estado
+            FROM whatsapp_mensajes
+            WHERE jugador_id = %s
+            ORDER BY creado_en DESC, id DESC
+            LIMIT 40
+        """, (jugador_id,)).fetchall()
+        for mensaje in mensajes:
+            eventos.append({
+                "fecha": str(mensaje["creado_en"])[:10],
+                "tipo": "WhatsApp",
+                "titulo": "Entrante" if mensaje["direccion"] == "in" else "Saliente",
+                "detalle": mensaje["texto"] or f"[{mensaje['tipo']}] {mensaje['estado'] or ''}".strip(),
+            })
+
+    tareas = conn.execute("""
+        SELECT titulo, descripcion, estado, prioridad, creado_en
+        FROM tareas_sig
+        WHERE jugador_id = %s
+        ORDER BY creado_en DESC, id DESC
+        LIMIT 40
+    """, (jugador_id,)).fetchall()
+    for tarea in tareas:
+        eventos.append({
+            "fecha": str(tarea["creado_en"])[:10],
+            "tipo": "Tarea",
+            "titulo": f"{tarea['titulo']} ({tarea['estado']})",
+            "detalle": f"{tarea['prioridad']} - {tarea['descripcion'] or '-'}",
         })
 
     conn.close()
@@ -16211,6 +16532,7 @@ def ver_whatsapp_inbox():
         telefono_actual=telefono,
         jugadores_disponibles=jugadores_disponibles,
         webhook_eventos=webhook_eventos,
+        respuestas_rapidas=WHATSAPP_RESPUESTAS_RAPIDAS,
     )
 
 

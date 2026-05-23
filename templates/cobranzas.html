@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Cobranzas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Panel de cobranzas</h2>
+        <p class="page-intro">Embudo de cuotas emitidas, pagadas, pendientes, vencidas y comprobantes cargados.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Comprobantes</a>
+        <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Contactar morosos</a>
+        <a class="button" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards">
+    <div class="card stat-card alert-card-info">
+        <h3>Emitidas</h3>
+        <p class="stat-number">{{ panel['resumen']['emitidas'] or 0 }}</p>
+        <span class="muted-line">Cuotas no anuladas</span>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Pagadas</h3>
+        <p class="stat-number">{{ panel['resumen']['pagadas'] or 0 }}</p>
+        <span class="muted-line">Avance {% if panel['avance'] is not none %}{{ panel['avance'] }}%{% else %}-{% endif %}</span>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Pendientes</h3>
+        <p class="stat-number">{{ panel['resumen']['pendientes'] or 0 }}</p>
+        <span class="muted-line">{{ panel['resumen']['pendiente_importe'] | moneda }}</span>
+    </div>
+    <div class="card stat-card alert-card-critical">
+        <h3>Vencidas</h3>
+        <p class="stat-number">{{ panel['resumen']['vencidas'] or 0 }}</p>
+        <span class="muted-line">Requieren contacto</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Comprobantes</h3>
+        <p class="stat-number">{{ panel['resumen']['comprobantes'] or 0 }}</p>
+        <span class="muted-line">Pendientes de verificaci&oacute;n</span>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Deuda por categor&iacute;a</h3>
+        </div>
+        <div class="table-wrapper flush">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Categor&iacute;a</th>
+                        <th>Pendientes</th>
+                        <th>Deuda</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in panel['por_categoria'] %}
+                    <tr>
+                        <td>{{ fila['categoria'] }}</td>
+                        <td>{{ fila['pendientes'] }}</td>
+                        <td>{{ fila['deuda'] | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="empty">No hay deuda pendiente por categor&iacute;a.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Comprobantes recientes</h3>
+        </div>
+        {% for cuota in panel['comprobantes_recientes'] %}
+            <p>
+                <strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong>
+                <span class="muted-line">{{ cuota['periodo'] }} - {{ cuota['importe'] | moneda }} - {{ cuota['comprobante_fecha'] or '-' }}</span>
+                <a href="{{ url_for('detalle_jugador', jugador_id=cuota['jugador_id']) }}">Ver jugador</a>
+            </p>
+        {% else %}
+            <p>No hay comprobantes pendientes recientes.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

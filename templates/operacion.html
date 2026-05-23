@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Operaci&oacute;n diaria{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Operaci&oacute;n diaria</h2>
+        <p class="page-intro">Checklist de trabajo del staff, tareas asignables y accesos r&aacute;pidos a lo urgente.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_notificaciones') }}">Notificaciones</a>
+        {% if puede('cuotas_ver', 'cuotas_gestionar') %}
+            <a class="button secondary" href="{{ url_for('ver_panel_cobranzas') }}">Cobranzas</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards">
+    <div class="card stat-card alert-card-info">
+        <h3>WhatsApp</h3>
+        <p class="stat-number">{{ revision['whatsapp'] }}</p>
+        <span class="muted-line">Mensajes sin leer</span>
+    </div>
+    <div class="card stat-card alert-card-critical">
+        <h3>Comprobantes</h3>
+        <p class="stat-number">{{ revision['comprobantes'] }}</p>
+        <span class="muted-line">Por verificar</span>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Portal</h3>
+        <p class="stat-number">{{ revision['cambios_portal'] }}</p>
+        <span class="muted-line">Datos modificados</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Tareas vencidas</h3>
+        <p class="stat-number">{{ revision['tareas_vencidas'] }}</p>
+        <span class="muted-line">Pendientes con fecha pasada</span>
+    </div>
+</div>
+
+<div class="detail-grid page-section">
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Checklist</h3>
+        </div>
+        <ul class="operation-checklist">
+            <li><a href="{{ url_for('ver_whatsapp_inbox') }}">Leer WhatsApp</a><span class="badge badge-info">{{ revision['whatsapp'] }}</span></li>
+            <li><a href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar comprobantes</a><span class="badge badge-danger">{{ revision['comprobantes'] }}</span></li>
+            <li><a href="{{ url_for('ver_notificaciones') }}">Revisar cambios del portal</a><span class="badge badge-warning">{{ revision['cambios_portal'] }}</span></li>
+            <li><a href="{{ url_for('ver_notificaciones') }}">Gestionar cuotas y fichas</a><span class="badge badge-muted">{{ revision['cuotas'] + revision['fichas'] }}</span></li>
+            {% if puede('secretaria_ver', 'secretaria_gestionar') %}
+                <li><a href="{{ url_for('listar_documentos_secretaria', vencimiento='por_vencer') }}">Documentos de Secretar&iacute;a</a><span class="badge badge-muted">{{ revision['secretaria'] }}</span></li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Pr&oacute;ximos eventos</h3>
+        </div>
+        {% for evento in revision['proximos_eventos'] %}
+            <p><strong>{{ evento['fecha'] }}</strong> {{ evento['hora_inicio'] or '' }}<span class="muted-line">{{ evento['tipo'] or 'Evento' }} - {{ evento['descripcion'] or '-' }}</span></p>
+        {% else %}
+            <p>No hay eventos pr&oacute;ximos cargados.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header">
+        <div>
+            <h3>Centro de tareas</h3>
+            <p class="page-intro">Asign&aacute;, filtr&aacute; y cerr&aacute; pendientes internos sin borrar la actividad original del SIG.</p>
+        </div>
+        <form method="get" class="inline-filter">
+            <select name="estado">
+                {% for opcion in ['pendiente', 'hecha', 'cancelada', 'todas'] %}
+                    <option value="{{ opcion }}" {% if estado == opcion %}selected{% endif %}>{{ opcion|capitalize }}</option>
+                {% endfor %}
+            </select>
+            <button class="button secondary" type="submit">Filtrar</button>
+        </form>
+    </div>
+
+    {% if puede_gestionar_tareas %}
+    <form method="post" action="{{ url_for('crear_tarea_sig') }}" class="card form-card form-card-wide">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="field">
+                <label>T&iacute;tulo</label>
+                <input name="titulo" required>
+            </div>
+            <div class="field">
+                <label>M&oacute;dulo</label>
+                <select name="modulo">
+                    <option value="general">General</option>
+                    <option value="finanzas">Finanzas</option>
+                    <option value="salud">Salud</option>
+                    <option value="deportivo">Deportivo</option>
+                    <option value="secretaria">Secretar&iacute;a</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Prioridad</label>
+                <select name="prioridad">
+                    <option value="media">Media</option>
+                    <option value="alta">Alta</option>
+                    <option value="baja">Baja</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Responsable</label>
+                <input name="responsable" placeholder="{{ session.get('username') or '' }}">
+            </div>
+            <div class="field">
+                <label>Vencimiento</label>
+                <input type="date" name="fecha_vencimiento">
+            </div>
+            <div class="field">
+                <label>ID jugador</label>
+                <input name="jugador_id" inputmode="numeric">
+            </div>
+            <div class="field field-wide">
+                <label>Descripci&oacute;n</label>
+                <textarea name="descripcion" rows="2"></textarea>
+            </div>
+        </div>
+        <button class="button" type="submit">Crear tarea</button>
+    </form>
+    {% endif %}
+
+    <div class="table-wrapper top-gap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tarea</th>
+                    <th>M&oacute;dulo</th>
+                    <th>Responsable</th>
+                    <th>Vence</th>
+                    <th>Estado</th>
+                    <th>Acci&oacute;n</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tarea in tareas %}
+                <tr>
+                    <td><strong>{{ tarea['titulo'] }}</strong>{% if tarea['descripcion'] %}<span class="muted-line">{{ tarea['descripcion'] }}</span>{% endif %}{% if tarea['jugador_id'] %}<span class="muted-line"><a href="{{ url_for('detalle_jugador', jugador_id=tarea['jugador_id']) }}">{{ tarea['apellido'] }}, {{ tarea['nombre'] }}</a></span>{% endif %}</td>
+                    <td><span class="badge badge-info">{{ tarea['modulo'] }}</span><span class="badge {% if tarea['prioridad'] == 'alta' %}badge-danger{% elif tarea['prioridad'] == 'baja' %}badge-muted{% else %}badge-warning{% endif %}">{{ tarea['prioridad'] }}</span></td>
+                    <td>{{ tarea['responsable'] or '-' }}</td>
+                    <td>{{ tarea['fecha_vencimiento'] or '-' }}</td>
+                    <td>{{ tarea['estado'] }}</td>
+                    <td class="actions">
+                        {% if puede_gestionar_tareas and tarea['estado'] == 'pendiente' %}
+                        <form method="post" action="{{ url_for('actualizar_estado_tarea_sig', tarea_id=tarea['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="estado" value="hecha">
+                            <button class="button secondary" type="submit">Marcar hecha</button>
+                        </form>
+                        <form method="post" action="{{ url_for('actualizar_estado_tarea_sig', tarea_id=tarea['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="estado" value="cancelada">
+                            <button class="button secondary" type="submit">Cancelar</button>
+                        </form>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay tareas para este filtro.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

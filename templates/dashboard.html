@@ -9,6 +9,7 @@
         <p class="page-intro">Vista r&aacute;pida del estado deportivo, financiero y m&eacute;dico del club.</p>
     </div>
     <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisi&oacute;n diaria</a>
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
         {% endif %}

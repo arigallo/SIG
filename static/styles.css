@@ -2326,6 +2326,39 @@ tbody tr:hover {
     border-radius: 8px;
 }
 
+.operation-checklist {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.operation-checklist li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.operation-checklist li:last-child {
+    border-bottom: 0;
+}
+
+.quick-replies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0 10px;
+}
+
+.quick-replies .button {
+    font-size: 13px;
+    padding: 8px 10px;
+}
+
 .finance-table details summary {
     cursor: pointer;
 }

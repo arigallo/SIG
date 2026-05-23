@@ -160,6 +160,17 @@
         });
     }
 
+    document.querySelectorAll("[data-whatsapp-reply]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const textarea = document.querySelector("#mensaje");
+            if (!textarea) {
+                return;
+            }
+            textarea.value = button.dataset.whatsappReply || "";
+            textarea.focus();
+        });
+    });
+
     const acceptedMimeTypes = new Set([
         "application/pdf",
         "image/jpeg",

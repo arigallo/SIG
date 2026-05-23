@@ -7,6 +7,7 @@
     <h2>Reportes avanzados</h2>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('exportar_datos_integral') }}">Exportar integral</a>
+        <a class="button secondary" href="{{ url_for('exportar_reportes', desde=current_month(), hasta=current_month()) }}">Export mensual</a>
         {% if puede('tests_ver') %}
             <a class="button secondary" href="{{ url_for('exportar_tests') }}">Exportar tests</a>
         {% endif %}

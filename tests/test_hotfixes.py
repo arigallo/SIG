@@ -315,6 +315,88 @@ class HotfixTests(unittest.TestCase):
             ("comprobante", "1:2026-05-23"),
         ])
 
+    def test_operacion_template_renders_daily_review_and_tasks(self):
+        with app.app.test_request_context("/operacion"):
+            with patch.object(app, "obtener_contador_notificaciones", return_value=0):
+                with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=0):
+                    html = render_template(
+                        "operacion.html",
+                        revision={
+                            "whatsapp": 1,
+                            "comprobantes": 2,
+                            "cambios_portal": 3,
+                            "cuotas": 4,
+                            "fichas": 5,
+                            "asistencia_baja": 0,
+                            "secretaria": 1,
+                            "ahijadxs": 0,
+                            "proximos_eventos": [],
+                            "tareas_vencidas": 1,
+                        },
+                        tareas=[{
+                            "id": 1,
+                            "titulo": "Revisar comprobante",
+                            "descripcion": "Pago informado",
+                            "modulo": "finanzas",
+                            "prioridad": "alta",
+                            "responsable": "arielgallo",
+                            "fecha_vencimiento": "2026-05-24",
+                            "estado": "pendiente",
+                            "jugador_id": None,
+                            "apellido": None,
+                            "nombre": None,
+                        }],
+                        estado="pendiente",
+                        puede_gestionar_tareas=True,
+                    )
+
+        self.assertIn("Operaci", html)
+        self.assertIn("Centro de tareas", html)
+        self.assertIn("Revisar comprobante", html)
+
+    def test_cobranzas_template_renders_pipeline(self):
+        with app.app.test_request_context("/finanzas/cobranzas"):
+            with patch.object(app, "obtener_contador_notificaciones", return_value=0):
+                with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=0):
+                    html = render_template(
+                        "cobranzas.html",
+                        panel={
+                            "resumen": {
+                                "emitidas": 10,
+                                "pagadas": 6,
+                                "pendientes": 4,
+                                "vencidas": 2,
+                                "comprobantes": 1,
+                                "pendiente_importe": 4000,
+                            },
+                            "avance": 60,
+                            "por_categoria": [{"categoria": "Plantel Superior", "pendientes": 2, "deuda": 2000}],
+                            "comprobantes_recientes": [],
+                        },
+                    )
+
+        self.assertIn("Panel de cobranzas", html)
+        self.assertIn("Plantel Superior", html)
+        self.assertIn("60%", html)
+
+    def test_whatsapp_inbox_template_has_quick_replies(self):
+        with app.app.test_request_context("/comunicacion/whatsapp"):
+            with patch.object(app, "obtener_contador_notificaciones", return_value=0):
+                with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=0):
+                    html = render_template(
+                        "whatsapp_inbox.html",
+                        conversaciones=[],
+                        conversacion_actual={"nombre": "Sin vincular", "telefono": "5491111111111", "jugador_id": None},
+                        mensajes=[],
+                        telefono_actual="5491111111111",
+                        jugadores_disponibles=[],
+                        webhook_eventos=[],
+                        respuestas_rapidas=["Gracias, lo revisamos."],
+                    )
+
+        self.assertIn("data-whatsapp-reply", html)
+        self.assertIn("Gracias, lo revisamos.", html)
+
 
 if __name__ == "__main__":
     unittest.main()

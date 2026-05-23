@@ -80,6 +80,11 @@
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="telefono" value="{{ telefono_actual }}">
                 <label for="mensaje">Responder por WhatsApp</label>
+                <div class="quick-replies">
+                    {% for respuesta in respuestas_rapidas %}
+                        <button class="button secondary" type="button" data-whatsapp-reply="{{ respuesta }}">{{ respuesta }}</button>
+                    {% endfor %}
+                </div>
                 <textarea id="mensaje" name="mensaje" rows="4" placeholder="Escribí una respuesta breve para esta conversación." required></textarea>
                 <div class="form-actions">
                     <button class="button" type="submit">Enviar respuesta</button>
