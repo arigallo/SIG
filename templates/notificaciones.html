@@ -10,6 +10,15 @@
     </div>
 </div>
 
+{% macro boton_descartar(item, label='Ignorar') %}
+<form method="post" action="{{ url_for('descartar_notificacion') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="tipo" value="{{ item['_notificacion_tipo'] }}">
+    <input type="hidden" name="entidad_id" value="{{ item['_notificacion_id'] }}">
+    <button class="button secondary" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}
+
 {% macro tabla_notificaciones(titulo, items, tipo, lote_url=None, lote_label=None) %}
 <div class="page-section">
     <div class="section-header">
@@ -91,6 +100,7 @@
                             </form>
                         {% endif %}
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=fila['jugador_id']) }}">Jugador</a>
+                        {{ boton_descartar(fila) }}
                     </td>
                 </tr>
                 {% else %}
@@ -148,7 +158,10 @@
                     <p class="communication-message">{{ conversacion['texto'] or '[' ~ (conversacion['tipo'] or 'mensaje') ~ ']' }}</p>
                     <span class="muted-line">{{ conversacion['sin_leer'] }} sin leer - {{ conversacion['creado_en'] }}</span>
                 </div>
-                <a class="button" href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}">Abrir inbox</a>
+                <div class="notification-actions">
+                    <a class="button" href="{{ url_for('ver_whatsapp_inbox', telefono=conversacion['telefono']) }}">Abrir inbox</a>
+                    {{ boton_descartar(conversacion) }}
+                </div>
             </article>
         {% endfor %}
 
@@ -160,7 +173,10 @@
                     <p class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</p>
                     <span class="muted-line">{{ cambio['fecha'] }}</span>
                 </div>
-                <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
+                <div class="notification-actions">
+                    <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
+                    {{ boton_descartar(cambio) }}
+                </div>
             </article>
         {% endfor %}
 
@@ -175,7 +191,10 @@
                     </p>
                     <span class="muted-line">{{ cuota['comprobante_fecha'] or '-' }} - {{ cuota['comprobante_usuario'] or '-' }}</span>
                 </div>
-                <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar</a>
+                <div class="notification-actions">
+                    <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar</a>
+                    {{ boton_descartar(cuota) }}
+                </div>
             </article>
         {% endfor %}
 
@@ -210,8 +229,9 @@
                     <td data-label="Jugador">{{ cambio['apellido'] }}, {{ cambio['nombre'] }}</td>
                     <td data-label="Fecha">{{ cambio['fecha'] }}</td>
                     <td data-label="Detalle" class="communication-message">{{ cambio['detalle_resumen'] or 'Actualizaci&oacute;n de datos personales' }}</td>
-                    <td data-label="Acción">
+                    <td data-label="Acción" class="actions">
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cambio['jugador_id']) }}">Revisar jugador</a>
+                        {{ boton_descartar(cambio) }}
                     </td>
                 </tr>
                 {% else %}
@@ -260,6 +280,7 @@
                             <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar</a>
                         {% endif %}
                         <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=cuota['jugador_id']) }}">Jugador</a>
+                        {{ boton_descartar(cuota) }}
                     </td>
                 </tr>
                 {% else %}
@@ -313,6 +334,7 @@
                     <td data-label="Acción" class="actions">
                         <a class="button secondary" href="{{ url_for('ver_documento_secretaria', documento_id=documento['id']) }}" target="_blank" rel="noopener">Ver</a>
                         <a class="button secondary" href="{{ url_for('listar_documentos_secretaria', categoria=documento['categoria']) }}">Secretaría</a>
+                        {{ boton_descartar(documento) }}
                     </td>
                 </tr>
                 {% else %}
@@ -351,8 +373,9 @@
                             {{ aspirante['entrenamientos_presentes'] }}/{{ aspirante['entrenamientos_objetivo'] }}
                         </span>
                     </td>
-                    <td data-label="Acción">
+                    <td data-label="Acción" class="actions">
                         <a class="button secondary" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['aspirante_id']) }}">Ver seguimiento</a>
+                        {{ boton_descartar(aspirante) }}
                     </td>
                 </tr>
                 {% else %}

@@ -2274,6 +2274,13 @@ tbody tr:hover {
     margin: 0 0 6px;
 }
 
+.notification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .notification-empty {
     padding: 18px;
     border: 1px dashed var(--border);
@@ -2496,6 +2503,15 @@ tbody tr:hover {
     }
 
     .notification-item .button {
+        width: 100%;
+    }
+
+    .notification-actions {
+        justify-content: stretch;
+    }
+
+    .notification-actions > *,
+    .notification-actions .button {
         width: 100%;
     }
 

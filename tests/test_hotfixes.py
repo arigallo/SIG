@@ -211,6 +211,9 @@ class HotfixTests(unittest.TestCase):
                             "comprobante_usuario": "portal",
                             "comprobante_nombre": "ticket.pdf",
                             "jugador_id": 1,
+                            "_notificacion_tipo": "comprobante",
+                            "_notificacion_id": "1:2026-05-23",
+                            "_notificacion_key": "comprobante:1:2026-05-23",
                         }],
                         whatsapp_conversaciones=[{
                             "apellido": None,
@@ -222,6 +225,9 @@ class HotfixTests(unittest.TestCase):
                             "tipo": "text",
                             "sin_leer": 1,
                             "creado_en": "2026-05-23 10:00",
+                            "_notificacion_tipo": "whatsapp",
+                            "_notificacion_id": "5491111111111:10",
+                            "_notificacion_key": "whatsapp:5491111111111:10",
                         }],
                         secretaria_documentos=[],
                         ahijadxs_objetivo=[],
@@ -231,6 +237,9 @@ class HotfixTests(unittest.TestCase):
                             "detalle_resumen": "Cambio telefono",
                             "fecha": "2026-05-23 09:00",
                             "jugador_id": 2,
+                            "_notificacion_tipo": "cambio_portal",
+                            "_notificacion_id": "20",
+                            "_notificacion_key": "cambio_portal:20",
                         }],
                         whatsapp_api_activa=False,
                     )
@@ -239,6 +248,38 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Sin vincular", html)
         self.assertIn("Perez, Juan modific", html)
         self.assertIn("Hay comprobantes por verificar", html)
+        self.assertIn("Ignorar", html)
+
+    def test_dismiss_notification_records_user_setting(self):
+        with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
+            with patch.object(app, "descartar_notificacion_usuario", return_value=True) as descartar:
+                with patch.object(app, "registrar_auditoria") as auditar:
+                    client = app.app.test_client()
+                    with client.session_transaction() as session:
+                        session["user_id"] = 1
+                        session["username"] = "arielgallo"
+                        session["rol"] = "admin"
+                        session["permisos"] = ["comunicaciones_ver"]
+                        session["_csrf_token"] = "token"
+
+                    response = client.post(
+                        "/notificaciones/descartar",
+                        data={
+                            "_csrf_token": "token",
+                            "tipo": "comprobante",
+                            "entidad_id": "1:2026-05-23",
+                        },
+                    )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/notificaciones", response.headers["Location"])
+        descartar.assert_called_once_with("comprobante", "1:2026-05-23")
+        auditar.assert_any_call(
+            "descartar",
+            "notificacion",
+            "comprobante:1:2026-05-23",
+            {"tipo": "comprobante", "entidad_id": "1:2026-05-23"},
+        )
 
 
 if __name__ == "__main__":

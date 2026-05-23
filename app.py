@@ -750,6 +750,74 @@ def suprimir_email_whatsapp_por_presencia():
     return False
 
 
+def normalizar_clave_notificacion(valor):
+    texto = str(valor or "").strip().lower()
+    return re.sub(r"[^a-z0-9_.:-]+", "_", texto).strip("_")
+
+
+def clave_notificaciones_descartadas(username=None):
+    username = normalizar_username(username or session.get("username", ""))
+    return f"notifications:dismissed:{username}" if username else ""
+
+
+def clave_notificacion(tipo, entidad_id):
+    tipo = normalizar_clave_notificacion(tipo)
+    entidad_id = normalizar_clave_notificacion(entidad_id)
+    return f"{tipo}:{entidad_id}" if tipo and entidad_id else ""
+
+
+def obtener_notificaciones_descartadas(username=None):
+    clave = clave_notificaciones_descartadas(username)
+    if not clave:
+        return set()
+    try:
+        conn = get_connection()
+        fila = conn.execute("""
+            SELECT valor
+            FROM app_settings
+            WHERE clave = %s
+        """, (clave,)).fetchone()
+        conn.close()
+        valores = json.loads((fila or {}).get("valor") or "[]")
+        return {normalizar_clave_notificacion(item) for item in valores if item}
+    except Exception:
+        app.logger.exception("No se pudieron leer notificaciones descartadas.")
+        return set()
+
+
+def descartar_notificacion_usuario(tipo, entidad_id, username=None):
+    username = normalizar_username(username or session.get("username", ""))
+    clave_setting = clave_notificaciones_descartadas(username)
+    clave_item = clave_notificacion(tipo, entidad_id)
+    if not clave_setting or not clave_item:
+        return False
+
+    descartadas = obtener_notificaciones_descartadas(username)
+    descartadas.add(clave_item)
+    conn = get_connection()
+    guardar_app_setting(
+        conn,
+        clave_setting,
+        json.dumps(sorted(descartadas), ensure_ascii=False),
+        username,
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def preparar_notificaciones_para_usuario(items, tipo, id_func, descartadas):
+    preparadas = []
+    for item in items:
+        fila = dict(item)
+        fila["_notificacion_tipo"] = tipo
+        fila["_notificacion_id"] = str(id_func(fila))
+        fila["_notificacion_key"] = clave_notificacion(tipo, fila["_notificacion_id"])
+        if fila["_notificacion_key"] not in descartadas:
+            preparadas.append(fila)
+    return preparadas
+
+
 def drive_service():
     if (
         google_auth_default is None
@@ -4588,6 +4656,7 @@ def obtener_morosos_para_comunicacion():
 
 
 def obtener_notificaciones_operativas():
+    descartadas = obtener_notificaciones_descartadas()
     conn = get_connection()
     cuotas_vencidas = conn.execute("""
         SELECT
@@ -4806,6 +4875,7 @@ def obtener_notificaciones_operativas():
     if tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar"):
         cambios_portal = conn.execute("""
             SELECT
+                a.id AS auditoria_id,
                 a.fecha,
                 a.detalle,
                 j.id AS jugador_id,
@@ -4823,7 +4893,40 @@ def obtener_notificaciones_operativas():
             LIMIT 50
         """).fetchall()
     conn.close()
-    cambios_portal = [dict(cambio) for cambio in cambios_portal]
+    cuotas_vencidas = preparar_notificaciones_para_usuario(cuotas_vencidas, "cuota_vencida", lambda fila: fila["cuota_id"], descartadas)
+    cuotas_por_vencer = preparar_notificaciones_para_usuario(cuotas_por_vencer, "cuota_por_vencer", lambda fila: fila["cuota_id"], descartadas)
+    fichas = preparar_notificaciones_para_usuario(
+        fichas,
+        "ficha",
+        lambda fila: f"{fila['jugador_id']}:{fila.get('estado_documento') or ''}:{fila.get('fecha_vencimiento') or ''}",
+        descartadas,
+    )
+    asistencia_baja = preparar_notificaciones_para_usuario(asistencia_baja, "asistencia_baja", lambda fila: fila["jugador_id"], descartadas)
+    comprobantes_pendientes = preparar_notificaciones_para_usuario(
+        comprobantes_pendientes,
+        "comprobante",
+        lambda fila: f"{fila['cuota_id']}:{fila.get('comprobante_fecha') or ''}",
+        descartadas,
+    )
+    whatsapp_conversaciones = preparar_notificaciones_para_usuario(
+        whatsapp_conversaciones,
+        "whatsapp",
+        lambda fila: f"{fila['telefono']}:{fila['id']}",
+        descartadas,
+    )
+    secretaria_documentos = preparar_notificaciones_para_usuario(
+        secretaria_documentos,
+        "secretaria_documento",
+        lambda fila: f"{fila['id']}:{fila.get('fecha_vencimiento') or ''}",
+        descartadas,
+    )
+    ahijadxs_objetivo = preparar_notificaciones_para_usuario(
+        ahijadxs_objetivo,
+        "ahijadx_objetivo",
+        lambda fila: f"{fila['aspirante_id']}:{fila.get('entrenamientos_presentes') or 0}",
+        descartadas,
+    )
+    cambios_portal = preparar_notificaciones_para_usuario(cambios_portal, "cambio_portal", lambda fila: fila["auditoria_id"], descartadas)
     for cambio in cambios_portal:
         cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
 
@@ -4844,83 +4947,26 @@ def obtener_contador_notificaciones():
     if "user_id" not in session or not tiene_permiso("comunicaciones_ver"):
         return 0
 
-    incluir_portal = tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar")
     try:
-        conn = get_connection()
-        resumen = conn.execute("""
-            SELECT
-                (
-                    SELECT COUNT(*)
-                    FROM cuotas c
-                    WHERE c.pagado = 0
-                      AND COALESCE(c.importe, 0) > 0
-                      AND c.fecha_vencimiento IS NOT NULL
-                      AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
-                      AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-                      AND c.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '7 days'
-                ) AS cuotas,
-                (
-                    SELECT COUNT(*)
-                    FROM fichas_medicas f
-                    JOIN jugadores j ON j.id = f.jugador_id
-                    WHERE j.estado = 'Activo'
-                      AND f.fecha_vencimiento IS NOT NULL
-                      AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
-                      AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-                      AND f.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
-                ) AS fichas,
-                (
-                    SELECT COUNT(*)
-                    FROM cuotas c
-                    WHERE c.comprobante_drive_file_id IS NOT NULL
-                      AND COALESCE(c.anulada, 0) = 0
-                      AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
-                ) AS comprobantes,
-                (
-                    SELECT COUNT(*)
-                    FROM whatsapp_mensajes wm
-                    WHERE wm.direccion = 'in'
-                      AND COALESCE(wm.leido, 0) = 0
-                ) AS whatsapp,
-                (
-                    SELECT COUNT(*)
-                    FROM secretaria_documentos sd
-                    WHERE %s = 1
-                      AND sd.fecha_vencimiento IS NOT NULL
-                      AND NULLIF(sd.fecha_vencimiento::text, '') IS NOT NULL
-                      AND sd.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-                      AND sd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
-                ) AS secretaria,
-                (
-                    SELECT COUNT(*)
-                    FROM aspirantes a
-                    WHERE a.estado = 'Aspirante'
-                      AND (
-                          SELECT COUNT(*)
-                          FROM aspirante_asistencias aa
-                          WHERE aa.aspirante_id = a.id
-                            AND COALESCE(aa.presente, 0) = 1
-                          ) >= COALESCE(a.entrenamientos_objetivo, %s)
-                ) AS ahijadxs,
-                (
-                    SELECT COUNT(*)
-                    FROM auditoria a
-                    WHERE %s = 1
-                      AND a.entidad = 'portal_jugador'
-                      AND a.accion = 'actualizar_contacto'
-                      AND a.fecha >= CURRENT_TIMESTAMP - INTERVAL '14 days'
-                ) AS cambios_portal
-        """, (
-            1 if tiene_permiso("secretaria_ver", "secretaria_gestionar") else 0,
-            ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,
-            1 if incluir_portal else 0,
-        )).fetchone()
-        conn.close()
+        resumen = obtener_notificaciones_operativas()
     except Exception:
         app.logger.exception("No se pudo calcular el contador de notificaciones.")
         return 0
 
-    return sum(int(resumen[campo] or 0) for campo in ("cuotas", "fichas", "comprobantes", "whatsapp", "secretaria", "ahijadxs", "cambios_portal"))
+    return sum(
+        len(resumen[campo])
+        for campo in (
+            "cuotas_vencidas",
+            "cuotas_por_vencer",
+            "fichas",
+            "asistencia_baja",
+            "comprobantes_pendientes",
+            "whatsapp_conversaciones",
+            "secretaria_documentos",
+            "ahijadxs_objetivo",
+            "cambios_portal",
+        )
+    )
 
 
 def whatsapp_mensaje(telefono, mensaje):
@@ -16041,6 +16087,27 @@ def ver_notificaciones():
         ahijadxs_objetivo=datos["ahijadxs_objetivo"],
         cambios_portal=datos["cambios_portal"],
     )
+
+
+@app.route("/notificaciones/descartar", methods=["POST"])
+def descartar_notificacion():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    tipo = request.form.get("tipo", "")
+    entidad_id = request.form.get("entidad_id", "")
+    if descartar_notificacion_usuario(tipo, entidad_id):
+        registrar_auditoria(
+            "descartar",
+            "notificacion",
+            clave_notificacion(tipo, entidad_id),
+            {"tipo": tipo, "entidad_id": entidad_id},
+        )
+        flash("Notificación descartada.", "ok")
+    else:
+        flash("No se pudo descartar la notificación.", "error")
+    return redirect(url_for("ver_notificaciones"))
 
 
 @app.route("/comunicacion/whatsapp")
