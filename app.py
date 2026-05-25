@@ -321,10 +321,13 @@ FACTURA_EMAIL2_SECRET_NAME = os.environ.get("FACTURA_EMAIL2_SECRET_NAME", "sig-f
 FACTURA_EMAIL_DEFAULT_FILTERS = [
     {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "invoice"},
     {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "factura"},
+    {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "recibo"},
     {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "invoice"},
     {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "factura"},
+    {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "recibo"},
     {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "invoice"},
     {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "factura"},
+    {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "recibo"},
     {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "invoice"},
     {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "receipt"},
     {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "factura"},
@@ -1846,7 +1849,10 @@ def facturas_email_filtros_activos(conn):
         SELECT *
         FROM facturas_email_filtros
         WHERE activo = 1
-        ORDER BY proveedor, id
+        ORDER BY
+            CASE WHEN COALESCE(remitente_patron, '') <> '' THEN 0 ELSE 1 END,
+            proveedor,
+            id
     """).fetchall()
 
 
