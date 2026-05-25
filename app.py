@@ -970,7 +970,28 @@ def cloud_sql_instance_context():
 
 
 def google_cloud_project_id():
-    return CLOUD_SQL_PROJECT or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    for clave in ("CLOUD_SQL_PROJECT", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT", "GCLOUD_PROJECT"):
+        valor = os.environ.get(clave, "").strip()
+        if valor:
+            return valor
+
+    if google_auth_default is not None:
+        try:
+            _, project_id = google_auth_default()
+            if project_id:
+                return project_id
+        except Exception:
+            pass
+
+    try:
+        req = UrlRequest(
+            "http://metadata.google.internal/computeMetadata/v1/project/project-id",
+            headers={"Metadata-Flavor": "Google"},
+        )
+        with urlopen(req, timeout=2) as resp:
+            return resp.read().decode("utf-8").strip()
+    except Exception:
+        return ""
 
 
 def secret_resource_name(secret_name, version="latest"):
