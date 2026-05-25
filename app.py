@@ -320,10 +320,17 @@ FACTURA_EMAIL2_MAX_MESSAGES = int(os.environ.get("FACTURA_EMAIL2_MAX_MESSAGES", 
 FACTURA_EMAIL2_SECRET_NAME = os.environ.get("FACTURA_EMAIL2_SECRET_NAME", "sig-factura-email-imap-password-2").strip()
 FACTURA_EMAIL_DEFAULT_FILTERS = [
     {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "invoice"},
+    {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "factura"},
     {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "invoice"},
+    {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "factura"},
     {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "invoice"},
+    {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "factura"},
     {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "invoice"},
     {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "receipt"},
+    {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "factura"},
+    {"proveedor": "General", "remitente_patron": "", "asunto_patron": "factura"},
+    {"proveedor": "General", "remitente_patron": "", "asunto_patron": "comprobante"},
+    {"proveedor": "General", "remitente_patron": "", "asunto_patron": "recibo"},
 ]
 FICHA_MEDICA_MAX_BYTES = int(os.environ.get("FICHA_MEDICA_MAX_BYTES", str(16 * 1024 * 1024)))
 FICHA_MEDICA_EXTENSIONS = {
