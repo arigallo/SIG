@@ -3,10 +3,14 @@
 {% block title %}Email facturas{% endblock %}
 
 {% block content %}
+{% set cuenta1_ok = config['host'] and config['user'] and config['password_configurado'] %}
+{% set cuenta2_ok = config2['host'] and config2['user'] and config2['password_configurado'] %}
+{% set cuentas_activas = (1 if cuenta1_ok else 0) + (1 if cuenta2_ok else 0) %}
+
 <div class="section-header">
     <div>
         <h2>Email facturas</h2>
-        <p class="page-intro">Configuracion de la casilla que SIG usa para detectar facturas recibidas.</p>
+        <p class="page-intro">Configuracion de las casillas que SIG usa para detectar facturas recibidas.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
@@ -15,19 +19,19 @@
 </div>
 
 <div class="dashboard-cards report-cards spaced">
-    <div class="card stat-card {% if config['host'] and config['user'] and config['password_configurado'] %}alert-card-info{% else %}alert-card-critical{% endif %}">
-        <h3>Estado</h3>
-        <p class="stat-number compact">{% if config['host'] and config['user'] and config['password_configurado'] %}OK{% else %}Revisar{% endif %}</p>
+    <div class="card stat-card {% if cuentas_activas %}alert-card-info{% else %}alert-card-critical{% endif %}">
+        <h3>Cuentas activas</h3>
+        <p class="stat-number compact">{{ cuentas_activas }}/2</p>
     </div>
-    <div class="card stat-card">
-        <h3>Casilla</h3>
-        <p class="stat-number compact">{{ config['user'] or '-' }}</p>
-        <span class="muted-line">{{ config['host'] or '-' }}</span>
+    <div class="card stat-card {% if cuenta1_ok %}alert-card-info{% else %}alert-card-critical{% endif %}">
+        <h3>Cuenta 1</h3>
+        <p class="stat-number compact">{% if cuenta1_ok %}OK{% else %}Revisar{% endif %}</p>
+        <span class="muted-line">{{ config['user'] or '-' }}</span>
     </div>
-    <div class="card stat-card">
-        <h3>Secreto</h3>
-        <p class="stat-number compact">{% if config['password_env'] %}Env var{% elif config['secret_name'] %}Secret{% else %}-{% endif %}</p>
-        <span class="muted-line">{{ config['secret_actualizado_en'] or config['secret_name'] or '-' }}</span>
+    <div class="card stat-card {% if cuenta2_ok %}alert-card-info{% elif config2['host'] or config2['user'] %}alert-card-critical{% endif %}">
+        <h3>Cuenta 2</h3>
+        <p class="stat-number compact">{% if cuenta2_ok %}OK{% elif config2['host'] or config2['user'] %}Revisar{% else %}Opcional{% endif %}</p>
+        <span class="muted-line">{{ config2['user'] or '-' }}</span>
     </div>
 </div>
 
@@ -35,6 +39,10 @@
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
     <div class="report-filter-grid">
+        <div class="full form-subtitle">
+            <h3>Cuenta 1</h3>
+            <span class="muted-line">Casilla principal para sincronizar facturas.</span>
+        </div>
         <div>
             <label>Host IMAP</label>
             <input type="text" name="host" value="{{ config['host'] or '' }}" placeholder="imap.gmail.com" required>
@@ -64,16 +72,61 @@
             <input type="text" name="secret_name" value="{{ config['secret_name'] or 'sig-factura-email-imap-password' }}" required>
         </div>
         <div class="full">
-            <label>Nueva contraseña o app password</label>
+            <label>Nueva contrasena o app password</label>
             <input type="password" name="password" autocomplete="new-password" placeholder="Dejar vacio para conservar la actual">
             <span class="muted-line">Se guarda como nueva version en Google Secret Manager; no se guarda en la base de datos.</span>
         </div>
-    </div>
+        <div class="full">
+            <label class="checkbox-line">
+                <input type="checkbox" name="use_ssl" {% if config['use_ssl'] %}checked{% endif %}>
+                Usar SSL
+            </label>
+        </div>
 
-    <label class="checkbox-line">
-        <input type="checkbox" name="use_ssl" {% if config['use_ssl'] %}checked{% endif %}>
-        Usar SSL
-    </label>
+        <div class="full form-subtitle">
+            <h3>Cuenta 2</h3>
+            <span class="muted-line">Opcional. Dejala vacia si no queres sincronizar una segunda casilla.</span>
+        </div>
+        <div>
+            <label>Host IMAP</label>
+            <input type="text" name="host2" value="{{ config2['host'] or '' }}" placeholder="imap.gmail.com">
+        </div>
+        <div>
+            <label>Puerto</label>
+            <input type="number" name="port2" value="{{ config2['port'] or 993 }}" min="1" max="65535">
+        </div>
+        <div>
+            <label>Usuario / casilla</label>
+            <input type="email" name="user2" value="{{ config2['user'] or '' }}" placeholder="facturas2@example.com">
+        </div>
+        <div>
+            <label>Carpeta</label>
+            <input type="text" name="folder2" value="{{ config2['folder'] or 'INBOX' }}">
+        </div>
+        <div>
+            <label>Dias a buscar</label>
+            <input type="number" name="search_days2" value="{{ config2['search_days'] or config['search_days'] or 45 }}" min="1" max="365">
+        </div>
+        <div>
+            <label>Maximo de emails</label>
+            <input type="number" name="max_messages2" value="{{ config2['max_messages'] or config['max_messages'] or 80 }}" min="1" max="500">
+        </div>
+        <div class="full">
+            <label>Nombre del secreto</label>
+            <input type="text" name="secret_name2" value="{{ config2['secret_name'] or 'sig-factura-email-imap-password-2' }}">
+        </div>
+        <div class="full">
+            <label>Nueva contrasena o app password</label>
+            <input type="password" name="password2" autocomplete="new-password" placeholder="Dejar vacio para conservar la actual">
+            <span class="muted-line">La segunda cuenta usa su propio secreto para no mezclar credenciales.</span>
+        </div>
+        <div class="full">
+            <label class="checkbox-line">
+                <input type="checkbox" name="use_ssl2" {% if config2['use_ssl'] %}checked{% endif %}>
+                Usar SSL
+            </label>
+        </div>
+    </div>
 
     <div class="actions-row">
         <button class="button" type="submit">Guardar configuracion</button>

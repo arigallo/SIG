@@ -309,6 +309,15 @@ FACTURA_EMAIL_IMAP_USE_SSL = os.environ.get("FACTURA_EMAIL_IMAP_USE_SSL", "true"
 FACTURA_EMAIL_SEARCH_DAYS = int(os.environ.get("FACTURA_EMAIL_SEARCH_DAYS", "45"))
 FACTURA_EMAIL_MAX_MESSAGES = int(os.environ.get("FACTURA_EMAIL_MAX_MESSAGES", "80"))
 FACTURA_EMAIL_SECRET_NAME = os.environ.get("FACTURA_EMAIL_SECRET_NAME", "sig-factura-email-imap-password").strip()
+FACTURA_EMAIL2_IMAP_HOST = os.environ.get("FACTURA_EMAIL2_IMAP_HOST", "").strip()
+FACTURA_EMAIL2_IMAP_PORT = int(os.environ.get("FACTURA_EMAIL2_IMAP_PORT", "993"))
+FACTURA_EMAIL2_IMAP_USER = os.environ.get("FACTURA_EMAIL2_IMAP_USER", "").strip()
+FACTURA_EMAIL2_IMAP_PASSWORD = os.environ.get("FACTURA_EMAIL2_IMAP_PASSWORD", "")
+FACTURA_EMAIL2_IMAP_FOLDER = os.environ.get("FACTURA_EMAIL2_IMAP_FOLDER", "INBOX").strip() or "INBOX"
+FACTURA_EMAIL2_IMAP_USE_SSL = os.environ.get("FACTURA_EMAIL2_IMAP_USE_SSL", "true").lower() in {"1", "true", "yes", "on"}
+FACTURA_EMAIL2_SEARCH_DAYS = int(os.environ.get("FACTURA_EMAIL2_SEARCH_DAYS", str(FACTURA_EMAIL_SEARCH_DAYS)))
+FACTURA_EMAIL2_MAX_MESSAGES = int(os.environ.get("FACTURA_EMAIL2_MAX_MESSAGES", str(FACTURA_EMAIL_MAX_MESSAGES)))
+FACTURA_EMAIL2_SECRET_NAME = os.environ.get("FACTURA_EMAIL2_SECRET_NAME", "sig-factura-email-imap-password-2").strip()
 FACTURA_EMAIL_DEFAULT_FILTERS = [
     {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "invoice"},
     {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "invoice"},
@@ -1598,48 +1607,85 @@ def int_setting(valor, default, minimo=None, maximo=None):
     return numero
 
 
-def obtener_factura_email_config(conn=None, incluir_password=False):
+def factura_email_defaults(indice=1):
+    if indice == 2:
+        return {
+            "host": FACTURA_EMAIL2_IMAP_HOST,
+            "port": FACTURA_EMAIL2_IMAP_PORT,
+            "user": FACTURA_EMAIL2_IMAP_USER,
+            "password": FACTURA_EMAIL2_IMAP_PASSWORD,
+            "folder": FACTURA_EMAIL2_IMAP_FOLDER,
+            "use_ssl": FACTURA_EMAIL2_IMAP_USE_SSL,
+            "search_days": FACTURA_EMAIL2_SEARCH_DAYS,
+            "max_messages": FACTURA_EMAIL2_MAX_MESSAGES,
+            "secret_name": FACTURA_EMAIL2_SECRET_NAME,
+        }
+    return {
+        "host": FACTURA_EMAIL_IMAP_HOST,
+        "port": FACTURA_EMAIL_IMAP_PORT,
+        "user": FACTURA_EMAIL_IMAP_USER,
+        "password": FACTURA_EMAIL_IMAP_PASSWORD,
+        "folder": FACTURA_EMAIL_IMAP_FOLDER,
+        "use_ssl": FACTURA_EMAIL_IMAP_USE_SSL,
+        "search_days": FACTURA_EMAIL_SEARCH_DAYS,
+        "max_messages": FACTURA_EMAIL_MAX_MESSAGES,
+        "secret_name": FACTURA_EMAIL_SECRET_NAME,
+    }
+
+
+def factura_email_setting_key(nombre, indice=1):
+    return f"factura_email{indice}_{nombre}" if indice != 1 else f"factura_email_{nombre}"
+
+
+def obtener_factura_email_config(conn=None, incluir_password=False, indice=1):
     own_conn = conn is None
     if own_conn:
         conn = get_connection()
-    settings = obtener_app_settings(conn, [
-        "factura_email_imap_host",
-        "factura_email_imap_port",
-        "factura_email_imap_user",
-        "factura_email_imap_folder",
-        "factura_email_imap_use_ssl",
-        "factura_email_search_days",
-        "factura_email_max_messages",
-        "factura_email_secret_name",
-        "factura_email_secret_actualizado_en",
-        "factura_email_secret_actualizado_por",
-    ])
+    keys = [
+        factura_email_setting_key("imap_host", indice),
+        factura_email_setting_key("imap_port", indice),
+        factura_email_setting_key("imap_user", indice),
+        factura_email_setting_key("imap_folder", indice),
+        factura_email_setting_key("imap_use_ssl", indice),
+        factura_email_setting_key("search_days", indice),
+        factura_email_setting_key("max_messages", indice),
+        factura_email_setting_key("secret_name", indice),
+        factura_email_setting_key("secret_actualizado_en", indice),
+        factura_email_setting_key("secret_actualizado_por", indice),
+    ]
+    settings = obtener_app_settings(conn, keys)
     if own_conn:
         conn.close()
 
-    secret_setting = (settings.get("factura_email_secret_name") or {}).get("valor")
+    defaults = factura_email_defaults(indice)
+    secret_name_key = factura_email_setting_key("secret_name", indice)
+    secret_actualizado_key = factura_email_setting_key("secret_actualizado_en", indice)
+    secret_actualizado_por_key = factura_email_setting_key("secret_actualizado_por", indice)
+    secret_setting = (settings.get(secret_name_key) or {}).get("valor")
     secret_name = (
-        os.environ.get("FACTURA_EMAIL_SECRET_NAME", "").strip()
+        os.environ.get("FACTURA_EMAIL_SECRET_NAME" if indice == 1 else "FACTURA_EMAIL2_SECRET_NAME", "").strip()
         or secret_setting
-        or FACTURA_EMAIL_SECRET_NAME
+        or defaults["secret_name"]
     )
-    secret_actualizado_en = (settings.get("factura_email_secret_actualizado_en") or {}).get("valor")
+    secret_actualizado_en = (settings.get(secret_actualizado_key) or {}).get("valor")
     config = {
-        "host": (settings.get("factura_email_imap_host") or {}).get("valor") or FACTURA_EMAIL_IMAP_HOST,
-        "port": int_setting((settings.get("factura_email_imap_port") or {}).get("valor"), FACTURA_EMAIL_IMAP_PORT, 1, 65535),
-        "user": (settings.get("factura_email_imap_user") or {}).get("valor") or FACTURA_EMAIL_IMAP_USER,
-        "folder": (settings.get("factura_email_imap_folder") or {}).get("valor") or FACTURA_EMAIL_IMAP_FOLDER,
-        "use_ssl": parse_bool_setting((settings.get("factura_email_imap_use_ssl") or {}).get("valor")) if settings.get("factura_email_imap_use_ssl") else FACTURA_EMAIL_IMAP_USE_SSL,
-        "search_days": int_setting((settings.get("factura_email_search_days") or {}).get("valor"), FACTURA_EMAIL_SEARCH_DAYS, 1, 365),
-        "max_messages": int_setting((settings.get("factura_email_max_messages") or {}).get("valor"), FACTURA_EMAIL_MAX_MESSAGES, 1, 500),
+        "indice": indice,
+        "label": f"Cuenta {indice}",
+        "host": (settings.get(factura_email_setting_key("imap_host", indice)) or {}).get("valor") or defaults["host"],
+        "port": int_setting((settings.get(factura_email_setting_key("imap_port", indice)) or {}).get("valor"), defaults["port"], 1, 65535),
+        "user": (settings.get(factura_email_setting_key("imap_user", indice)) or {}).get("valor") or defaults["user"],
+        "folder": (settings.get(factura_email_setting_key("imap_folder", indice)) or {}).get("valor") or defaults["folder"],
+        "use_ssl": parse_bool_setting((settings.get(factura_email_setting_key("imap_use_ssl", indice)) or {}).get("valor")) if settings.get(factura_email_setting_key("imap_use_ssl", indice)) else defaults["use_ssl"],
+        "search_days": int_setting((settings.get(factura_email_setting_key("search_days", indice)) or {}).get("valor"), defaults["search_days"], 1, 365),
+        "max_messages": int_setting((settings.get(factura_email_setting_key("max_messages", indice)) or {}).get("valor"), defaults["max_messages"], 1, 500),
         "secret_name": secret_name,
         "secret_actualizado_en": secret_actualizado_en,
-        "secret_actualizado_por": (settings.get("factura_email_secret_actualizado_por") or {}).get("valor"),
-        "password_env": bool(FACTURA_EMAIL_IMAP_PASSWORD),
-        "password_configurado": bool(FACTURA_EMAIL_IMAP_PASSWORD or secret_actualizado_en or secret_setting),
+        "secret_actualizado_por": (settings.get(secret_actualizado_por_key) or {}).get("valor"),
+        "password_env": bool(defaults["password"]),
+        "password_configurado": bool(defaults["password"] or secret_actualizado_en or secret_setting),
     }
     if incluir_password:
-        password = FACTURA_EMAIL_IMAP_PASSWORD
+        password = defaults["password"]
         if not password and secret_name:
             password = leer_secret_manager(secret_name)
         config["password"] = password
@@ -1647,9 +1693,26 @@ def obtener_factura_email_config(conn=None, incluir_password=False):
     return config
 
 
+def obtener_factura_email_configs(conn=None, incluir_password=False, solo_configuradas=False):
+    configs_base = [
+        obtener_factura_email_config(conn, incluir_password=False, indice=1),
+        obtener_factura_email_config(conn, incluir_password=False, indice=2),
+    ]
+    if solo_configuradas:
+        configs_base = [
+            config for config in configs_base
+            if config["host"] and config["user"] and config["password_configurado"]
+        ]
+    if incluir_password:
+        return [
+            obtener_factura_email_config(conn, incluir_password=True, indice=config["indice"])
+            for config in configs_base
+        ]
+    return configs_base
+
+
 def factura_email_configurado():
-    config = obtener_factura_email_config()
-    return bool(config["host"] and config["user"] and config["password_configurado"])
+    return bool(obtener_factura_email_configs(solo_configuradas=True))
 
 
 def get_drive_facturas_recibidas_folder(service, fecha_base=None):
@@ -1780,15 +1843,7 @@ def facturas_email_filtros_activos(conn):
     """).fetchall()
 
 
-def sincronizar_facturas_email(conn, usuario=None):
-    config = obtener_factura_email_config(conn, incluir_password=True)
-    if not (config["host"] and config["user"] and config.get("password")):
-        raise RuntimeError("Falta configurar la casilla IMAP de facturas.")
-
-    filtros = facturas_email_filtros_activos(conn)
-    if not filtros:
-        raise RuntimeError("No hay filtros activos para facturas recibidas.")
-
+def sincronizar_facturas_email_cuenta(conn, config, filtros, usuario=None):
     cliente = None
     procesados = 0
     nuevas = 0
@@ -1849,7 +1904,7 @@ def sincronizar_facturas_email(conn, usuario=None):
 
             for index, adjunto in enumerate(adjuntos, start=1):
                 source_key = hashlib.sha256(
-                    f"{message_id}|{index}|{adjunto['filename']}|{len(adjunto['content'])}".encode("utf-8", errors="ignore")
+                    f"{config['user']}|{message_id}|{index}|{adjunto['filename']}|{len(adjunto['content'])}".encode("utf-8", errors="ignore")
                 ).hexdigest()
                 existe = conn.execute(
                     "SELECT id FROM facturas_recibidas WHERE source_key = %s",
@@ -1861,14 +1916,15 @@ def sincronizar_facturas_email(conn, usuario=None):
                 factura_drive = subir_factura_recibida_a_drive(adjunto, filtro["proveedor"], fecha_base=fecha_base)
                 conn.execute("""
                     INSERT INTO facturas_recibidas (
-                        source_key, message_id, filtro_id, proveedor, remitente, asunto, fecha_email,
+                        source_key, cuenta_email, message_id, filtro_id, proveedor, remitente, asunto, fecha_email,
                         archivo_nombre, archivo_mime_type, archivo_tamano,
                         drive_file_id, drive_folder_id, archivo_web_url,
                         estado, creado_por
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente', %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente', %s)
                 """, (
                     source_key,
+                    config["user"],
                     message_id,
                     filtro["id"],
                     filtro["proveedor"],
@@ -1891,9 +1947,54 @@ def sincronizar_facturas_email(conn, usuario=None):
             except Exception:
                 pass
 
+    return {"procesados": procesados, "nuevas": nuevas, "omitidas": omitidas, "errores": errores}
+
+
+def sincronizar_facturas_email(conn, usuario=None):
+    configs = obtener_factura_email_configs(conn, incluir_password=True, solo_configuradas=True)
+    if not configs:
+        raise RuntimeError("Falta configurar al menos una casilla IMAP de facturas.")
+
+    filtros = facturas_email_filtros_activos(conn)
+    if not filtros:
+        raise RuntimeError("No hay filtros activos para facturas recibidas.")
+
+    resultado_total = {
+        "procesados": 0,
+        "nuevas": 0,
+        "omitidas": 0,
+        "errores": [],
+        "cuentas": [],
+    }
+
+    for config in configs:
+        try:
+            resultado = sincronizar_facturas_email_cuenta(conn, config, filtros, usuario)
+        except Exception as error:
+            resultado_total["errores"].append(f"{config['label']} ({config['user']}): {error}")
+            continue
+
+        resultado_total["procesados"] += resultado["procesados"]
+        resultado_total["nuevas"] += resultado["nuevas"]
+        resultado_total["omitidas"] += resultado["omitidas"]
+        resultado_total["errores"].extend(
+            f"{config['label']} ({config['user']}): {error}"
+            for error in resultado["errores"]
+        )
+        resultado_total["cuentas"].append({
+            "indice": config["indice"],
+            "user": config["user"],
+            "procesados": resultado["procesados"],
+            "nuevas": resultado["nuevas"],
+            "omitidas": resultado["omitidas"],
+        })
+
+    if not resultado_total["cuentas"] and resultado_total["errores"]:
+        raise RuntimeError("; ".join(resultado_total["errores"]))
+
     guardar_app_setting(conn, "facturas_email_sync_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario)
     guardar_app_setting(conn, "facturas_email_sync_por", usuario or "", usuario)
-    return {"procesados": procesados, "nuevas": nuevas, "omitidas": omitidas, "errores": errores}
+    return resultado_total
 
 
 def limpiar_numero_operacion(valor):
@@ -7373,6 +7474,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS facturas_recibidas (
             id SERIAL PRIMARY KEY,
             source_key TEXT UNIQUE NOT NULL,
+            cuenta_email TEXT,
             message_id TEXT,
             filtro_id INTEGER,
             proveedor TEXT NOT NULL,
@@ -7397,6 +7499,9 @@ def init_db():
             FOREIGN KEY (movimiento_id) REFERENCES movimientos(id)
         )
     """)
+    columnas_facturas_recibidas = get_columns(conn, "facturas_recibidas")
+    if "cuenta_email" not in columnas_facturas_recibidas:
+        conn.execute("ALTER TABLE facturas_recibidas ADD COLUMN cuenta_email TEXT")
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_facturas_recibidas_estado
         ON facturas_recibidas (estado, creado_en DESC)
@@ -8134,10 +8239,15 @@ def sincronizar_facturas_recibidas_view():
     conn.close()
 
     registrar_auditoria("sincronizar", "facturas_recibidas", None, resultado)
-    flash(
-        f"Sincronizacion completada: {resultado['nuevas']} nueva(s), {resultado['omitidas']} omitida(s).",
-        "ok",
+    cuentas = len(resultado.get("cuentas") or [])
+    resumen = (
+        f"Sincronizacion completada en {cuentas} cuenta(s): "
+        f"{resultado['nuevas']} nueva(s), {resultado['omitidas']} omitida(s)."
     )
+    if resultado.get("errores"):
+        flash(f"{resumen} Errores: {'; '.join(resultado['errores'])}", "warning")
+    else:
+        flash(resumen, "ok")
     return redirect(url_for("listar_facturas_recibidas"))
 
 
@@ -17862,59 +17972,79 @@ def configurar_facturas_email():
 
     conn = get_connection()
     if request.method == "POST":
-        host = request.form.get("host", "").strip()
-        port = int_setting(request.form.get("port"), 993, 1, 65535)
-        user = request.form.get("user", "").strip()
-        folder = request.form.get("folder", "").strip() or "INBOX"
-        use_ssl = request.form.get("use_ssl") == "on"
-        search_days = int_setting(request.form.get("search_days"), 45, 1, 365)
-        max_messages = int_setting(request.form.get("max_messages"), 80, 1, 500)
-        secret_name = request.form.get("secret_name", "").strip() or FACTURA_EMAIL_SECRET_NAME
-        password = request.form.get("password", "")
+        auditoria_cuentas = []
+        for indice in (1, 2):
+            defaults = factura_email_defaults(indice)
+            suffix = "" if indice == 1 else "2"
+            host = request.form.get(f"host{suffix}", "").strip()
+            port = int_setting(request.form.get(f"port{suffix}"), defaults["port"], 1, 65535)
+            user = request.form.get(f"user{suffix}", "").strip()
+            folder = request.form.get(f"folder{suffix}", "").strip() or "INBOX"
+            use_ssl = request.form.get(f"use_ssl{suffix}") == "on"
+            search_days = int_setting(request.form.get(f"search_days{suffix}"), defaults["search_days"], 1, 365)
+            max_messages = int_setting(request.form.get(f"max_messages{suffix}"), defaults["max_messages"], 1, 500)
+            secret_name = request.form.get(f"secret_name{suffix}", "").strip() or defaults["secret_name"]
+            password = request.form.get(f"password{suffix}", "")
 
-        if not host or not user:
-            conn.close()
-            flash("Host y usuario IMAP son obligatorios.", "error")
-            return redirect(url_for("configurar_facturas_email"))
+            if indice == 1 and (not host or not user):
+                conn.close()
+                flash("Host y usuario IMAP de la cuenta 1 son obligatorios.", "error")
+                return redirect(url_for("configurar_facturas_email"))
+            if indice == 2 and not any([host, user, password]):
+                for nombre in (
+                    "imap_host", "imap_port", "imap_user", "imap_folder", "imap_use_ssl",
+                    "search_days", "max_messages", "secret_name",
+                    "secret_actualizado_en", "secret_actualizado_por",
+                ):
+                    guardar_app_setting(conn, factura_email_setting_key(nombre, indice), "", session.get("username"))
+                continue
+            if indice == 2 and (not host or not user):
+                conn.close()
+                flash("Para usar la cuenta 2 completá host y usuario.", "error")
+                return redirect(url_for("configurar_facturas_email"))
 
-        try:
-            if password:
-                secret_path = guardar_secret_manager(secret_name, password)
-                guardar_app_setting(conn, "factura_email_secret_name", secret_path, session.get("username"))
-                guardar_app_setting(conn, "factura_email_secret_actualizado_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"))
-                guardar_app_setting(conn, "factura_email_secret_actualizado_por", session.get("username") or "", session.get("username"))
-            else:
-                guardar_app_setting(conn, "factura_email_secret_name", secret_name, session.get("username"))
-        except Exception as error:
-            conn.rollback()
-            conn.close()
-            app.logger.exception("No se pudo guardar secreto IMAP de facturas.")
-            flash(f"No se pudo guardar el secreto: {error}", "error")
-            return redirect(url_for("configurar_facturas_email"))
+            try:
+                if password:
+                    secret_path = guardar_secret_manager(secret_name, password)
+                    guardar_app_setting(conn, factura_email_setting_key("secret_name", indice), secret_path, session.get("username"))
+                    guardar_app_setting(conn, factura_email_setting_key("secret_actualizado_en", indice), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"))
+                    guardar_app_setting(conn, factura_email_setting_key("secret_actualizado_por", indice), session.get("username") or "", session.get("username"))
+                else:
+                    guardar_app_setting(conn, factura_email_setting_key("secret_name", indice), secret_name, session.get("username"))
+            except Exception as error:
+                conn.rollback()
+                conn.close()
+                app.logger.exception("No se pudo guardar secreto IMAP de facturas.")
+                flash(f"No se pudo guardar el secreto de la cuenta {indice}: {error}", "error")
+                return redirect(url_for("configurar_facturas_email"))
 
-        guardar_app_setting(conn, "factura_email_imap_host", host, session.get("username"))
-        guardar_app_setting(conn, "factura_email_imap_port", str(port), session.get("username"))
-        guardar_app_setting(conn, "factura_email_imap_user", user, session.get("username"))
-        guardar_app_setting(conn, "factura_email_imap_folder", folder, session.get("username"))
-        guardar_app_setting(conn, "factura_email_imap_use_ssl", "true" if use_ssl else "false", session.get("username"))
-        guardar_app_setting(conn, "factura_email_search_days", str(search_days), session.get("username"))
-        guardar_app_setting(conn, "factura_email_max_messages", str(max_messages), session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("imap_host", indice), host, session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("imap_port", indice), str(port), session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("imap_user", indice), user, session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("imap_folder", indice), folder, session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("imap_use_ssl", indice), "true" if use_ssl else "false", session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("search_days", indice), str(search_days), session.get("username"))
+            guardar_app_setting(conn, factura_email_setting_key("max_messages", indice), str(max_messages), session.get("username"))
+            auditoria_cuentas.append({
+                "indice": indice,
+                "host": host,
+                "user": user,
+                "folder": folder,
+                "secret_name": secret_name,
+                "password_actualizada": bool(password),
+            })
         conn.commit()
         conn.close()
 
         registrar_auditoria("configurar", "facturas_email", None, {
-            "host": host,
-            "user": user,
-            "folder": folder,
-            "secret_name": secret_name,
-            "password_actualizada": bool(password),
+            "cuentas": auditoria_cuentas,
         })
         flash("Configuracion de facturas por email guardada.", "ok")
         return redirect(url_for("configurar_facturas_email"))
 
-    config = obtener_factura_email_config(conn)
+    configs = obtener_factura_email_configs(conn)
     conn.close()
-    return render_template("facturas_email_config.html", config=config)
+    return render_template("facturas_email_config.html", config=configs[0], config2=configs[1], configs=configs)
 
 
 @app.route("/admin/mantenimiento", methods=["GET", "POST"])
