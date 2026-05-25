@@ -298,7 +298,11 @@ COMPROBANTE_EXTENSIONS = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
 }
-FACTURA_EMAIL_EXTENSIONS = COMPROBANTE_EXTENSIONS.copy()
+FACTURA_EMAIL_EXTENSIONS = {
+    **COMPROBANTE_EXTENSIONS,
+    ".html": "text/html",
+    ".htm": "text/html",
+}
 FACTURA_EMAIL_MAX_BYTES = int(os.environ.get("FACTURA_EMAIL_MAX_BYTES", str(12 * 1024 * 1024)))
 FACTURA_EMAIL_IMAP_HOST = os.environ.get("FACTURA_EMAIL_IMAP_HOST", "").strip()
 FACTURA_EMAIL_IMAP_PORT = int(os.environ.get("FACTURA_EMAIL_IMAP_PORT", "993"))
@@ -1826,7 +1830,47 @@ def buscar_filtro_factura_email(filtros, remitente, asunto):
     return None
 
 
-def extraer_adjuntos_factura_email(mensaje):
+def contenido_texto_email(parte):
+    try:
+        return parte.get_content()
+    except Exception:
+        payload = parte.get_payload(decode=True) or b""
+        charset = parte.get_content_charset() or "utf-8"
+        return payload.decode(charset, errors="replace")
+
+
+def factura_email_desde_cuerpo(mensaje, asunto):
+    cuerpo_html = None
+    cuerpo_texto = None
+    partes = mensaje.walk() if mensaje.is_multipart() else [mensaje]
+    for parte in partes:
+        if parte.is_multipart():
+            continue
+        if (parte.get_content_disposition() or "").lower() == "attachment":
+            continue
+        content_type = (parte.get_content_type() or "").lower()
+        if content_type == "text/html" and not cuerpo_html:
+            cuerpo_html = contenido_texto_email(parte)
+        elif content_type == "text/plain" and not cuerpo_texto:
+            cuerpo_texto = contenido_texto_email(parte)
+
+    if cuerpo_html:
+        contenido = cuerpo_html
+    elif cuerpo_texto:
+        contenido = (
+            "<!doctype html><html><head><meta charset=\"utf-8\"></head>"
+            f"<body><pre>{html.escape(cuerpo_texto)}</pre></body></html>"
+        )
+    else:
+        return None
+
+    titulo = secure_filename(asunto or "factura_email") or "factura_email"
+    filename = f"{titulo[:80]}.html"
+    content = contenido.encode("utf-8", errors="replace")
+    return validar_factura_email_adjunto(filename, content, "text/html")
+
+
+def extraer_adjuntos_factura_email(mensaje, asunto=None):
     adjuntos = []
     for parte in mensaje.walk():
         if parte.is_multipart():
@@ -1841,6 +1885,10 @@ def extraer_adjuntos_factura_email(mensaje):
         validado = validar_factura_email_adjunto(filename, content, parte.get_content_type())
         if validado:
             adjuntos.append(validado)
+    if not adjuntos:
+        factura_cuerpo = factura_email_desde_cuerpo(mensaje, asunto)
+        if factura_cuerpo:
+            adjuntos.append(factura_cuerpo)
     return adjuntos
 
 
@@ -1907,7 +1955,7 @@ def sincronizar_facturas_email_cuenta(conn, config, filtros, usuario=None):
             fecha_email = fecha_email_iso(mensaje.get("Date"))
             fecha_base = (fecha_email or datetime.now().strftime("%Y-%m-%d"))[:10]
             try:
-                adjuntos = extraer_adjuntos_factura_email(mensaje)
+                adjuntos = extraer_adjuntos_factura_email(mensaje, asunto)
             except ValueError as error:
                 errores.append(str(error))
                 continue
