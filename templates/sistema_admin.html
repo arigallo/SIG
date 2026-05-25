@@ -10,6 +10,7 @@
     </div>
     <div class="actions">
         {% if session.get('rol') == 'admin' %}
+            <a class="button secondary" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
             <a class="button secondary" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('index') }}">Volver</a>
@@ -46,6 +47,7 @@
         </div>
         <div class="system-status-list">
             <div><strong>SMTP:</strong> <span class="badge {% if estado['integraciones']['smtp_ok'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['smtp_ok'] %}OK{% else %}Revisar{% endif %}</span><span class="muted-line">{{ estado['integraciones']['smtp_from'] or 'Sin remitente' }}</span></div>
+            <div><strong>Email facturas:</strong> <span class="badge {% if estado['integraciones']['facturas_email_ok'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['facturas_email_ok'] %}OK{% else %}Falta configurar{% endif %}</span><span class="muted-line">{{ estado['integraciones']['facturas_email_user'] or 'Sin casilla' }}</span></div>
             <div><strong>Drive comprobantes:</strong> <span class="badge {% if estado['integraciones']['drive_comprobantes'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['drive_comprobantes'] %}OK{% else %}Falta configurar{% endif %}</span></div>
             <div><strong>Drive fichas:</strong> <span class="badge {% if estado['integraciones']['drive_fichas'] %}badge-success{% else %}badge-danger{% endif %}">{% if estado['integraciones']['drive_fichas'] %}OK{% else %}Falta configurar{% endif %}</span></div>
             <div><strong>Unidad compartida:</strong> <span class="badge {% if estado['integraciones']['drive_shared'] %}badge-success{% else %}badge-muted{% endif %}">{% if estado['integraciones']['drive_shared'] %}Configurada{% else %}No usada{% endif %}</span></div>

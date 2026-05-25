@@ -11,14 +11,18 @@ import os
 import posixpath
 import re
 import mimetypes
+import imaplib
 import smtplib
 import secrets
 import unicodedata
 import hashlib
 import hmac
 from datetime import date, datetime, timedelta
+from email import policy
+from email.header import decode_header, make_header
 from email.message import EmailMessage
-from email.utils import formataddr, make_msgid
+from email.parser import BytesParser
+from email.utils import formataddr, make_msgid, parseaddr, parsedate_to_datetime
 from urllib.parse import quote
 from urllib.parse import urljoin
 from urllib.request import Request as UrlRequest, urlopen
@@ -294,6 +298,24 @@ COMPROBANTE_EXTENSIONS = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
 }
+FACTURA_EMAIL_EXTENSIONS = COMPROBANTE_EXTENSIONS.copy()
+FACTURA_EMAIL_MAX_BYTES = int(os.environ.get("FACTURA_EMAIL_MAX_BYTES", str(12 * 1024 * 1024)))
+FACTURA_EMAIL_IMAP_HOST = os.environ.get("FACTURA_EMAIL_IMAP_HOST", "").strip()
+FACTURA_EMAIL_IMAP_PORT = int(os.environ.get("FACTURA_EMAIL_IMAP_PORT", "993"))
+FACTURA_EMAIL_IMAP_USER = os.environ.get("FACTURA_EMAIL_IMAP_USER", "").strip()
+FACTURA_EMAIL_IMAP_PASSWORD = os.environ.get("FACTURA_EMAIL_IMAP_PASSWORD", "")
+FACTURA_EMAIL_IMAP_FOLDER = os.environ.get("FACTURA_EMAIL_IMAP_FOLDER", "INBOX").strip() or "INBOX"
+FACTURA_EMAIL_IMAP_USE_SSL = os.environ.get("FACTURA_EMAIL_IMAP_USE_SSL", "true").lower() in {"1", "true", "yes", "on"}
+FACTURA_EMAIL_SEARCH_DAYS = int(os.environ.get("FACTURA_EMAIL_SEARCH_DAYS", "45"))
+FACTURA_EMAIL_MAX_MESSAGES = int(os.environ.get("FACTURA_EMAIL_MAX_MESSAGES", "80"))
+FACTURA_EMAIL_SECRET_NAME = os.environ.get("FACTURA_EMAIL_SECRET_NAME", "sig-factura-email-imap-password").strip()
+FACTURA_EMAIL_DEFAULT_FILTERS = [
+    {"proveedor": "Meta", "remitente_patron": "meta", "asunto_patron": "invoice"},
+    {"proveedor": "Meta", "remitente_patron": "facebook", "asunto_patron": "invoice"},
+    {"proveedor": "Meta", "remitente_patron": "instagram", "asunto_patron": "invoice"},
+    {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "invoice"},
+    {"proveedor": "Canva", "remitente_patron": "canva", "asunto_patron": "receipt"},
+]
 FICHA_MEDICA_MAX_BYTES = int(os.environ.get("FICHA_MEDICA_MAX_BYTES", str(16 * 1024 * 1024)))
 FICHA_MEDICA_EXTENSIONS = {
     ".pdf": "application/pdf",
@@ -444,6 +466,16 @@ PERMISOS = {
         "nombre": "Gestionar caja",
         "descripcion": "Crear, editar, anular movimientos y cerrar meses.",
     },
+    "facturas_recibidas_ver": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Ver facturas recibidas",
+        "descripcion": "Consultar facturas detectadas desde emails de proveedores.",
+    },
+    "facturas_recibidas_gestionar": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Gestionar facturas recibidas",
+        "descripcion": "Sincronizar emails, administrar filtros y convertir facturas en egresos.",
+    },
     "presupuesto_ver": {
         "grupo": "Cuotas y caja",
         "nombre": "Ver presupuesto",
@@ -581,6 +613,8 @@ ROLE_PRESETS = {
         "planes_pago_gestionar",
         "caja_ver",
         "caja_gestionar",
+        "facturas_recibidas_ver",
+        "facturas_recibidas_gestionar",
         "presupuesto_ver",
         "presupuesto_gestionar",
         "reportes_ver",
@@ -713,6 +747,18 @@ def guardar_app_setting(conn, clave, valor, usuario=None):
             actualizado_en = EXCLUDED.actualizado_en,
             actualizado_por = EXCLUDED.actualizado_por
     """, (clave, valor, usuario))
+
+
+def obtener_app_settings(conn, claves):
+    if not claves:
+        return {}
+    placeholders = ", ".join(["%s"] * len(claves))
+    rows = conn.execute(f"""
+        SELECT clave, valor, actualizado_en, actualizado_por
+        FROM app_settings
+        WHERE clave IN ({placeholders})
+    """, list(claves)).fetchall()
+    return {row["clave"]: row for row in rows}
 
 
 def presence_key(username):
@@ -894,6 +940,18 @@ def cloud_sql_admin_service():
     return google_build("sqladmin", "v1beta4", credentials=credentials, cache_discovery=False)
 
 
+def secret_manager_service():
+    if google_auth_default is None or google_build is None:
+        raise RuntimeError(
+            "Faltan dependencias de Google Secret Manager. Instalá google-api-python-client y google-auth."
+        )
+
+    credentials, _ = google_auth_default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    return google_build("secretmanager", "v1", credentials=credentials, cache_discovery=False)
+
+
 def cloud_sql_instance_context():
     project = CLOUD_SQL_PROJECT
     instance = CLOUD_SQL_INSTANCE
@@ -909,6 +967,71 @@ def cloud_sql_instance_context():
         "instance": instance,
         "connection_name": CLOUD_SQL_CONNECTION_NAME or "",
     }
+
+
+def google_cloud_project_id():
+    return CLOUD_SQL_PROJECT or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+
+
+def secret_resource_name(secret_name, version="latest"):
+    secret_name = (secret_name or "").strip()
+    if not secret_name:
+        return ""
+    if secret_name.startswith("projects/"):
+        if "/versions/" in secret_name:
+            return secret_name
+        return f"{secret_name}/versions/{version}"
+    project = google_cloud_project_id()
+    if not project:
+        return ""
+    return f"projects/{project}/secrets/{secret_name}/versions/{version}"
+
+
+def secret_parent_name():
+    project = google_cloud_project_id()
+    return f"projects/{project}" if project else ""
+
+
+def guardar_secret_manager(secret_name, valor):
+    parent = secret_parent_name()
+    if not parent:
+        raise RuntimeError("Falta configurar GOOGLE_CLOUD_PROJECT o CLOUD_SQL_PROJECT.")
+    secret_name = (secret_name or FACTURA_EMAIL_SECRET_NAME or "").strip()
+    if not secret_name:
+        raise RuntimeError("Falta indicar el nombre del secreto.")
+    if secret_name.startswith("projects/"):
+        secret_path = secret_name.split("/versions/", 1)[0]
+        secret_id = secret_path.rsplit("/", 1)[-1]
+    else:
+        secret_id = secret_name
+        secret_path = f"{parent}/secrets/{secret_id}"
+
+    service = secret_manager_service()
+    try:
+        service.projects().secrets().get(name=secret_path).execute()
+    except Exception:
+        service.projects().secrets().create(
+            parent=parent,
+            secretId=secret_id,
+            body={"replication": {"automatic": {}}},
+        ).execute()
+
+    payload = base64.b64encode((valor or "").encode("utf-8")).decode("ascii")
+    service.projects().secrets().addVersion(
+        parent=secret_path,
+        body={"payload": {"data": payload}},
+    ).execute()
+    return secret_path
+
+
+def leer_secret_manager(secret_name):
+    name = secret_resource_name(secret_name)
+    if not name:
+        return ""
+    service = secret_manager_service()
+    response = service.projects().secrets().versions().access(name=name).execute()
+    data = ((response.get("payload") or {}).get("data") or "").encode("ascii")
+    return base64.b64decode(data).decode("utf-8")
 
 
 def normalizar_backup_cloud_sql(backup):
@@ -1440,6 +1563,316 @@ def subir_comprobante_movimiento_a_drive(validado, movimiento, existing_file_id=
         "web_url": uploaded.get("webViewLink"),
         "folder_id": folder_id,
     }
+
+
+def int_setting(valor, default, minimo=None, maximo=None):
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError):
+        numero = default
+    if minimo is not None:
+        numero = max(minimo, numero)
+    if maximo is not None:
+        numero = min(maximo, numero)
+    return numero
+
+
+def obtener_factura_email_config(conn=None, incluir_password=False):
+    own_conn = conn is None
+    if own_conn:
+        conn = get_connection()
+    settings = obtener_app_settings(conn, [
+        "factura_email_imap_host",
+        "factura_email_imap_port",
+        "factura_email_imap_user",
+        "factura_email_imap_folder",
+        "factura_email_imap_use_ssl",
+        "factura_email_search_days",
+        "factura_email_max_messages",
+        "factura_email_secret_name",
+        "factura_email_secret_actualizado_en",
+        "factura_email_secret_actualizado_por",
+    ])
+    if own_conn:
+        conn.close()
+
+    secret_setting = (settings.get("factura_email_secret_name") or {}).get("valor")
+    secret_name = (
+        os.environ.get("FACTURA_EMAIL_SECRET_NAME", "").strip()
+        or secret_setting
+        or FACTURA_EMAIL_SECRET_NAME
+    )
+    secret_actualizado_en = (settings.get("factura_email_secret_actualizado_en") or {}).get("valor")
+    config = {
+        "host": (settings.get("factura_email_imap_host") or {}).get("valor") or FACTURA_EMAIL_IMAP_HOST,
+        "port": int_setting((settings.get("factura_email_imap_port") or {}).get("valor"), FACTURA_EMAIL_IMAP_PORT, 1, 65535),
+        "user": (settings.get("factura_email_imap_user") or {}).get("valor") or FACTURA_EMAIL_IMAP_USER,
+        "folder": (settings.get("factura_email_imap_folder") or {}).get("valor") or FACTURA_EMAIL_IMAP_FOLDER,
+        "use_ssl": parse_bool_setting((settings.get("factura_email_imap_use_ssl") or {}).get("valor")) if settings.get("factura_email_imap_use_ssl") else FACTURA_EMAIL_IMAP_USE_SSL,
+        "search_days": int_setting((settings.get("factura_email_search_days") or {}).get("valor"), FACTURA_EMAIL_SEARCH_DAYS, 1, 365),
+        "max_messages": int_setting((settings.get("factura_email_max_messages") or {}).get("valor"), FACTURA_EMAIL_MAX_MESSAGES, 1, 500),
+        "secret_name": secret_name,
+        "secret_actualizado_en": secret_actualizado_en,
+        "secret_actualizado_por": (settings.get("factura_email_secret_actualizado_por") or {}).get("valor"),
+        "password_env": bool(FACTURA_EMAIL_IMAP_PASSWORD),
+        "password_configurado": bool(FACTURA_EMAIL_IMAP_PASSWORD or secret_actualizado_en or secret_setting),
+    }
+    if incluir_password:
+        password = FACTURA_EMAIL_IMAP_PASSWORD
+        if not password and secret_name:
+            password = leer_secret_manager(secret_name)
+        config["password"] = password
+        config["password_configurado"] = bool(password)
+    return config
+
+
+def factura_email_configurado():
+    config = obtener_factura_email_config()
+    return bool(config["host"] and config["user"] and config["password_configurado"])
+
+
+def get_drive_facturas_recibidas_folder(service, fecha_base=None):
+    root_folder = get_drive_comprobantes_base_folder(service)
+    facturas_folder = get_or_create_drive_subfolder(service, root_folder, "Facturas recibidas")
+    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    return get_drive_periodo_folder(service, facturas_folder, periodo)
+
+
+def validar_factura_email_adjunto(filename, content, content_type=""):
+    filename = secure_filename(filename or "factura.pdf")
+    ext = Path(filename).suffix.lower()
+    if ext not in FACTURA_EMAIL_EXTENSIONS:
+        return None
+    if not content:
+        return None
+    if len(content) > FACTURA_EMAIL_MAX_BYTES:
+        raise ValueError(f"{filename} supera el tamaño maximo permitido para facturas.")
+
+    mime_type = FACTURA_EMAIL_EXTENSIONS[ext]
+    guessed_mime = mimetypes.guess_type(filename)[0]
+    if guessed_mime in FACTURA_EMAIL_EXTENSIONS.values():
+        mime_type = guessed_mime
+    elif content_type in FACTURA_EMAIL_EXTENSIONS.values():
+        mime_type = content_type
+
+    return {
+        "filename": filename,
+        "ext": ext,
+        "content": content,
+        "mime_type": mime_type,
+    }
+
+
+def subir_factura_recibida_a_drive(validado, proveedor, fecha_base=None):
+    if not validado:
+        return None
+
+    service = drive_service()
+    folder_id = get_drive_facturas_recibidas_folder(service, fecha_base=fecha_base)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    proveedor_slug = secure_filename(proveedor or "proveedor") or "proveedor"
+    archivo_slug = secure_filename(Path(validado["filename"]).stem or "factura") or "factura"
+    drive_name = f"factura_{proveedor_slug}_{archivo_slug}_{timestamp}{validado['ext']}"
+    media = MediaIoBaseUpload(io.BytesIO(validado["content"]), mimetype=validado["mime_type"], resumable=False)
+    uploaded = service.files().create(
+        body={"name": drive_name, "parents": [folder_id]},
+        media_body=media,
+        fields="id, name, mimeType, size, webViewLink",
+        supportsAllDrives=True,
+    ).execute()
+    return {
+        "file_id": uploaded["id"],
+        "nombre": uploaded.get("name") or validado["filename"],
+        "mime_type": uploaded.get("mimeType") or validado["mime_type"],
+        "tamano": int(uploaded.get("size") or len(validado["content"])),
+        "web_url": uploaded.get("webViewLink"),
+        "folder_id": folder_id,
+    }
+
+
+def decodificar_header_email(valor):
+    if not valor:
+        return ""
+    try:
+        return str(make_header(decode_header(valor))).strip()
+    except Exception:
+        return str(valor or "").strip()
+
+
+def fecha_email_iso(valor):
+    if not valor:
+        return None
+    try:
+        fecha = parsedate_to_datetime(valor)
+        return fecha.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+
+def normalizar_patron_factura(valor):
+    return re.sub(r"\s+", " ", (valor or "").strip().lower())
+
+
+def factura_email_coincide(filtro, remitente, asunto):
+    remitente_patron = normalizar_patron_factura(filtro.get("remitente_patron"))
+    asunto_patron = normalizar_patron_factura(filtro.get("asunto_patron"))
+    remitente = normalizar_patron_factura(remitente)
+    asunto = normalizar_patron_factura(asunto)
+    if remitente_patron and remitente_patron not in remitente:
+        return False
+    if asunto_patron and asunto_patron not in asunto:
+        return False
+    return bool(remitente_patron or asunto_patron)
+
+
+def buscar_filtro_factura_email(filtros, remitente, asunto):
+    for filtro in filtros:
+        if filtro.get("activo") and factura_email_coincide(filtro, remitente, asunto):
+            return filtro
+    return None
+
+
+def extraer_adjuntos_factura_email(mensaje):
+    adjuntos = []
+    for parte in mensaje.walk():
+        if parte.is_multipart():
+            continue
+        filename = decodificar_header_email(parte.get_filename() or "")
+        disposition = (parte.get_content_disposition() or "").lower()
+        if not filename and disposition != "attachment":
+            continue
+        if not filename:
+            filename = "factura.pdf"
+        content = parte.get_payload(decode=True) or b""
+        validado = validar_factura_email_adjunto(filename, content, parte.get_content_type())
+        if validado:
+            adjuntos.append(validado)
+    return adjuntos
+
+
+def facturas_email_filtros_activos(conn):
+    return conn.execute("""
+        SELECT *
+        FROM facturas_email_filtros
+        WHERE activo = 1
+        ORDER BY proveedor, id
+    """).fetchall()
+
+
+def sincronizar_facturas_email(conn, usuario=None):
+    config = obtener_factura_email_config(conn, incluir_password=True)
+    if not (config["host"] and config["user"] and config.get("password")):
+        raise RuntimeError("Falta configurar la casilla IMAP de facturas.")
+
+    filtros = facturas_email_filtros_activos(conn)
+    if not filtros:
+        raise RuntimeError("No hay filtros activos para facturas recibidas.")
+
+    cliente = None
+    procesados = 0
+    nuevas = 0
+    omitidas = 0
+    errores = []
+    try:
+        if config["use_ssl"]:
+            cliente = imaplib.IMAP4_SSL(config["host"], config["port"])
+        else:
+            cliente = imaplib.IMAP4(config["host"], config["port"])
+        cliente.login(config["user"], config["password"])
+        estado, _ = cliente.select(config["folder"])
+        if estado != "OK":
+            raise RuntimeError(f"No se pudo abrir la carpeta IMAP {config['folder']}.")
+
+        desde = (date.today() - timedelta(days=max(1, config["search_days"]))).strftime("%d-%b-%Y")
+        estado, data = cliente.search(None, "SINCE", desde)
+        if estado != "OK":
+            raise RuntimeError("No se pudo buscar emails en la casilla configurada.")
+
+        ids = (data[0] or b"").split()
+        ids = ids[-max(1, config["max_messages"]):]
+        for email_id in reversed(ids):
+            estado, partes = cliente.fetch(email_id, "(RFC822)")
+            if estado != "OK" or not partes:
+                omitidas += 1
+                continue
+            raw = None
+            for parte in partes:
+                if isinstance(parte, tuple):
+                    raw = parte[1]
+                    break
+            if not raw:
+                omitidas += 1
+                continue
+
+            mensaje = BytesParser(policy=policy.default).parsebytes(raw)
+            asunto = decodificar_header_email(mensaje.get("Subject"))
+            remitente_header = decodificar_header_email(mensaje.get("From"))
+            _, remitente_email = parseaddr(remitente_header)
+            remitente_match = f"{remitente_header} {remitente_email}".strip()
+            filtro = buscar_filtro_factura_email(filtros, remitente_match, asunto)
+            procesados += 1
+            if not filtro:
+                continue
+
+            message_id = decodificar_header_email(mensaje.get("Message-ID")) or f"imap:{email_id.decode(errors='ignore')}"
+            fecha_email = fecha_email_iso(mensaje.get("Date"))
+            fecha_base = (fecha_email or datetime.now().strftime("%Y-%m-%d"))[:10]
+            try:
+                adjuntos = extraer_adjuntos_factura_email(mensaje)
+            except ValueError as error:
+                errores.append(str(error))
+                continue
+            if not adjuntos:
+                omitidas += 1
+                continue
+
+            for index, adjunto in enumerate(adjuntos, start=1):
+                source_key = hashlib.sha256(
+                    f"{message_id}|{index}|{adjunto['filename']}|{len(adjunto['content'])}".encode("utf-8", errors="ignore")
+                ).hexdigest()
+                existe = conn.execute(
+                    "SELECT id FROM facturas_recibidas WHERE source_key = %s",
+                    (source_key,),
+                ).fetchone()
+                if existe:
+                    omitidas += 1
+                    continue
+                factura_drive = subir_factura_recibida_a_drive(adjunto, filtro["proveedor"], fecha_base=fecha_base)
+                conn.execute("""
+                    INSERT INTO facturas_recibidas (
+                        source_key, message_id, filtro_id, proveedor, remitente, asunto, fecha_email,
+                        archivo_nombre, archivo_mime_type, archivo_tamano,
+                        drive_file_id, drive_folder_id, archivo_web_url,
+                        estado, creado_por
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente', %s)
+                """, (
+                    source_key,
+                    message_id,
+                    filtro["id"],
+                    filtro["proveedor"],
+                    remitente_email or remitente_header,
+                    asunto,
+                    fecha_email,
+                    factura_drive["nombre"],
+                    factura_drive["mime_type"],
+                    factura_drive["tamano"],
+                    factura_drive["file_id"],
+                    factura_drive["folder_id"],
+                    factura_drive["web_url"],
+                    usuario,
+                ))
+                nuevas += 1
+    finally:
+        if cliente is not None:
+            try:
+                cliente.logout()
+            except Exception:
+                pass
+
+    guardar_app_setting(conn, "facturas_email_sync_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario)
+    guardar_app_setting(conn, "facturas_email_sync_por", usuario or "", usuario)
+    return {"procesados": procesados, "nuevas": nuevas, "omitidas": omitidas, "errores": errores}
 
 
 def limpiar_numero_operacion(valor):
@@ -3266,6 +3699,8 @@ def obtener_estado_sistema_admin():
             "smtp_ok": smtp_configurado(),
             "smtp_from": SMTP_FROM or "",
             "smtp_user": SMTP_USER or "",
+            "facturas_email_ok": factura_email_configurado(),
+            "facturas_email_user": obtener_factura_email_config().get("user") or "",
             "drive_shared": bool(DRIVE_SHARED_DRIVE_ID),
             "drive_comprobantes": bool(DRIVE_COMPROBANTES_FOLDER_ID or DRIVE_SHARED_DRIVE_ID),
             "drive_fichas": bool(
@@ -6882,6 +7317,75 @@ def init_db():
             conn.execute(f"ALTER TABLE movimientos ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS facturas_email_filtros (
+            id SERIAL PRIMARY KEY,
+            proveedor TEXT NOT NULL,
+            remitente_patron TEXT,
+            asunto_patron TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_por TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_facturas_email_filtros_unico
+        ON facturas_email_filtros (
+            lower(proveedor),
+            lower(COALESCE(remitente_patron, '')),
+            lower(COALESCE(asunto_patron, ''))
+        )
+    """)
+    for filtro in FACTURA_EMAIL_DEFAULT_FILTERS:
+        conn.execute("""
+            INSERT INTO facturas_email_filtros (proveedor, remitente_patron, asunto_patron, creado_por)
+            VALUES (%s, %s, %s, 'sistema')
+            ON CONFLICT DO NOTHING
+        """, (
+            filtro["proveedor"],
+            filtro["remitente_patron"],
+            filtro["asunto_patron"],
+        ))
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS facturas_recibidas (
+            id SERIAL PRIMARY KEY,
+            source_key TEXT UNIQUE NOT NULL,
+            message_id TEXT,
+            filtro_id INTEGER,
+            proveedor TEXT NOT NULL,
+            remitente TEXT,
+            asunto TEXT,
+            fecha_email TEXT,
+            archivo_nombre TEXT,
+            archivo_mime_type TEXT,
+            archivo_tamano INTEGER,
+            drive_file_id TEXT NOT NULL,
+            drive_folder_id TEXT,
+            archivo_web_url TEXT,
+            monto_detectado REAL,
+            estado TEXT NOT NULL DEFAULT 'pendiente',
+            movimiento_id INTEGER,
+            notas TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_por TEXT,
+            FOREIGN KEY (filtro_id) REFERENCES facturas_email_filtros(id),
+            FOREIGN KEY (movimiento_id) REFERENCES movimientos(id)
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_facturas_recibidas_estado
+        ON facturas_recibidas (estado, creado_en DESC)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_facturas_recibidas_proveedor
+        ON facturas_recibidas (proveedor, creado_en DESC)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS presupuesto_items (
             id SERIAL PRIMARY KEY,
             tipo TEXT NOT NULL,
@@ -7466,6 +7970,291 @@ def nuevo_movimiento():
         "movimiento_form.html",
         movimiento={"tipo": "egreso", "fecha": fecha_default},
     )
+
+
+@app.route("/finanzas/facturas-recibidas")
+def listar_facturas_recibidas():
+    check = permiso_requerido("facturas_recibidas_ver", "caja_ver")
+    if check:
+        return check
+
+    estado = request.args.get("estado", "pendiente").strip()
+    if estado not in {"pendiente", "registrada", "descartada", "todas"}:
+        estado = "pendiente"
+
+    condiciones = []
+    params = []
+    if estado != "todas":
+        condiciones.append("fr.estado = %s")
+        params.append(estado)
+    where_sql = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
+
+    conn = get_connection()
+    facturas = conn.execute(f"""
+        SELECT fr.*, f.remitente_patron, f.asunto_patron
+        FROM facturas_recibidas fr
+        LEFT JOIN facturas_email_filtros f ON f.id = fr.filtro_id
+        {where_sql}
+        ORDER BY fr.creado_en DESC, fr.id DESC
+        LIMIT 120
+    """, params).fetchall()
+    filtros = conn.execute("""
+        SELECT *
+        FROM facturas_email_filtros
+        ORDER BY activo DESC, proveedor, id
+    """).fetchall()
+    sync_config = conn.execute("""
+        SELECT clave, valor
+        FROM app_settings
+        WHERE clave IN ('facturas_email_sync_en', 'facturas_email_sync_por')
+    """).fetchall()
+    conn.close()
+    sync_info = {fila["clave"]: fila["valor"] for fila in sync_config}
+
+    return render_template(
+        "facturas_recibidas.html",
+        facturas=facturas,
+        filtros=filtros,
+        estado=estado,
+        imap_configurado=factura_email_configurado(),
+        sync_info=sync_info,
+    )
+
+
+@app.route("/finanzas/facturas-recibidas/filtros", methods=["POST"])
+def crear_filtro_factura_email():
+    check = permiso_requerido("facturas_recibidas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    proveedor = request.form.get("proveedor", "").strip()
+    remitente_patron = request.form.get("remitente_patron", "").strip()
+    asunto_patron = request.form.get("asunto_patron", "").strip()
+    if not proveedor:
+        flash("Indicá el proveedor del filtro.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    if not remitente_patron and not asunto_patron:
+        flash("El filtro necesita remitente o asunto.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO facturas_email_filtros (
+            proveedor, remitente_patron, asunto_patron, creado_por, actualizado_por
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT DO NOTHING
+    """, (
+        proveedor,
+        remitente_patron or None,
+        asunto_patron or None,
+        session.get("username"),
+        session.get("username"),
+    ))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("crear", "factura_email_filtro", None, {
+        "proveedor": proveedor,
+        "remitente_patron": remitente_patron,
+        "asunto_patron": asunto_patron,
+    })
+    flash("Filtro de facturas agregado.", "ok")
+    return redirect(url_for("listar_facturas_recibidas"))
+
+
+@app.route("/finanzas/facturas-recibidas/filtros/<int:filtro_id>/toggle", methods=["POST"])
+def alternar_filtro_factura_email(filtro_id):
+    check = permiso_requerido("facturas_recibidas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    filtro = conn.execute("SELECT * FROM facturas_email_filtros WHERE id = %s", (filtro_id,)).fetchone()
+    if not filtro:
+        conn.close()
+        flash("Filtro no encontrado.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    activo = 0 if filtro["activo"] else 1
+    conn.execute("""
+        UPDATE facturas_email_filtros
+        SET activo = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (activo, session.get("username"), filtro_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("alternar", "factura_email_filtro", str(filtro_id), {"activo": activo})
+    flash("Filtro actualizado.", "ok")
+    return redirect(url_for("listar_facturas_recibidas"))
+
+
+@app.route("/finanzas/facturas-recibidas/sync", methods=["POST"])
+def sincronizar_facturas_recibidas_view():
+    check = permiso_requerido("facturas_recibidas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    try:
+        resultado = sincronizar_facturas_email(conn, session.get("username"))
+        conn.commit()
+    except RuntimeError as error:
+        conn.rollback()
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    except Exception as error:
+        conn.rollback()
+        conn.close()
+        app.logger.exception("No se pudieron sincronizar facturas por email.")
+        flash(f"No se pudieron sincronizar facturas: {error}", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    conn.close()
+
+    registrar_auditoria("sincronizar", "facturas_recibidas", None, resultado)
+    flash(
+        f"Sincronizacion completada: {resultado['nuevas']} nueva(s), {resultado['omitidas']} omitida(s).",
+        "ok",
+    )
+    return redirect(url_for("listar_facturas_recibidas"))
+
+
+@app.route("/finanzas/facturas-recibidas/<int:factura_id>/archivo")
+def ver_factura_recibida_archivo(factura_id):
+    check = permiso_requerido("facturas_recibidas_ver", "caja_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    factura = conn.execute("SELECT * FROM facturas_recibidas WHERE id = %s", (factura_id,)).fetchone()
+    conn.close()
+    if not factura:
+        flash("Factura no encontrada.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+
+    try:
+        archivo = descargar_drive_file(factura["drive_file_id"])
+    except Exception as error:
+        flash(mensaje_error_drive(error, carpeta="Facturas recibidas", accion="descargar la factura"), "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+
+    registrar_auditoria("ver", "factura_recibida", str(factura_id), {
+        "archivo": factura.get("archivo_nombre"),
+        "drive_file_id": factura.get("drive_file_id"),
+    })
+    return send_file(
+        archivo,
+        mimetype=factura.get("archivo_mime_type") or "application/octet-stream",
+        as_attachment=False,
+        download_name=factura.get("archivo_nombre") or f"factura_{factura_id}",
+    )
+
+
+@app.route("/finanzas/facturas-recibidas/<int:factura_id>/registrar", methods=["POST"])
+def registrar_factura_recibida_en_caja(factura_id):
+    check = permiso_requerido("facturas_recibidas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    fecha = validar_fecha_movimiento(request.form.get("fecha", "").strip())
+    concepto = request.form.get("concepto", "").strip()
+    monto = parsear_importe(request.form.get("monto", "").strip())
+    referencia = request.form.get("referencia", "").strip()
+
+    if not fecha:
+        flash("La fecha del egreso no es valida.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    if mes_esta_cerrado(fecha[:7]):
+        flash("No se puede registrar un egreso en un mes cerrado.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    if not concepto:
+        flash("Indicá el concepto del egreso.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    if monto is None or monto <= 0:
+        flash("Indicá un monto valido.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+
+    conn = get_connection()
+    factura = conn.execute("SELECT * FROM facturas_recibidas WHERE id = %s FOR UPDATE", (factura_id,)).fetchone()
+    if not factura:
+        conn.close()
+        flash("Factura no encontrada.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    if factura["estado"] != "pendiente":
+        conn.close()
+        flash("Solo se pueden registrar facturas pendientes.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+
+    movimiento = conn.execute("""
+        INSERT INTO movimientos (
+            tipo, concepto, monto, fecha, referencia,
+            comprobante_drive_file_id, comprobante_nombre, comprobante_mime_type,
+            comprobante_tamano, comprobante_fecha, comprobante_usuario,
+            comprobante_web_url
+        )
+        VALUES ('egreso', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """, (
+        concepto,
+        monto,
+        fecha,
+        referencia or f"Factura {factura['proveedor']}",
+        factura["drive_file_id"],
+        factura["archivo_nombre"],
+        factura["archivo_mime_type"],
+        factura["archivo_tamano"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        session.get("username"),
+        factura["archivo_web_url"],
+    )).fetchone()
+    conn.execute("""
+        UPDATE facturas_recibidas
+        SET estado = 'registrada',
+            movimiento_id = %s,
+            monto_detectado = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (movimiento["id"], monto, session.get("username"), factura_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("registrar_en_caja", "factura_recibida", str(factura_id), {
+        "movimiento_id": movimiento["id"],
+        "monto": monto,
+        "fecha": fecha,
+    })
+    flash("Factura registrada como egreso de caja.", "ok")
+    return redirect(url_for("ver_caja", mes=fecha[:7]))
+
+
+@app.route("/finanzas/facturas-recibidas/<int:factura_id>/descartar", methods=["POST"])
+def descartar_factura_recibida(factura_id):
+    check = permiso_requerido("facturas_recibidas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    notas = request.form.get("notas", "").strip()
+    conn = get_connection()
+    factura = conn.execute("SELECT * FROM facturas_recibidas WHERE id = %s", (factura_id,)).fetchone()
+    if not factura:
+        conn.close()
+        flash("Factura no encontrada.", "error")
+        return redirect(url_for("listar_facturas_recibidas"))
+    conn.execute("""
+        UPDATE facturas_recibidas
+        SET estado = 'descartada',
+            notas = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (notas or None, session.get("username"), factura_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("descartar", "factura_recibida", str(factura_id), {"notas": notas})
+    flash("Factura descartada.", "ok")
+    return redirect(url_for("listar_facturas_recibidas"))
 
 @app.before_request
 def proteger_rutas():
@@ -17042,6 +17831,69 @@ def panel_sistema_admin():
         estado=obtener_estado_sistema_admin(),
         solo_backup=False,
     )
+
+
+@app.route("/admin/sistema/facturas-email", methods=["GET", "POST"])
+def configurar_facturas_email():
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    conn = get_connection()
+    if request.method == "POST":
+        host = request.form.get("host", "").strip()
+        port = int_setting(request.form.get("port"), 993, 1, 65535)
+        user = request.form.get("user", "").strip()
+        folder = request.form.get("folder", "").strip() or "INBOX"
+        use_ssl = request.form.get("use_ssl") == "on"
+        search_days = int_setting(request.form.get("search_days"), 45, 1, 365)
+        max_messages = int_setting(request.form.get("max_messages"), 80, 1, 500)
+        secret_name = request.form.get("secret_name", "").strip() or FACTURA_EMAIL_SECRET_NAME
+        password = request.form.get("password", "")
+
+        if not host or not user:
+            conn.close()
+            flash("Host y usuario IMAP son obligatorios.", "error")
+            return redirect(url_for("configurar_facturas_email"))
+
+        try:
+            if password:
+                secret_path = guardar_secret_manager(secret_name, password)
+                guardar_app_setting(conn, "factura_email_secret_name", secret_path, session.get("username"))
+                guardar_app_setting(conn, "factura_email_secret_actualizado_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"))
+                guardar_app_setting(conn, "factura_email_secret_actualizado_por", session.get("username") or "", session.get("username"))
+            else:
+                guardar_app_setting(conn, "factura_email_secret_name", secret_name, session.get("username"))
+        except Exception as error:
+            conn.rollback()
+            conn.close()
+            app.logger.exception("No se pudo guardar secreto IMAP de facturas.")
+            flash(f"No se pudo guardar el secreto: {error}", "error")
+            return redirect(url_for("configurar_facturas_email"))
+
+        guardar_app_setting(conn, "factura_email_imap_host", host, session.get("username"))
+        guardar_app_setting(conn, "factura_email_imap_port", str(port), session.get("username"))
+        guardar_app_setting(conn, "factura_email_imap_user", user, session.get("username"))
+        guardar_app_setting(conn, "factura_email_imap_folder", folder, session.get("username"))
+        guardar_app_setting(conn, "factura_email_imap_use_ssl", "true" if use_ssl else "false", session.get("username"))
+        guardar_app_setting(conn, "factura_email_search_days", str(search_days), session.get("username"))
+        guardar_app_setting(conn, "factura_email_max_messages", str(max_messages), session.get("username"))
+        conn.commit()
+        conn.close()
+
+        registrar_auditoria("configurar", "facturas_email", None, {
+            "host": host,
+            "user": user,
+            "folder": folder,
+            "secret_name": secret_name,
+            "password_actualizada": bool(password),
+        })
+        flash("Configuracion de facturas por email guardada.", "ok")
+        return redirect(url_for("configurar_facturas_email"))
+
+    config = obtener_factura_email_config(conn)
+    conn.close()
+    return render_template("facturas_email_config.html", config=config)
 
 
 @app.route("/admin/mantenimiento", methods=["GET", "POST"])

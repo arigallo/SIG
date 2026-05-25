@@ -851,6 +851,22 @@ button:disabled {
     min-width: 170px;
 }
 
+.inline-form-stack {
+    display: grid;
+    grid-template-columns: minmax(130px, 0.8fr) minmax(190px, 1.4fr);
+    gap: 8px;
+    min-width: 360px;
+}
+
+.inline-form-stack input,
+.inline-form-stack .button {
+    width: 100%;
+}
+
+.inline-form-stack .button {
+    grid-column: 1 / -1;
+}
+
 .form-subtitle h3 {
     margin: 6px 0 0;
     color: var(--muted);

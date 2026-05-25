@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Facturas recibidas{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Facturas recibidas</h2>
+        <p class="page-intro">Bandeja de comprobantes detectados desde emails de proveedores.</p>
+    </div>
+    <div class="actions">
+        {% if puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
+            <form method="post" action="{{ url_for('sincronizar_facturas_recibidas_view') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="button" type="submit" {% if not imap_configurado %}disabled{% endif %}>Sincronizar</button>
+            </form>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('ver_caja') }}">Caja</a>
+    </div>
+</div>
+
+{% if not imap_configurado %}
+    <div class="flash warning">
+        Falta configurar la casilla IMAP para leer facturas.
+    </div>
+{% endif %}
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Estado</h3>
+        <p class="stat-number compact">{{ estado|capitalize }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Filtros</h3>
+        <p class="stat-number compact">{{ filtros|length }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Ultima sync</h3>
+        <p class="stat-number compact">{{ sync_info.get('facturas_email_sync_en') or '-' }}</p>
+        <span class="muted-line">{{ sync_info.get('facturas_email_sync_por') or '-' }}</span>
+    </div>
+</div>
+
+<form method="get" class="card form-card form-card-narrow spaced-small">
+    <div class="field">
+        <label>Estado</label>
+        <select name="estado">
+            <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendientes</option>
+            <option value="registrada" {% if estado == 'registrada' %}selected{% endif %}>Registradas</option>
+            <option value="descartada" {% if estado == 'descartada' %}selected{% endif %}>Descartadas</option>
+            <option value="todas" {% if estado == 'todas' %}selected{% endif %}>Todas</option>
+        </select>
+    </div>
+    <button class="button secondary" type="submit">Aplicar</button>
+</form>
+
+{% if puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
+<div class="page-section">
+    <div class="section-header compact">
+        <h3>Filtros de email</h3>
+    </div>
+
+    <form method="post" action="{{ url_for('crear_filtro_factura_email') }}" class="card form-card form-card-wide spaced-small">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="report-filter-grid">
+            <div>
+                <label>Proveedor</label>
+                <input type="text" name="proveedor" placeholder="Ej: Adobe" required>
+            </div>
+            <div>
+                <label>Remitente contiene</label>
+                <input type="text" name="remitente_patron" placeholder="Ej: billing.adobe">
+            </div>
+            <div>
+                <label>Asunto contiene</label>
+                <input type="text" name="asunto_patron" placeholder="Ej: factura">
+            </div>
+        </div>
+        <button class="button" type="submit">Agregar filtro</button>
+    </form>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Remitente</th>
+                    <th>Asunto</th>
+                    <th>Estado</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for filtro in filtros %}
+                <tr>
+                    <td>{{ filtro['proveedor'] }}</td>
+                    <td>{{ filtro['remitente_patron'] or '-' }}</td>
+                    <td>{{ filtro['asunto_patron'] or '-' }}</td>
+                    <td>
+                        {% if filtro['activo'] %}
+                            <span class="badge badge-success">Activo</span>
+                        {% else %}
+                            <span class="badge badge-muted">Pausado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('alternar_filtro_factura_email', filtro_id=filtro['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button secondary" type="submit">{% if filtro['activo'] %}Pausar{% else %}Activar{% endif %}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No hay filtros configurados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-section">
+    <div class="section-header compact">
+        <h3>Bandeja</h3>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Email</th>
+                    <th>Archivo</th>
+                    <th>Estado</th>
+                    <th>Registrar</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for factura in facturas %}
+                <tr>
+                    <td>
+                        <strong>{{ factura['proveedor'] }}</strong>
+                        <span class="muted-line">{{ factura['fecha_email'] or factura['creado_en'] or '-' }}</span>
+                    </td>
+                    <td>
+                        {{ factura['remitente'] or '-' }}
+                        <span class="muted-line">{{ factura['asunto'] or '-' }}</span>
+                    </td>
+                    <td>
+                        <strong>{{ factura['archivo_nombre'] or '-' }}</strong>
+                        {% if factura['archivo_tamano'] %}
+                            <span class="muted-line">{{ (factura['archivo_tamano'] / 1024 / 1024) | round(2) }} MB</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if factura['estado'] == 'registrada' %}
+                            <span class="badge badge-success">Registrada</span>
+                            <span class="muted-line">Mov. {{ factura['movimiento_id'] or '-' }}</span>
+                        {% elif factura['estado'] == 'descartada' %}
+                            <span class="badge badge-muted">Descartada</span>
+                        {% else %}
+                            <span class="badge badge-warning">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if factura['estado'] == 'pendiente' and puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
+                        <form method="post" action="{{ url_for('registrar_factura_recibida_en_caja', factura_id=factura['id']) }}" class="inline-form-stack">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="date" name="fecha" value="{{ (factura['fecha_email'] or '')[:10] or now().strftime('%Y-%m-%d') }}" required>
+                            <input type="text" name="concepto" value="{{ factura['proveedor'] }} - {{ factura['asunto'] or 'Factura' }}" required>
+                            <input type="number" step="0.01" name="monto" placeholder="Monto" value="{{ factura['monto_detectado'] or '' }}" required>
+                            <input type="text" name="referencia" value="Factura {{ factura['proveedor'] }}" placeholder="Referencia">
+                            <button class="button" type="submit">Crear egreso</button>
+                        </form>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        <a class="button secondary" href="{{ url_for('ver_factura_recibida_archivo', factura_id=factura['id']) }}" target="_blank" rel="noopener">Ver</a>
+                        {% if factura['estado'] == 'pendiente' and puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
+                        <form method="post" action="{{ url_for('descartar_factura_recibida', factura_id=factura['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="notas" value="Descartada desde bandeja">
+                            <button class="button danger" type="submit">Descartar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No hay facturas para este estado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
