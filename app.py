@@ -1264,11 +1264,7 @@ def get_drive_root_subfolder(service, drive_id, name):
     )
 
 
-def get_or_create_drive_subfolder(service, parent_id, name):
-    folder_id = find_drive_folder(service, name, parent_id=parent_id)
-    if folder_id:
-        return folder_id
-
+def create_drive_subfolder(service, parent_id, name):
     folder = service.files().create(
         body={
             "name": name,
@@ -1279,6 +1275,21 @@ def get_or_create_drive_subfolder(service, parent_id, name):
         supportsAllDrives=True,
     ).execute()
     return folder["id"]
+
+
+def get_or_create_drive_root_subfolder(service, drive_id, name):
+    folder_id = find_drive_folder(service, name, parent_id="root", drive_id=drive_id)
+    if folder_id:
+        return folder_id
+    return create_drive_subfolder(service, drive_id, name)
+
+
+def get_or_create_drive_subfolder(service, parent_id, name):
+    folder_id = find_drive_folder(service, name, parent_id=parent_id)
+    if folder_id:
+        return folder_id
+
+    return create_drive_subfolder(service, parent_id, name)
 
 
 def get_drive_periodo_folder(service, root_folder, periodo):
@@ -1332,7 +1343,7 @@ def get_drive_secretaria_base_folder(service):
         return get_or_create_drive_subfolder(service, root_folder, subfolder)
 
     subfolder = (DRIVE_SECRETARIA_SUBFOLDER or "Secretaria").strip()
-    return get_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
+    return get_or_create_drive_root_subfolder(service, DRIVE_SHARED_DRIVE_ID, subfolder)
 
 
 def get_drive_jugador_folder(service, root_folder, jugador):
@@ -2712,6 +2723,25 @@ def guardar_documentos_lesion(conn, jugador, lesion, archivos, descripcion=""):
 
 
 def mensaje_error_drive(error, carpeta="Cuotas", accion="subir el comprobante"):
+    if isinstance(error, RuntimeError):
+        detalle = str(error).strip()
+        detalle_lower = detalle.lower()
+        if detalle_lower.startswith("falta configurar"):
+            return f"{detalle} No se pudo {accion} en Google Drive."
+        if "no se encontro la carpeta" in detalle_lower or "no se encontró la carpeta" in detalle_lower:
+            carpeta_lower = str(carpeta or "").lower()
+            id_hint = (
+                "GOOGLE_DRIVE_SECRETARIA_FOLDER_ID con el ID exacto"
+                if "secretaria" in carpeta_lower or "secretaría" in carpeta_lower
+                else "el ID exacto de la carpeta"
+            )
+            return (
+                f"{detalle} Revisá el nombre de la carpeta {carpeta} o configurá "
+                f"{id_hint}."
+            )
+        if detalle:
+            return detalle
+
     if HttpError is not None and isinstance(error, HttpError):
         status = getattr(getattr(error, "resp", None), "status", None)
         detalle = ""

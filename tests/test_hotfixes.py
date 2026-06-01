@@ -159,6 +159,66 @@ class HotfixTests(unittest.TestCase):
                     ["tesoreria@example.com"],
                 )
 
+    def test_drive_runtime_error_reports_missing_secretaria_config(self):
+        mensaje = app.mensaje_error_drive(
+            RuntimeError("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."),
+            carpeta="Secretaria",
+            accion="guardar el documento",
+        )
+
+        self.assertIn("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID", mensaje)
+        self.assertIn("No se pudo guardar el documento en Google Drive.", mensaje)
+
+    def test_drive_runtime_error_reports_missing_secretaria_folder(self):
+        mensaje = app.mensaje_error_drive(
+            RuntimeError("No se encontro la carpeta 'Secretaria' en la unidad compartida configurada."),
+            carpeta="Secretaria",
+            accion="guardar el documento",
+        )
+
+        self.assertIn("No se encontro la carpeta 'Secretaria'", mensaje)
+        self.assertIn("GOOGLE_DRIVE_SECRETARIA_FOLDER_ID", mensaje)
+
+    def test_secretaria_drive_creates_base_year_and_month_folders(self):
+        class FakeExecute:
+            def __init__(self, response):
+                self.response = response
+
+            def execute(self):
+                return self.response
+
+        class FakeFiles:
+            def __init__(self):
+                self.created = []
+
+            def list(self, **kwargs):
+                return FakeExecute({"files": []})
+
+            def create(self, **kwargs):
+                body = kwargs["body"]
+                folder_id = f"folder-{len(self.created) + 1}"
+                self.created.append({"id": folder_id, "body": body, "kwargs": kwargs})
+                return FakeExecute({"id": folder_id})
+
+        class FakeService:
+            def __init__(self):
+                self._files = FakeFiles()
+
+            def files(self):
+                return self._files
+
+        service = FakeService()
+        with patch.object(app, "DRIVE_SECRETARIA_FOLDER_ID", ""):
+            with patch.object(app, "DRIVE_SHARED_DRIVE_ID", "shared-drive-id"):
+                with patch.object(app, "DRIVE_SECRETARIA_SUBFOLDER", "Secretaria"):
+                    folder_id = app.get_drive_secretaria_folder(service, "Actas", fecha_base="2026-06-01")
+
+        self.assertEqual(folder_id, "folder-4")
+        nombres = [item["body"]["name"] for item in service._files.created]
+        padres = [item["body"]["parents"][0] for item in service._files.created]
+        self.assertEqual(nombres, ["Secretaria", "2026", "Junio", "Actas"])
+        self.assertEqual(padres, ["shared-drive-id", "folder-1", "folder-2", "folder-3"])
+
     def test_whatsapp_email_notification_is_suppressed_by_presence(self):
         with patch.object(app, "suprimir_email_whatsapp_por_presencia", return_value=True):
             with patch.object(app, "enviar_email") as enviar_email:
