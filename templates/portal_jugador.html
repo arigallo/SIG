@@ -116,21 +116,13 @@
                                 {% if evento['asistencia_evento_id'] %}
                                     {% set confirmacion = evento['confirmacion_portal'] %}
                                     {% if confirmacion %}
-                                        <span class="badge {% if confirmacion['estado'] == 'confirmado' %}badge-success{% elif confirmacion['estado'] == 'dudoso' %}badge-warning{% else %}badge-danger{% endif %}">
-                                            {% if confirmacion['estado'] == 'confirmado' %}
-                                                Confirmado
-                                            {% elif confirmacion['estado'] == 'dudoso' %}
-                                                Dudoso
-                                            {% else %}
-                                                No asiste
-                                            {% endif %}
-                                        </span>
+                                        <span class="badge {{ asistencia_portal_badge_class(confirmacion['estado']) }}">{{ asistencia_portal_label(evento, confirmacion['estado']) }}</span>
                                     {% endif %}
                                     <form method="get" action="{{ url_for('portal_bienestar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
                                         <select name="estado">
-                                            <option value="confirmado" {% if confirmacion and confirmacion['estado'] == 'confirmado' %}selected{% endif %}>Confirmo</option>
-                                            <option value="dudoso" {% if confirmacion and confirmacion['estado'] == 'dudoso' %}selected{% endif %}>Dudoso</option>
-                                            <option value="no_asiste" {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}selected{% endif %}>No puedo</option>
+                                            {% for opcion in asistencia_portal_opciones(evento) %}
+                                                <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
+                                            {% endfor %}
                                         </select>
                                         <button class="button secondary" type="submit">Completar bienestar</button>
                                     </form>

@@ -84,6 +84,20 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha", source)
         self.assertIn("WHEN e.fecha < CURRENT_DATE::text THEN e.fecha", source)
 
+    def test_portal_asistencia_labels_change_for_partidos(self):
+        partido = {"tipo": "Partido"}
+        entrenamiento = {"tipo": "Entrenamiento"}
+
+        self.assertEqual(
+            [opcion["label"] for opcion in app.asistencia_portal_opciones(partido)],
+            ["Voy y Juego", "Voy y no juego", "No voy"],
+        )
+        self.assertEqual(app.asistencia_portal_label(partido, "dudoso"), "Voy y no juego")
+        self.assertEqual(
+            [opcion["label"] for opcion in app.asistencia_portal_opciones(entrenamiento)],
+            ["Voy", "Dudoso", "No voy"],
+        )
+
     def test_whatsapp_unsupported_message_shows_meta_reason(self):
         resumen = app.resumir_contenido_whatsapp(
             "unsupported",

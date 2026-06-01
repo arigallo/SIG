@@ -107,6 +107,9 @@ def inject_now():
         "whatsapp_inbox_count": obtener_contador_whatsapp_inbox() if has_request_context() else 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
         "static_asset": static_asset,
+        "asistencia_portal_opciones": asistencia_portal_opciones,
+        "asistencia_portal_label": asistencia_portal_label,
+        "asistencia_portal_badge_class": asistencia_portal_badge_class,
         "current_month": lambda: datetime.now().strftime("%Y-%m"),
     }
 
@@ -402,12 +405,58 @@ COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
 CALENDARIO_DEPORTIVO_TIPOS = {"Entrenamiento", "Partido", "Evento", "Otro"}
 CALENDARIO_ASISTENCIA_TIPOS = {"Entrenamiento", "Partido"}
 CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
+PORTAL_ASISTENCIA_ESTADOS = {"confirmado", "dudoso", "no_asiste"}
+PORTAL_ASISTENCIA_LABELS = {
+    "default": {
+        "confirmado": "Voy",
+        "dudoso": "Dudoso",
+        "no_asiste": "No voy",
+    },
+    "partido": {
+        "confirmado": "Voy y Juego",
+        "dudoso": "Voy y no juego",
+        "no_asiste": "No voy",
+    },
+}
+PORTAL_ASISTENCIA_BADGES = {
+    "confirmado": "badge-success",
+    "dudoso": "badge-warning",
+    "no_asiste": "badge-danger",
+}
 TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
 ESTADOS_JUGADOR = ["Activo", "Inactivo", "Suspendido", "Baja"]
 
 BIENESTAR_HORAS_OPCIONES = ["<5 h", "5-6 h", "6-7 h", "7-8 h", ">8 h"]
 BIENESTAR_HORAS_SCORE = {"<5 h": 1, "5-6 h": 2, "6-7 h": 3, "7-8 h": 4, ">8 h": 5}
 BIENESTAR_DOLOR_ZONAS = ["No", "Cuello", "Hombro", "Brazo", "Zona lumbar", "Cadera", "Muslo", "Rodilla", "Pantorrilla", "Tobillo", "Pie", "Otro"]
+
+
+def es_evento_partido(evento):
+    tipo = (evento.get("tipo") if evento else "") or ""
+    tipo = unicodedata.normalize("NFKD", str(tipo).strip().lower())
+    tipo = "".join(ch for ch in tipo if not unicodedata.combining(ch))
+    return tipo in {"partido", "partidos"}
+
+
+def asistencia_portal_labels(evento):
+    return PORTAL_ASISTENCIA_LABELS["partido" if es_evento_partido(evento) else "default"]
+
+
+def asistencia_portal_opciones(evento):
+    labels = asistencia_portal_labels(evento)
+    return [
+        {"valor": estado, "label": labels[estado]}
+        for estado in ("confirmado", "dudoso", "no_asiste")
+    ]
+
+
+def asistencia_portal_label(evento, estado):
+    return asistencia_portal_labels(evento).get(estado, PORTAL_ASISTENCIA_LABELS["default"]["confirmado"])
+
+
+def asistencia_portal_badge_class(estado):
+    return PORTAL_ASISTENCIA_BADGES.get(estado, "badge-muted")
+
 
 BITACORA_TIPOS = {
     "general": "General",
@@ -4315,11 +4364,18 @@ def obtener_calendario(mes):
         })
         resumen_confirmacion = confirmaciones_resumen.get(evento.get("asistencia_evento_id"))
         if resumen_confirmacion:
-            eventos[-1]["disponibilidad_resumen"] = (
-                f"{resumen_confirmacion['confirmados'] or 0} conf. / "
-                f"{resumen_confirmacion['dudosos'] or 0} dud. / "
-                f"{resumen_confirmacion['no_asisten'] or 0} no asisten"
-            )
+            if es_evento_partido(evento):
+                eventos[-1]["disponibilidad_resumen"] = (
+                    f"{resumen_confirmacion['confirmados'] or 0} juegan / "
+                    f"{resumen_confirmacion['dudosos'] or 0} no juegan / "
+                    f"{resumen_confirmacion['no_asisten'] or 0} no van"
+                )
+            else:
+                eventos[-1]["disponibilidad_resumen"] = (
+                    f"{resumen_confirmacion['confirmados'] or 0} conf. / "
+                    f"{resumen_confirmacion['dudosos'] or 0} dud. / "
+                    f"{resumen_confirmacion['no_asisten'] or 0} no asisten"
+                )
         else:
             eventos[-1]["disponibilidad_resumen"] = ""
 
@@ -15606,7 +15662,7 @@ def portal_jugador(token):
 @app.route("/portal/<token>/eventos/<int:evento_id>/confirmar", methods=["POST"])
 def portal_confirmar_asistencia(token, evento_id):
     estado = request.form.get("estado", "").strip()
-    if estado not in {"confirmado", "dudoso", "no_asiste"}:
+    if estado not in PORTAL_ASISTENCIA_ESTADOS:
         flash("La confirmacion no es valida.", "error")
         return redirect(url_for("portal_jugador", token=token))
     return redirect(url_for("portal_bienestar_asistencia", token=token, evento_id=evento_id, estado=estado))
@@ -15652,7 +15708,7 @@ def portal_bienestar_asistencia(token, evento_id):
         actual["dolor_zonas_lista"] = []
 
     estado = (request.form.get("estado") if request.method == "POST" else request.args.get("estado") or actual.get("estado") or "confirmado").strip()
-    if estado not in {"confirmado", "dudoso", "no_asiste"}:
+    if estado not in PORTAL_ASISTENCIA_ESTADOS:
         estado = "confirmado"
 
     if request.method == "POST":

@@ -25,7 +25,7 @@
                 <div class="portal-hero-meta">
                     <span><strong>Evento:</strong> {{ evento['titulo'] }}</span>
                     <span><strong>Fecha:</strong> {{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
-                    <span><strong>Asistencia:</strong> {% if estado == 'confirmado' %}Confirmo{% elif estado == 'dudoso' %}Dudoso{% else %}No puedo{% endif %}</span>
+                    <span><strong>Asistencia:</strong> {{ asistencia_portal_label(evento, estado) }}</span>
                 </div>
             </div>
             <div class="portal-hero-actions">

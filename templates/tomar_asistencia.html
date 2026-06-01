@@ -118,13 +118,7 @@
                         <td data-label="Categor&iacute;a">{{ participante['categoria'] or '-' }}</td>
                         <td data-label="Confirmaci&oacute;n portal">
                             {% if participante['confirmacion_portal'] %}
-                                {% if participante['confirmacion_portal']['estado'] == 'confirmado' %}
-                                    <span class="badge badge-success">Confirmado</span>
-                                {% elif participante['confirmacion_portal']['estado'] == 'dudoso' %}
-                                    <span class="badge badge-warning">Dudoso</span>
-                                {% else %}
-                                    <span class="badge badge-danger">No asiste</span>
-                                {% endif %}
+                                <span class="badge {{ asistencia_portal_badge_class(participante['confirmacion_portal']['estado']) }}">{{ asistencia_portal_label(evento, participante['confirmacion_portal']['estado']) }}</span>
                             {% else %}
                                 -
                             {% endif %}
