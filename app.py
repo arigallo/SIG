@@ -288,6 +288,7 @@ DRIVE_FICHAS_MEDICAS_SUBFOLDER = (
 DRIVE_SECRETARIA_FOLDER_ID = (
     os.environ.get("GOOGLE_DRIVE_SECRETARIA_FOLDER_ID")
     or os.environ.get("DRIVE_SECRETARIA_FOLDER_ID")
+    or DRIVE_COMPROBANTES_FOLDER_ID
 )
 DRIVE_SECRETARIA_SUBFOLDER = (
     os.environ.get("GOOGLE_DRIVE_SECRETARIA_SUBFOLDER")
@@ -1217,7 +1218,7 @@ def require_drive_fichas_medicas_folder():
 def require_drive_secretaria_folder():
     if not DRIVE_SECRETARIA_FOLDER_ID and not DRIVE_SHARED_DRIVE_ID:
         raise RuntimeError(
-            "Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."
+            "Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID, GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."
         )
     return DRIVE_SECRETARIA_FOLDER_ID
 

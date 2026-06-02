@@ -161,12 +161,13 @@ class HotfixTests(unittest.TestCase):
 
     def test_drive_runtime_error_reports_missing_secretaria_config(self):
         mensaje = app.mensaje_error_drive(
-            RuntimeError("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."),
+            RuntimeError("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID, GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."),
             carpeta="Secretaria",
             accion="guardar el documento",
         )
 
         self.assertIn("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID", mensaje)
+        self.assertIn("GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID", mensaje)
         self.assertIn("No se pudo guardar el documento en Google Drive.", mensaje)
 
     def test_drive_runtime_error_reports_missing_secretaria_folder(self):
@@ -218,6 +219,16 @@ class HotfixTests(unittest.TestCase):
         padres = [item["body"]["parents"][0] for item in service._files.created]
         self.assertEqual(nombres, ["Secretaria", "2026", "Junio", "Actas"])
         self.assertEqual(padres, ["shared-drive-id", "folder-1", "folder-2", "folder-3"])
+
+    def test_secretaria_drive_uses_comprobantes_folder_as_fallback(self):
+        service = object()
+        with patch.object(app, "DRIVE_SECRETARIA_FOLDER_ID", "comprobantes-root"):
+            with patch.object(app, "DRIVE_SECRETARIA_SUBFOLDER", "Secretaria"):
+                with patch.object(app, "get_or_create_drive_subfolder", return_value="secretaria-root") as crear:
+                    folder_id = app.get_drive_secretaria_base_folder(service)
+
+        self.assertEqual(folder_id, "secretaria-root")
+        crear.assert_called_once_with(service, "comprobantes-root", "Secretaria")
 
     def test_whatsapp_email_notification_is_suppressed_by_presence(self):
         with patch.object(app, "suprimir_email_whatsapp_por_presencia", return_value=True):
