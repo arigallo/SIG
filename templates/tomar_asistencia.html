@@ -7,7 +7,7 @@
 <div class="section-header">
     <div>
         <h2>Asistencia - {{ evento['fecha'] }}</h2>
-        <p class="page-intro">Control operativo de disponibilidad, bienestar y asistencia real del evento.</p>
+        <p class="page-intro">Control operativo de disponibilidad{% if requiere_bienestar %}, bienestar{% endif %} y asistencia real del evento.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
@@ -51,6 +51,7 @@
         <p class="stat-number compact">{{ bienestar_resumen_evento['confirmaciones'] }}</p>
         <span class="muted-line">Jugadores que informaron disponibilidad</span>
     </div>
+    {% if requiere_bienestar %}
     <div class="card stat-card">
         <h3>Bienestar completo</h3>
         <p class="stat-number compact">{{ bienestar_resumen_evento['completados'] }}</p>
@@ -72,9 +73,10 @@
         <p class="stat-number compact">{{ bienestar_resumen_evento['rojos'] }}</p>
         <span class="muted-line">Rojo {{ bienestar_resumen_evento['rojos'] }} &middot; Amarillo {{ bienestar_resumen_evento['amarillos'] }} &middot; Verde {{ bienestar_resumen_evento['verdes'] }}</span>
     </div>
+    {% endif %}
 </div>
 
-{% if bienestar_resumen_evento['dolores_frecuentes'] %}
+{% if requiere_bienestar and bienestar_resumen_evento['dolores_frecuentes'] %}
 <div class="card spaced-small attendance-summary-card">
     <p><strong>Molestias m&aacute;s reportadas:</strong> {{ bienestar_resumen_evento['dolores_frecuentes'] | join(', ') }}</p>
 </div>
@@ -85,7 +87,7 @@
     <p><strong>Resumen por categor&iacute;a:</strong></p>
     <div class="portal-chip-row">
         {% for fila in bienestar_por_categoria %}
-            <span>{{ fila['categoria'] }} · {{ fila['confirmados'] }}/{{ fila['total'] }} con portal · {{ fila['alertas'] }} alerta(s)</span>
+            <span>{{ fila['categoria'] }} · {{ fila['confirmados'] }}/{{ fila['total'] }} con portal{% if requiere_bienestar %} · {{ fila['alertas'] }} alerta(s){% endif %}</span>
         {% endfor %}
     </div>
 </div>
@@ -102,7 +104,9 @@
                     <th>Tipo</th>
                     <th>Categor&iacute;a</th>
                     <th>Confirmaci&oacute;n portal</th>
+                    {% if requiere_bienestar %}
                     <th>Bienestar</th>
+                    {% endif %}
                     <th>Asistencia</th>
                     <th>Observaciones</th>
                 </tr>
@@ -123,6 +127,7 @@
                                 -
                             {% endif %}
                         </td>
+                        {% if requiere_bienestar %}
                         <td data-label="Bienestar">
                             {% if participante['confirmacion_portal'] and participante['confirmacion_portal']['bienestar_resumen'] %}
                                 <div class="wellness-admin-summary">
@@ -142,6 +147,7 @@
                                 -
                             {% endif %}
                         </td>
+                        {% endif %}
                         <td class="attendance-state-cell" data-label="Asistencia">
                             {% set estado_actual = asistencia['estado_asistencia'] if asistencia and asistencia['estado_asistencia'] else ('a_tiempo' if asistencia and asistencia['presente'] else 'ausente') %}
                             <select name="estado_{{ participante['form_key'] }}" {% if evento['cerrado'] %}disabled{% endif %}>

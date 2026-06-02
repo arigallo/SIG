@@ -93,6 +93,7 @@ class HotfixTests(unittest.TestCase):
             ["Voy y Juego", "Voy y no juego", "No voy"],
         )
         self.assertEqual(app.asistencia_portal_label(partido, "dudoso"), "Voy y no juego")
+        self.assertTrue(app.es_evento_partido({"tipo": "Partidos"}))
         self.assertEqual(
             [opcion["label"] for opcion in app.asistencia_portal_opciones(entrenamiento)],
             ["Voy", "Dudoso", "No voy"],

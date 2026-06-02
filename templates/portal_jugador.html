@@ -118,18 +118,23 @@
                                     {% if confirmacion %}
                                         <span class="badge {{ asistencia_portal_badge_class(confirmacion['estado']) }}">{{ asistencia_portal_label(evento, confirmacion['estado']) }}</span>
                                     {% endif %}
-                                    <form method="get" action="{{ url_for('portal_bienestar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
+                                    <form method="{{ 'post' if es_evento_partido(evento) else 'get' }}" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) if es_evento_partido(evento) else url_for('portal_bienestar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
+                                        {% if es_evento_partido(evento) %}
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        {% endif %}
                                         <select name="estado">
                                             {% for opcion in asistencia_portal_opciones(evento) %}
                                                 <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button class="button secondary" type="submit">Completar bienestar</button>
+                                        <button class="button secondary" type="submit">{{ 'Guardar confirmacion' if es_evento_partido(evento) else 'Completar bienestar' }}</button>
                                     </form>
-                                    {% if confirmacion and confirmacion['bienestar_completo'] %}
-                                        <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} &middot; {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
-                                    {% else %}
-                                        <span class="muted-line">Falta cuestionario de bienestar</span>
+                                    {% if not es_evento_partido(evento) %}
+                                        {% if confirmacion and confirmacion['bienestar_completo'] %}
+                                            <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} &middot; {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
+                                        {% else %}
+                                            <span class="muted-line">Falta cuestionario de bienestar</span>
+                                        {% endif %}
                                     {% endif %}
                                 {% else %}
                                     <span class="muted-line">Sin confirmaci&oacute;n</span>

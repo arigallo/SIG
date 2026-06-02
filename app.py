@@ -110,6 +110,7 @@ def inject_now():
         "asistencia_portal_opciones": asistencia_portal_opciones,
         "asistencia_portal_label": asistencia_portal_label,
         "asistencia_portal_badge_class": asistencia_portal_badge_class,
+        "es_evento_partido": es_evento_partido,
         "current_month": lambda: datetime.now().strftime("%Y-%m"),
     }
 
@@ -4147,6 +4148,31 @@ def resumen_bienestar_confirmacion(confirmacion):
         "label": label,
         "dolores": zonas_alerta,
     }
+
+
+def guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado):
+    conn.execute("""
+        INSERT INTO portal_asistencia_confirmaciones (
+            evento_id, jugador_id, estado, sueno_calidad, horas_sueno, doms, fatiga, estres, animo,
+            motivacion, recuperacion, dolor_zonas, dolor_otro, comentarios, creado_en, actualizado_en
+        )
+        VALUES (%s, %s, %s, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (evento_id, jugador_id)
+        DO UPDATE SET
+            estado = excluded.estado,
+            sueno_calidad = NULL,
+            horas_sueno = NULL,
+            doms = NULL,
+            fatiga = NULL,
+            estres = NULL,
+            animo = NULL,
+            motivacion = NULL,
+            recuperacion = NULL,
+            dolor_zonas = NULL,
+            dolor_otro = NULL,
+            comentarios = NULL,
+            actualizado_en = CURRENT_TIMESTAMP
+    """, (evento["asistencia_evento_id"], jugador["id"], estado))
 
 
 def obtener_confirmaciones_portal(conn, evento_ids, jugador_id=None):
@@ -15696,6 +15722,54 @@ def portal_confirmar_asistencia(token, evento_id):
     if estado not in PORTAL_ASISTENCIA_ESTADOS:
         flash("La confirmacion no es valida.", "error")
         return redirect(url_for("portal_jugador", token=token))
+
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT *
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        abort(404)
+
+    evento = conn.execute("""
+        SELECT *
+        FROM calendario_eventos
+        WHERE id = %s
+          AND COALESCE(publicar_portal, 0) = 1
+    """, (evento_id,)).fetchone()
+    if evento is None or not evento.get("asistencia_evento_id"):
+        conn.close()
+        flash("Ese evento no admite confirmacion desde el portal.", "error")
+        return redirect(url_for("portal_jugador", token=token))
+
+    if not categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
+        conn.close()
+        abort(404)
+
+    if es_evento_partido(evento):
+        guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
+        conn.commit()
+        conn.close()
+        registrar_auditoria(
+            "confirmar_asistencia",
+            "portal_jugador",
+            str(jugador["id"]),
+            {
+                "evento_id": evento["id"],
+                "asistencia_evento_id": evento["asistencia_evento_id"],
+                "estado": estado,
+                "bienestar": False,
+            },
+            username="portal",
+            rol="portal",
+        )
+        flash("Confirmacion guardada.", "ok")
+        return redirect(url_for("portal_jugador", token=token))
+
+    conn.close()
     return redirect(url_for("portal_bienestar_asistencia", token=token, evento_id=evento_id, estado=estado))
 
 
@@ -15741,6 +15815,29 @@ def portal_bienestar_asistencia(token, evento_id):
     estado = (request.form.get("estado") if request.method == "POST" else request.args.get("estado") or actual.get("estado") or "confirmado").strip()
     if estado not in PORTAL_ASISTENCIA_ESTADOS:
         estado = "confirmado"
+
+    if es_evento_partido(evento):
+        if request.method == "POST" or request.args.get("estado"):
+            guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
+            conn.commit()
+            registrar_auditoria(
+                "confirmar_asistencia",
+                "portal_jugador",
+                str(jugador["id"]),
+                {
+                    "evento_id": evento["id"],
+                    "asistencia_evento_id": evento["asistencia_evento_id"],
+                    "estado": estado,
+                    "bienestar": False,
+                },
+                username="portal",
+                rol="portal",
+            )
+            flash("Confirmacion guardada.", "ok")
+        else:
+            flash("Los partidos no requieren cuestionario de bienestar.", "ok")
+        conn.close()
+        return redirect(url_for("portal_jugador", token=token))
 
     if request.method == "POST":
         campos = {
@@ -20823,6 +20920,7 @@ def tomar_asistencia(evento_id):
         evento=evento,
         participantes=participantes,
         puede_reabrir=session.get("rol") == "admin",
+        requiere_bienestar=not es_evento_partido(evento),
         bienestar_resumen_evento=bienestar_resumen_evento,
         bienestar_por_categoria=resumen_categoria,
     )
