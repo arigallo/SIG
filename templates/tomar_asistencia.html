@@ -11,7 +11,7 @@
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Volver</a>
-        <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar CSV</a>
+        <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar Excel</a>
         {% if puede('asistencia_gestionar') %}
             <a class="button secondary" href="{{ url_for('editar_evento_asistencia', evento_id=evento['id']) }}">Editar evento</a>
             {% if not evento['cerrado'] %}

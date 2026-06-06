@@ -20632,58 +20632,171 @@ def exportar_evento_asistencia(evento_id):
     jugadores = conn.execute("""
         SELECT
             'Jugador' AS tipo_persona,
+            j.id AS persona_id,
             j.apellido,
             j.nombre,
+            j.dni,
             j.categoria,
             a.estado_asistencia,
             a.presente,
-            a.observaciones
-        FROM asistencias a
-        JOIN jugadores j ON j.id = a.jugador_id
-        WHERE a.evento_id = %s
-    """, (evento_id,)).fetchall()
+            a.observaciones,
+            p.estado AS confirmacion_portal,
+            p.sueno_calidad,
+            p.horas_sueno,
+            p.doms,
+            p.fatiga,
+            p.estres,
+            p.animo,
+            p.motivacion,
+            p.recuperacion,
+            p.dolor_zonas,
+            p.dolor_otro,
+            p.comentarios AS comentarios_portal,
+            p.actualizado_en AS portal_actualizado_en
+        FROM jugadores j
+        LEFT JOIN asistencias a
+          ON a.jugador_id = j.id
+         AND a.evento_id = %s
+        LEFT JOIN portal_asistencia_confirmaciones p
+          ON p.jugador_id = j.id
+         AND p.evento_id = %s
+        WHERE j.estado = 'Activo'
+          AND COALESCE(j.tipo_miembro, 'Jugador') = 'Jugador'
+        ORDER BY j.apellido, j.nombre
+    """, (evento_id, evento_id)).fetchall()
 
     aspirantes = conn.execute("""
         SELECT
             'Ahijadx' AS tipo_persona,
+            a2.id AS persona_id,
             a2.apellido,
             a2.nombre,
+            a2.dni,
             NULL::TEXT AS categoria,
             aa.estado_asistencia,
             aa.presente,
-            aa.observaciones
-        FROM aspirante_asistencias aa
-        JOIN aspirantes a2 ON a2.id = aa.aspirante_id
-        WHERE aa.evento_id = %s
+            aa.observaciones,
+            NULL::TEXT AS confirmacion_portal,
+            NULL::INTEGER AS sueno_calidad,
+            NULL::TEXT AS horas_sueno,
+            NULL::INTEGER AS doms,
+            NULL::INTEGER AS fatiga,
+            NULL::INTEGER AS estres,
+            NULL::INTEGER AS animo,
+            NULL::INTEGER AS motivacion,
+            NULL::INTEGER AS recuperacion,
+            NULL::TEXT AS dolor_zonas,
+            NULL::TEXT AS dolor_otro,
+            NULL::TEXT AS comentarios_portal,
+            NULL::TIMESTAMPTZ AS portal_actualizado_en
+        FROM aspirantes a2
+        LEFT JOIN aspirante_asistencias aa
+          ON aa.aspirante_id = a2.id
+         AND aa.evento_id = %s
+        WHERE a2.estado = 'Aspirante'
+        ORDER BY a2.apellido, a2.nombre
     """, (evento_id,)).fetchall()
     conn.close()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Fecha", "Tipo evento", "Descripcion", "Persona", "Tipo persona", "Categoria", "Estado", "Presente", "Observaciones"])
-    for fila in list(jugadores) + list(aspirantes):
-        writer.writerow([
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Participantes"
+    ws.append([
+        "Fecha",
+        "Tipo evento",
+        "Descripcion",
+        "Tipo persona",
+        "ID persona",
+        "Apellido",
+        "Nombre",
+        "DNI",
+        "Categoria",
+        "Estado asistencia",
+        "Presente",
+        "Observaciones asistencia",
+        "Confirmacion portal",
+        "Sueno calidad",
+        "Horas sueno",
+        "DOMS",
+        "Fatiga",
+        "Estres",
+        "Animo",
+        "Motivacion",
+        "Recuperacion",
+        "Molestias",
+        "Dolor otro",
+        "Comentarios portal",
+        "Portal actualizado en",
+    ])
+
+    filas = list(jugadores) + list(aspirantes)
+    for fila in filas:
+        try:
+            dolor_zonas = ", ".join(json.loads(fila.get("dolor_zonas") or "[]"))
+        except (TypeError, ValueError):
+            dolor_zonas = fila.get("dolor_zonas") or ""
+
+        estado_asistencia = fila.get("estado_asistencia")
+        presente = fila.get("presente")
+        append_fila_reporte(ws, [
             evento.get("fecha") or "",
             evento.get("tipo") or "",
             evento.get("descripcion") or "",
-            f"{fila['apellido']}, {fila['nombre']}",
             fila["tipo_persona"],
+            fila["persona_id"],
+            fila["apellido"],
+            fila["nombre"],
+            fila.get("dni") or "",
             fila.get("categoria") or "",
-            fila.get("estado_asistencia") or "",
-            "Si" if fila.get("presente") else "No",
+            estado_asistencia or "Sin registrar",
+            "Si" if presente else ("No" if presente == 0 else ""),
             fila.get("observaciones") or "",
+            fila.get("confirmacion_portal") or "",
+            fila.get("sueno_calidad") or "",
+            fila.get("horas_sueno") or "",
+            fila.get("doms") or "",
+            fila.get("fatiga") or "",
+            fila.get("estres") or "",
+            fila.get("animo") or "",
+            fila.get("motivacion") or "",
+            fila.get("recuperacion") or "",
+            dolor_zonas,
+            fila.get("dolor_otro") or "",
+            fila.get("comentarios_portal") or "",
+            fila.get("portal_actualizado_en") or "",
         ])
+    estilizar_hoja_reporte(ws)
+
+    resumen_filas = [
+        ["Evento ID", evento_id],
+        ["Fecha", evento.get("fecha") or ""],
+        ["Tipo", evento.get("tipo") or ""],
+        ["Descripcion", evento.get("descripcion") or ""],
+        ["Jugadores", len(jugadores)],
+        ["Ahijadxs", len(aspirantes)],
+        ["Total participantes", len(filas)],
+        ["Con asistencia registrada", sum(1 for fila in filas if fila.get("estado_asistencia"))],
+        ["Confirmaciones portal", sum(1 for fila in filas if fila.get("confirmacion_portal"))],
+        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Usuario", session.get("username") or ""],
+    ]
+    agregar_hoja_reporte(wb, "Resumen", ["Dato", "Valor"], resumen_filas)
 
     registrar_auditoria("exportar", "asistencia_evento", str(evento_id), {
-        "filas": len(jugadores) + len(aspirantes),
+        "formato": "xlsx",
+        "filas": len(filas),
         "fecha": evento.get("fecha"),
         "tipo": evento.get("tipo"),
     })
 
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename=asistencia_{evento_id}.csv"},
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"asistencia_{evento_id}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 

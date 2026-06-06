@@ -99,6 +99,18 @@ class HotfixTests(unittest.TestCase):
             ["Voy", "Dudoso", "No voy"],
         )
 
+    def test_asistencia_event_export_is_excel_and_includes_unsaved_players(self):
+        source = Path("app.py").read_text(encoding="utf-8")
+        template = Path("templates/tomar_asistencia.html").read_text(encoding="utf-8")
+
+        self.assertIn("download_name=f\"asistencia_{evento_id}.xlsx\"", source)
+        self.assertIn("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", source)
+        self.assertIn("FROM jugadores j", source)
+        self.assertIn("LEFT JOIN asistencias a", source)
+        self.assertIn("estado_asistencia or \"Sin registrar\"", source)
+        self.assertIn("Exportar Excel", template)
+        self.assertNotIn("Exportar CSV", template)
+
     def test_whatsapp_unsupported_message_shows_meta_reason(self):
         resumen = app.resumir_contenido_whatsapp(
             "unsupported",
