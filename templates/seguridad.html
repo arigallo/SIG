@@ -47,7 +47,7 @@
                     <td>{{ item['ip'] or '-' }}</td>
                     <td>{{ item['username'] or '-' }}</td>
                     <td class="strong-danger">{{ item['fallidos'] }}</td>
-                    <td>{{ item['ultimo'] }}</td>
+                    <td>{{ item['ultimo'] | fecha_hora }}</td>
                 </tr>
                 {% else %}
                 <tr>
@@ -77,7 +77,7 @@
                 <tbody>
                     {% for intento in intentos_recientes %}
                     <tr>
-                        <td>{{ intento['fecha'] }}</td>
+                        <td>{{ intento['fecha'] | fecha_hora }}</td>
                         <td>{{ intento['username'] or '-' }}</td>
                         <td>{{ intento['ip'] or '-' }}</td>
                         <td>{% if intento['success'] %}<span class="status-paid">OK</span>{% else %}<span class="status-pending">Fallido</span>{% endif %}</td>
@@ -110,7 +110,7 @@
                 <tbody>
                     {% for accion in acciones_sensibles %}
                     <tr>
-                        <td>{{ accion['fecha'] }}</td>
+                        <td>{{ accion['fecha'] | fecha_hora }}</td>
                         <td>{{ accion['username'] or '-' }}</td>
                         <td>{{ accion['accion'] }}</td>
                         <td>{{ accion['entidad'] or '-' }}</td>

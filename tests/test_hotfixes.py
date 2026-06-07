@@ -23,14 +23,14 @@ class HotfixTests(unittest.TestCase):
             [datetime(2026, 5, 20, 14, 0, 51, tzinfo=timezone.utc)],
         )
 
-        self.assertEqual(ws["A1"].value, "2026-05-20 14:00:51")
+        self.assertEqual(ws["A1"].value, "2026-05-20 11:00:51")
 
         fd, path = tempfile.mkstemp(suffix=".xlsx")
         os.close(fd)
         try:
             wb.save(path)
             reloaded = load_workbook(path)
-            self.assertEqual(reloaded.active["A1"].value, "2026-05-20 14:00:51")
+            self.assertEqual(reloaded.active["A1"].value, "2026-05-20 11:00:51")
         finally:
             if os.path.exists(path):
                 os.remove(path)
@@ -49,7 +49,7 @@ class HotfixTests(unittest.TestCase):
         with app.app.test_request_context("/usuarios"):
             html = render_template("usuarios.html", usuarios=[usuario])
 
-        self.assertIn("2026-05-20 12:34", html)
+        self.assertIn("2026-05-20 09:34", html)
 
     def test_no_known_unsafe_fecha_vencimiento_casts(self):
         source = Path("app.py").read_text(encoding="utf-8")

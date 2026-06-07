@@ -123,6 +123,7 @@
                         <td data-label="Confirmaci&oacute;n portal">
                             {% if participante['confirmacion_portal'] %}
                                 <span class="badge {{ asistencia_portal_badge_class(participante['confirmacion_portal']['estado']) }}">{{ asistencia_portal_label(evento, participante['confirmacion_portal']['estado']) }}</span>
+                                <span class="muted-line">Confirmado {{ participante['confirmacion_portal']['actualizado_en'] | fecha_hora }}</span>
                             {% else %}
                                 -
                             {% endif %}

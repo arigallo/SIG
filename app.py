@@ -28,6 +28,7 @@ from urllib.parse import urljoin
 from urllib.request import Request as UrlRequest, urlopen
 from urllib.error import HTTPError, URLError
 from html.parser import HTMLParser
+from zoneinfo import ZoneInfo
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -74,6 +75,35 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 
 app.permanent_session_lifetime = timedelta(minutes=30)
 
+APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "America/Argentina/Buenos_Aires")
+APP_TZ = ZoneInfo(APP_TIMEZONE)
+
+
+def ahora_sig():
+    return datetime.now(APP_TZ)
+
+
+def fecha_hora_sig(valor):
+    if isinstance(valor, datetime):
+        if valor.tzinfo is not None and valor.utcoffset() is not None:
+            return valor.astimezone(APP_TZ)
+        return valor
+
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    if len(texto) < 16:
+        return None
+    try:
+        normalizado = texto.replace("Z", "+00:00")
+        fecha = datetime.fromisoformat(normalizado)
+    except ValueError:
+        return None
+    if fecha.tzinfo is not None and fecha.utcoffset() is not None:
+        return fecha.astimezone(APP_TZ)
+    return fecha
+
+
 def formato_moneda(valor):
     try:
         return "${:,.0f}".format(float(valor)).replace(",", ".")
@@ -86,8 +116,9 @@ app.jinja_env.filters["moneda"] = formato_moneda
 def formato_fecha_hora(valor):
     if not valor:
         return "-"
-    if isinstance(valor, datetime):
-        return valor.strftime("%Y-%m-%d %H:%M")
+    fecha = fecha_hora_sig(valor)
+    if fecha:
+        return fecha.strftime("%Y-%m-%d %H:%M")
     texto = str(valor).strip()
     if len(texto) >= 16:
         return texto[:16].replace("T", " ")
@@ -99,7 +130,7 @@ app.jinja_env.filters["fecha_hora"] = formato_fecha_hora
 @app.context_processor
 def inject_now():
     return {
-        "now": datetime.now,
+        "now": ahora_sig,
         "csrf_token": csrf_token,
         "puede": tiene_permiso,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
@@ -111,7 +142,7 @@ def inject_now():
         "asistencia_portal_label": asistencia_portal_label,
         "asistencia_portal_badge_class": asistencia_portal_badge_class,
         "es_evento_partido": es_evento_partido,
-        "current_month": lambda: datetime.now().strftime("%Y-%m"),
+        "current_month": lambda: ahora_sig().strftime("%Y-%m"),
     }
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -225,6 +256,31 @@ def resumen_auditoria_portal(detalle):
         despues = cambio.get("despues") or "-"
         partes.append(f"{label}: {antes} -> {despues}")
     return "; ".join(partes)
+
+
+def nombre_jugador_auditoria(jugador):
+    apellido = (jugador.get("apellido") or "").strip()
+    nombre = (jugador.get("nombre") or "").strip()
+    jugador_id = jugador.get("jugador_id") or jugador.get("id")
+    nombre_completo = ", ".join(parte for parte in (apellido, nombre) if parte)
+    if not nombre_completo:
+        nombre_completo = "Jugador"
+    if jugador_id:
+        return f"{nombre_completo} #{jugador_id}"
+    return nombre_completo
+
+
+def username_portal_jugador(jugador):
+    return f"portal - {nombre_jugador_auditoria(jugador)}"
+
+
+def detalle_actor_portal(jugador):
+    return {
+        "jugador_id": jugador.get("jugador_id") or jugador.get("id"),
+        "jugador": nombre_jugador_auditoria(jugador),
+        "categoria": jugador.get("categoria") or "",
+        "dni": jugador.get("dni") or "",
+    }
 
 
 def grupos_permisos():
@@ -755,6 +811,7 @@ class DBConnection:
     def __init__(self):
         args, kwargs = get_db_connect_args()
         self.conn = psycopg.connect(*args, **kwargs)
+        self.conn.execute("SELECT set_config('TimeZone', %s, false)", (APP_TIMEZONE,))
 
     def execute(self, query, params=None):
         cur = self.conn.cursor()
@@ -1298,7 +1355,7 @@ def get_drive_periodo_folder(service, root_folder, periodo):
     try:
         fecha_periodo = datetime.strptime(periodo, "%Y-%m")
     except (TypeError, ValueError):
-        fecha_periodo = datetime.now()
+        fecha_periodo = ahora_sig()
 
     year_folder = get_or_create_drive_subfolder(
         service,
@@ -1363,7 +1420,7 @@ def subir_ficha_medica_batch_pendiente(validado, batch_id):
     root_folder = get_drive_fichas_medicas_base_folder(service)
     pendientes_folder = get_or_create_drive_subfolder(service, root_folder, "_batch_pendientes")
     batch_folder = get_or_create_drive_subfolder(service, pendientes_folder, batch_id)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     filename = validado["filename"] or f"ficha_medica{validado['ext']}"
     drive_name = f"pendiente_{timestamp}_{filename}"
     media = MediaIoBaseUpload(
@@ -1393,7 +1450,7 @@ def mover_ficha_medica_batch_a_jugador(file_id, jugador, ext, source_folder_id=N
     service = drive_service()
     root_folder = get_drive_fichas_medicas_base_folder(service)
     target_folder = get_drive_jugador_folder(service, root_folder, jugador)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     jugador_slug = secure_filename(f"{jugador['apellido']}_{jugador['nombre']}") or f"jugador_{jugador['id']}"
     drive_name = f"ficha_medica_{jugador['id']}_{jugador_slug}_{timestamp}{ext or ''}"
 
@@ -1487,7 +1544,7 @@ def validar_documento_secretaria_upload(file_storage):
 
 def get_drive_secretaria_folder(service, categoria, fecha_base=None):
     root_folder = get_drive_secretaria_base_folder(service)
-    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    periodo = (fecha_base or ahora_sig().strftime("%Y-%m-%d"))[:7]
     periodo_folder = get_drive_periodo_folder(service, root_folder, periodo)
     categoria_slug = secure_filename(categoria or "General") or "General"
     return get_or_create_drive_subfolder(service, periodo_folder, categoria_slug)
@@ -1499,7 +1556,7 @@ def subir_documento_secretaria_a_drive(validado, categoria, titulo, fecha_base=N
 
     service = drive_service()
     folder_id = get_drive_secretaria_folder(service, categoria, fecha_base=fecha_base)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     titulo_slug = secure_filename(titulo or Path(validado["filename"]).stem or "documento") or "documento"
     drive_name = f"secretaria_{titulo_slug}_{timestamp}{validado['ext']}"
     media = MediaIoBaseUpload(io.BytesIO(validado["content"]), mimetype=validado["mime_type"], resumable=False)
@@ -1529,10 +1586,10 @@ def subir_comprobante_a_drive(file_storage, cuota):
     filename, ext, content, mime_type = validado
     service = drive_service()
     root_folder = get_drive_comprobantes_base_folder(service)
-    periodo = cuota["periodo"] or datetime.now().strftime("%Y-%m")
+    periodo = cuota["periodo"] or ahora_sig().strftime("%Y-%m")
     folder_id = get_drive_periodo_folder(service, root_folder, periodo)
     jugador_slug = secure_filename(f"{cuota['apellido']}_{cuota['nombre']}") or f"jugador_{cuota['jugador_id']}"
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     drive_name = f"cuota_{cuota['id']}_{periodo}_{jugador_slug}_{timestamp}{ext}"
     media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
     body = {"name": drive_name, "parents": [folder_id]}
@@ -1566,7 +1623,7 @@ def subir_comprobante_a_drive(file_storage, cuota):
 def get_drive_gastos_compartidos_folder(service, fecha_base=None):
     root_folder = get_drive_comprobantes_base_folder(service)
     gastos_folder = get_or_create_drive_subfolder(service, root_folder, "Gastos compartidos")
-    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    periodo = (fecha_base or ahora_sig().strftime("%Y-%m-%d"))[:7]
     return get_drive_periodo_folder(service, gastos_folder, periodo)
 
 
@@ -1579,7 +1636,7 @@ def subir_comprobante_gasto_compartido_a_drive(file_storage, item):
     service = drive_service()
     folder_id = get_drive_gastos_compartidos_folder(service, item.get("fecha_vencimiento"))
     jugador_slug = secure_filename(f"{item['apellido']}_{item['nombre']}") or f"jugador_{item['jugador_id']}"
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     drive_name = f"gasto_{item['gasto_id']}_{item['id']}_{jugador_slug}_{timestamp}{ext}"
     media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
     body = {"name": drive_name, "parents": [folder_id]}
@@ -1625,7 +1682,7 @@ def subir_comprobante_gasto_compartido_a_drive(file_storage, item):
 def get_drive_caja_folder(service, fecha):
     root_folder = get_drive_comprobantes_base_folder(service)
     caja_folder = get_or_create_drive_subfolder(service, root_folder, "Caja")
-    periodo = (fecha or datetime.now().strftime("%Y-%m-%d"))[:7]
+    periodo = (fecha or ahora_sig().strftime("%Y-%m-%d"))[:7]
     return get_drive_periodo_folder(service, caja_folder, periodo)
 
 
@@ -1635,7 +1692,7 @@ def subir_comprobante_movimiento_a_drive(validado, movimiento, existing_file_id=
 
     service = drive_service()
     folder_id = get_drive_caja_folder(service, movimiento.get("fecha"))
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     concepto_slug = secure_filename(movimiento.get("concepto") or "movimiento") or "movimiento"
     tipo = secure_filename(movimiento.get("tipo") or "movimiento") or "movimiento"
     movimiento_id = movimiento.get("id") or "nuevo"
@@ -1794,7 +1851,7 @@ def factura_email_configurado():
 def get_drive_facturas_recibidas_folder(service, fecha_base=None):
     root_folder = get_drive_comprobantes_base_folder(service)
     facturas_folder = get_or_create_drive_subfolder(service, root_folder, "Facturas recibidas")
-    periodo = (fecha_base or datetime.now().strftime("%Y-%m-%d"))[:7]
+    periodo = (fecha_base or ahora_sig().strftime("%Y-%m-%d"))[:7]
     return get_drive_periodo_folder(service, facturas_folder, periodo)
 
 
@@ -1829,7 +1886,7 @@ def subir_factura_recibida_a_drive(validado, proveedor, fecha_base=None):
 
     service = drive_service()
     folder_id = get_drive_facturas_recibidas_folder(service, fecha_base=fecha_base)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     proveedor_slug = secure_filename(proveedor or "proveedor") or "proveedor"
     archivo_slug = secure_filename(Path(validado["filename"]).stem or "factura") or "factura"
     drive_name = f"factura_{proveedor_slug}_{archivo_slug}_{timestamp}{validado['ext']}"
@@ -2015,7 +2072,7 @@ def sincronizar_facturas_email_cuenta(conn, config, filtros, usuario=None):
 
             message_id = decodificar_header_email(mensaje.get("Message-ID")) or f"imap:{email_id.decode(errors='ignore')}"
             fecha_email = fecha_email_iso(mensaje.get("Date"))
-            fecha_base = (fecha_email or datetime.now().strftime("%Y-%m-%d"))[:10]
+            fecha_base = (fecha_email or ahora_sig().strftime("%Y-%m-%d"))[:10]
             try:
                 adjuntos = extraer_adjuntos_factura_email(mensaje, asunto)
             except ValueError as error:
@@ -2115,7 +2172,7 @@ def sincronizar_facturas_email(conn, usuario=None):
     if not resultado_total["cuentas"] and resultado_total["errores"]:
         raise RuntimeError("; ".join(resultado_total["errores"]))
 
-    guardar_app_setting(conn, "facturas_email_sync_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario)
+    guardar_app_setting(conn, "facturas_email_sync_en", ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), usuario)
     guardar_app_setting(conn, "facturas_email_sync_por", usuario or "", usuario)
     return resultado_total
 
@@ -2253,7 +2310,7 @@ def subir_ficha_medica_a_drive(validado, jugador, ficha=None):
     service = drive_service()
     root_folder = get_drive_fichas_medicas_base_folder(service)
     folder_id = get_drive_jugador_folder(service, root_folder, jugador)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     jugador_slug = secure_filename(f"{jugador['apellido']}_{jugador['nombre']}") or f"jugador_{jugador['id']}"
     drive_name = f"ficha_medica_{jugador['id']}_{jugador_slug}_{timestamp}{validado['ext']}"
     media = MediaIoBaseUpload(
@@ -2298,7 +2355,7 @@ def extraer_texto_ocr_drive(validado, jugador, folder_id=None):
         root_folder = get_drive_fichas_medicas_base_folder(service)
         folder_id = get_drive_jugador_folder(service, root_folder, jugador)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     doc_name = f"ocr_tmp_ficha_medica_{jugador['id']}_{timestamp}"
     media = MediaIoBaseUpload(
         io.BytesIO(validado["content"]),
@@ -2567,7 +2624,7 @@ def procesar_ocr_ficha_medica_batch_item(conn, item):
         WHERE id = %s
     """, (
         ocr_texto or None,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S") if ocr_texto else None,
+        ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if ocr_texto else None,
         session.get("username") if ocr_texto else None,
         jugador_sugerido["id"] if jugador_sugerido else None,
         confianza,
@@ -2670,7 +2727,7 @@ def subir_documento_lesion_a_drive(validado, jugador, lesion):
 
     service = drive_service()
     folder_id = get_drive_lesion_folder(service, jugador, lesion)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
     drive_name = f"lesion_{lesion['id']}_{timestamp}_{validado['filename']}"
     media = MediaIoBaseUpload(
         io.BytesIO(validado["content"]),
@@ -2717,7 +2774,7 @@ def guardar_documentos_lesion(conn, jugador, lesion, archivos, descripcion=""):
             documento["folder_id"],
             documento["web_url"],
             descripcion or None,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
             session.get("username"),
         ))
         guardados += 1
@@ -2776,7 +2833,7 @@ def mensaje_error_drive(error, carpeta="Cuotas", accion="subir el comprobante"):
 
 
 def fecha_movimiento_default(mes=None):
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = ahora_sig().strftime("%Y-%m-%d")
     if not mes:
         return hoy
 
@@ -3007,7 +3064,7 @@ def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None):
     """, parametros).fetchall()
 
     resultado = {"revisadas": len(cuotas), "actualizadas": 0}
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = ahora_sig().strftime("%Y-%m-%d")
 
     for cuota in cuotas:
         plan_pago_monto = round(float(cuota.get("plan_pago_monto") or 0), 2)
@@ -3131,7 +3188,7 @@ def recalcular_cuotas_becadas(conn, jugador, periodo_desde="", periodo_hasta="")
         "sin_beca": 0,
     }
 
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = ahora_sig().strftime("%Y-%m-%d")
     for cuota in cuotas:
         plan_pago_monto = round(float(cuota.get("plan_pago_monto") or 0), 2)
         importe_base = cuota.get("importe_original")
@@ -3236,7 +3293,7 @@ def sumar_meses(mes, cantidad):
 
 
 def filtros_reportes():
-    hoy = datetime.now()
+    hoy = ahora_sig()
     default_desde = f"{hoy.year}-01"
     default_hasta = hoy.strftime("%Y-%m")
 
@@ -4618,7 +4675,7 @@ def registrar_whatsapp_envio(
             json.dumps(payload or {}, ensure_ascii=False, default=str),
             json.dumps(respuesta or {}, ensure_ascii=False, default=str),
             session.get("username") if has_request_context() else None,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if estado in {"enviado", "sent", "accepted"} else None,
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if estado in {"enviado", "sent", "accepted"} else None,
         ))
         conn.commit()
         conn.close()
@@ -5920,7 +5977,7 @@ def parsear_importe(valor):
 
 
 def obtener_presupuesto_mensual(mes, meses_proyeccion=6):
-    mes = normalizar_mes(mes, datetime.now().strftime("%Y-%m"))
+    mes = normalizar_mes(mes, ahora_sig().strftime("%Y-%m"))
     meses = meses_entre(mes, sumar_meses(mes, max(1, min(meses_proyeccion, 24)) - 1))
     conn = get_connection()
 
@@ -6176,7 +6233,7 @@ def aplicar_matches_conciliacion(conn, matches):
             omitidos += 1
             continue
 
-        fecha_pago = match.get("fecha_pago") or datetime.now().strftime("%Y-%m-%d")
+        fecha_pago = match.get("fecha_pago") or ahora_sig().strftime("%Y-%m-%d")
         referencia = match.get("referencia") or "Conciliacion importada"
         numero_recibo = cuota["numero_recibo"] or siguiente_numero_recibo(conn)
         conn.execute("""
@@ -6333,7 +6390,7 @@ def normalizar_fecha_test(valor, usar_hoy_si_vacia=True):
         return valor.strftime("%Y-%m-%d")
     texto = str(valor or "").strip()
     if not texto:
-        return datetime.now().strftime("%Y-%m-%d") if usar_hoy_si_vacia else None
+        return ahora_sig().strftime("%Y-%m-%d") if usar_hoy_si_vacia else None
     for formato in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
         try:
             return datetime.strptime(texto[:10], formato).strftime("%Y-%m-%d")
@@ -7972,7 +8029,7 @@ def ver_presupuesto():
     if check:
         return check
 
-    mes = normalizar_mes(request.args.get("mes"), datetime.now().strftime("%Y-%m"))
+    mes = normalizar_mes(request.args.get("mes"), ahora_sig().strftime("%Y-%m"))
     try:
         meses_proyeccion = int(request.args.get("meses", "6") or 6)
     except ValueError:
@@ -7994,7 +8051,7 @@ def crear_presupuesto_item():
     mes_inicio = normalizar_mes(request.form.get("mes_inicio"), "")
     mes_fin = normalizar_mes(request.form.get("mes_fin"), "")
     notas = request.form.get("notas", "").strip()
-    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), ahora_sig().strftime("%Y-%m"))
 
     if tipo not in {"ingreso", "egreso"}:
         flash("Selecciona si el concepto es ingreso o egreso.", "error")
@@ -8012,7 +8069,7 @@ def crear_presupuesto_item():
         flash("El mes de fin no puede ser anterior al inicio.", "error")
         return redirect(url_for("ver_presupuesto", mes=mes_retorno))
 
-    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_connection()
     conn.execute("""
         INSERT INTO presupuesto_items (
@@ -8039,7 +8096,7 @@ def alternar_presupuesto_item(item_id):
     if check:
         return check
 
-    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), ahora_sig().strftime("%Y-%m"))
     conn = get_connection()
     item = conn.execute("SELECT * FROM presupuesto_items WHERE id = %s", (item_id,)).fetchone()
     if item is None:
@@ -8053,7 +8110,7 @@ def alternar_presupuesto_item(item_id):
         SET activo = %s,
             actualizado_en = %s
         WHERE id = %s
-    """, (nuevo_estado, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item_id))
+    """, (nuevo_estado, ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), item_id))
     conn.commit()
     conn.close()
 
@@ -8068,7 +8125,7 @@ def eliminar_presupuesto_item(item_id):
     if check:
         return check
 
-    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), datetime.now().strftime("%Y-%m"))
+    mes_retorno = normalizar_mes(request.form.get("mes_retorno"), ahora_sig().strftime("%Y-%m"))
     conn = get_connection()
     item = conn.execute("SELECT * FROM presupuesto_items WHERE id = %s", (item_id,)).fetchone()
     if item is None:
@@ -8096,7 +8153,7 @@ def ver_caja():
         return check
 
     mes = request.args.get("mes")
-    mes_actual = mes or datetime.now().strftime("%Y-%m")
+    mes_actual = mes or ahora_sig().strftime("%Y-%m")
 
     conn = get_connection()
 
@@ -8244,7 +8301,7 @@ def nuevo_movimiento():
             comprobante_info["nombre"] if comprobante_info else None,
             comprobante_info["mime_type"] if comprobante_info else None,
             comprobante_info["tamano"] if comprobante_info else None,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
             session.get("username") if comprobante_info else None,
             comprobante_info["web_url"] if comprobante_info else None,
             numero_operacion or None,
@@ -8509,7 +8566,7 @@ def registrar_factura_recibida_en_caja(factura_id):
         factura["archivo_nombre"],
         factura["archivo_mime_type"],
         factura["archivo_tamano"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
         session.get("username"),
         factura["archivo_web_url"],
     )).fetchone()
@@ -9192,7 +9249,7 @@ def estado_ficha_portal(ficha):
     if fecha_vencimiento:
         try:
             fecha = datetime.strptime(fecha_vencimiento, "%Y-%m-%d").date()
-            hoy = datetime.now().date()
+            hoy = ahora_sig().date()
             if fecha < hoy:
                 return {"label": "Ficha vencida", "nivel": "danger"}
             if fecha <= hoy + timedelta(days=30):
@@ -9618,7 +9675,7 @@ def descartar_onboarding():
 @app.route("/")
 def index():
     mes = request.args.get("mes")  # formato YYYY-MM
-    mes_actual = mes or datetime.now().strftime("%Y-%m")
+    mes_actual = mes or ahora_sig().strftime("%Y-%m")
 
     conn = get_connection()
 
@@ -10109,7 +10166,7 @@ def editar_ficha_medica(jugador_id):
 
             presentada = 1
             apto_fisico = 1
-            documento_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            documento_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
             documento_usuario = session.get("username")
 
             if procesar_ocr:
@@ -10131,7 +10188,7 @@ def editar_ficha_medica(jugador_id):
                             contacto_emergencia = datos_ocr["contacto_emergencia"]
                         if not telefono_emergencia and datos_ocr.get("telefono_emergencia"):
                             telefono_emergencia = datos_ocr["telefono_emergencia"]
-                        ocr_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ocr_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
                         ocr_usuario = session.get("username")
                     else:
                         flash("El documento se guard?, pero OCR no devolvi? texto para completar campos.", "warning")
@@ -10237,7 +10294,7 @@ def cargar_fichas_medicas_batch():
 
         conn = get_connection()
         jugadores = obtener_jugadores_selector(conn)
-        batch_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_urlsafe(6)}"
+        batch_id = f"{ahora_sig().strftime('%Y%m%d%H%M%S')}_{secrets.token_urlsafe(6)}"
         cargadas = 0
         errores = 0
 
@@ -10287,7 +10344,7 @@ def cargar_fichas_medicas_batch():
                     datos_ocr.get("contacto_emergencia") or None,
                     datos_ocr.get("telefono_emergencia") or None,
                     error,
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
                     session.get("username"),
                 ))
                 conn.commit()
@@ -10427,7 +10484,7 @@ def revisar_fichas_medicas_batch(batch_id):
                     documento_info["nombre"],
                     documento_info["mime_type"] or item["documento_mime_type"],
                     documento_info["tamano"] or item["documento_tamano"],
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
                     session.get("username"),
                     documento_info["web_url"],
                     item["ocr_texto"],
@@ -10453,7 +10510,7 @@ def revisar_fichas_medicas_batch(batch_id):
                     apto_fisico,
                     contacto_emergencia or None,
                     telefono_emergencia or None,
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
                     session.get("username"),
                     item["id"],
                 ))
@@ -11241,7 +11298,7 @@ def nuevo_aspirante():
     if request.method == "POST":
         data = aspirante_desde_formulario()
         if not data["fecha_postulacion"]:
-            data["fecha_postulacion"] = datetime.now().strftime("%Y-%m-%d")
+            data["fecha_postulacion"] = ahora_sig().strftime("%Y-%m-%d")
 
         if not data["nombre"] or not data["apellido"]:
             conn.close()
@@ -11285,7 +11342,7 @@ def nuevo_aspirante():
     return render_template(
         "aspirante_form.html",
         aspirante={
-            "fecha_postulacion": datetime.now().strftime("%Y-%m-%d"),
+            "fecha_postulacion": ahora_sig().strftime("%Y-%m-%d"),
             "estado": "Aspirante",
             "entrenamientos_objetivo": ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,
         },
@@ -11427,7 +11484,7 @@ def convertir_aspirante(aspirante_id):
             flash("Ya existe un jugador con ese DNI.", "error")
             return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
 
-    fecha_ingreso = request.form.get("fecha_ingreso", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    fecha_ingreso = request.form.get("fecha_ingreso", "").strip() or ahora_sig().strftime("%Y-%m-%d")
     jugador_creado = conn.execute("""
         INSERT INTO jugadores (
             nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
@@ -11736,7 +11793,7 @@ def acciones_masivas_jugadores():
             WHERE id = ANY(%s)
             FOR UPDATE
         """, (ids,)).fetchall()
-        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
         activados = 0
         tokens_generados = 0
         for jugador in jugadores:
@@ -12104,7 +12161,7 @@ def listar_planes_pago():
 
 
 def datos_plan_pago_form(require_monto=True):
-    fecha_inicio = request.form.get("fecha_inicio", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    fecha_inicio = request.form.get("fecha_inicio", "").strip() or ahora_sig().strftime("%Y-%m-%d")
     descripcion = request.form.get("descripcion", "").strip()
     observaciones = request.form.get("observaciones", "").strip()
     estado = request.form.get("estado", "Activo").strip() or "Activo"
@@ -12260,12 +12317,12 @@ def nuevo_plan_pago(jugador_id):
             WHERE jugador_id = %s
               AND id = ANY(%s)
         """, (
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
             session.get("username"),
             f"Incluida en plan de pago #{plan_id}",
             plan_id,
             f"Cuota anulada e incluida en plan de pago #{plan_id}",
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
             session.get("username"),
             f"Archivado por plan de pago #{plan_id}",
             jugador_id,
@@ -12320,7 +12377,7 @@ def editar_plan_pago(plan_id):
         cerrado_en = plan["cerrado_en"]
         cerrado_por = plan["cerrado_por"]
         if data["estado"] != plan["estado"]:
-            cerrado_en = datetime.now().strftime("%Y-%m-%d") if data["estado"] != "Activo" else None
+            cerrado_en = ahora_sig().strftime("%Y-%m-%d") if data["estado"] != "Activo" else None
             cerrado_por = session.get("username") if data["estado"] != "Activo" else None
 
         periodo_recalculo = periodo_minimo(periodo_inicio_plan(plan), periodo_inicio_plan(data))
@@ -12430,7 +12487,7 @@ def actualizar_plan_pago(plan_id):
         flash("Plan de pago no encontrado.", "error")
         return redirect(url_for("listar_planes_pago"))
 
-    cerrado_en = datetime.now().strftime("%Y-%m-%d") if estado != "Activo" else None
+    cerrado_en = ahora_sig().strftime("%Y-%m-%d") if estado != "Activo" else None
     cerrado_por = session.get("username") if estado != "Activo" else None
     conn.execute("""
         UPDATE planes_pago
@@ -12503,7 +12560,7 @@ def nueva_cuota(jugador_id):
 
         cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_valor)
         pagado_inicial = 1 if cuota_calculada["beca_total"] else 0
-        fecha_pago_inicial = datetime.now().strftime("%Y-%m-%d") if pagado_inicial else None
+        fecha_pago_inicial = ahora_sig().strftime("%Y-%m-%d") if pagado_inicial else None
         metodo_inicial = "Beca" if pagado_inicial else None
         referencia_inicial = (
             f"Beca total {cuota_calculada['beca_porcentaje']:g}%"
@@ -12607,10 +12664,10 @@ def pagar_cuota(cuota_id):
             return render_template("pagar_cuota.html", cuota=cuota)
 
         nuevo_numero = cuota["numero_recibo"] or siguiente_numero_recibo(conn)
-        comprobante_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None
+        comprobante_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None
         comprobante_usuario = session.get("username") if comprobante_info else None
         hay_comprobante = bool(comprobante_info or cuota.get("comprobante_drive_file_id"))
-        revisado_en = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if hay_comprobante else None
+        revisado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if hay_comprobante else None
         revisado_por = session.get("username") if hay_comprobante else None
 
         conn.execute("""
@@ -12773,10 +12830,10 @@ def subir_comprobante_cuota(cuota_id):
             comprobante_info["nombre"],
             comprobante_info["mime_type"],
             comprobante_info["tamano"],
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
             session.get("username"),
             comprobante_info["web_url"],
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
             session.get("username"),
             cuota_id,
         ))
@@ -12915,7 +12972,7 @@ def revisar_comprobante_cuota(cuota_id):
         flash("La cuota esta anulada por un plan de pago.", "error")
         return redirect(next_url)
 
-    revisado_en = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    revisado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     revisado_por = session.get("username")
 
     if accion == "rechazar":
@@ -12938,7 +12995,7 @@ def revisar_comprobante_cuota(cuota_id):
         return redirect(next_url)
 
     numero_recibo = cuota["numero_recibo"] or siguiente_numero_recibo(conn)
-    fecha_pago = cuota["fecha_pago"] or datetime.now().strftime("%Y-%m-%d")
+    fecha_pago = cuota["fecha_pago"] or ahora_sig().strftime("%Y-%m-%d")
     metodo_pago = cuota["metodo_pago"] or "Comprobante portal"
     referencia_pago = cuota["referencia_pago"] or "Comprobante validado"
 
@@ -13562,7 +13619,7 @@ def generar_cuotas():
 
             cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_valor)
             pagado_inicial = 1 if cuota_calculada["beca_total"] else 0
-            fecha_pago_inicial = datetime.now().strftime("%Y-%m-%d") if pagado_inicial else None
+            fecha_pago_inicial = ahora_sig().strftime("%Y-%m-%d") if pagado_inicial else None
             metodo_inicial = "Beca" if pagado_inicial else None
             referencia_inicial = (
                 f"Beca total {cuota_calculada['beca_porcentaje']:g}%"
@@ -14136,7 +14193,7 @@ def generar_portal_jugador(jugador_id):
             portal_activo = 1,
             portal_actualizado_en = %s
         WHERE id = %s
-    """, (token, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), jugador_id))
+    """, (token, ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), jugador_id))
     conn.commit()
     conn.close()
 
@@ -14156,7 +14213,7 @@ def desactivar_portal_jugador(jugador_id):
         SET portal_activo = 0,
             portal_actualizado_en = %s
         WHERE id = %s
-    """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), jugador_id))
+    """, (ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), jugador_id))
     conn.commit()
     conn.close()
 
@@ -14299,14 +14356,14 @@ class UrbaCircularesParser(HTMLParser):
 
 def urba_circulares_url_anio(anio):
     anio = int(anio)
-    actual = datetime.now().year
+    actual = ahora_sig().year
     if anio == actual:
         return f"https://urba.org.ar/circulares-{anio}"
     return f"https://urba.org.ar/circulares-{anio}-copy"
 
 
 def anios_circulares_urba():
-    actual = datetime.now().year
+    actual = ahora_sig().year
     return list(range(actual, 2001, -1))
 
 
@@ -14401,7 +14458,7 @@ def sincronizar_circulares_urba(conn, anio, usuario=None):
         """, (anio, item["titulo"], item["url"], url, orden)).fetchone()
         nuevas.append(fila)
 
-    guardar_app_setting(conn, "urba_circulares_sync_en", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario)
+    guardar_app_setting(conn, "urba_circulares_sync_en", ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), usuario)
     guardar_app_setting(conn, "urba_circulares_sync_por", usuario or "", usuario)
     return {
         "anio": anio,
@@ -15065,7 +15122,7 @@ def cerrar_gasto_compartido(gasto_id):
         WHERE gasto_id = %s
     """, (gasto_id,)).fetchone()
     total_cobrado = round(float(resumen.get("total_cobrado") or 0), 2)
-    fecha_cierre = datetime.now().strftime("%Y-%m-%d")
+    fecha_cierre = ahora_sig().strftime("%Y-%m-%d")
     if mes_esta_cerrado(fecha_cierre[:7]):
         conn.close()
         flash("No se puede cerrar el gasto porque el mes actual de caja ya esta cerrado.", "error")
@@ -15216,7 +15273,7 @@ def actualizar_item_gasto_compartido(item_id):
         flash("El gasto compartido esta cerrado y ya no admite cambios.", "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
-    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     if accion == "aprobar":
         conn.execute("""
             UPDATE gasto_compartido_items
@@ -15329,7 +15386,7 @@ def portal_subir_comprobante_gasto_compartido(token, item_id):
         flash(mensaje_error_drive(error, accion="subir el comprobante"), "error")
         return redirect(url_for("portal_jugador", token=token))
 
-    comprobante_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    comprobante_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("""
         UPDATE gasto_compartido_items
         SET comprobante_drive_file_id = %s,
@@ -15356,6 +15413,21 @@ def portal_subir_comprobante_gasto_compartido(token, item_id):
     ))
     conn.commit()
     conn.close()
+    registrar_auditoria(
+        "subir_comprobante_gasto",
+        "portal_jugador",
+        str(item["jugador_id"]),
+        {
+            **detalle_actor_portal(item),
+            "gasto_id": item["gasto_id"],
+            "gasto": item.get("titulo") or "",
+            "item_id": item_id,
+            "archivo": comprobante_info["nombre"],
+            "subido_en": comprobante_fecha,
+        },
+        username=username_portal_jugador(item),
+        rol="portal",
+    )
     flash("Comprobante enviado para revision.", "ok")
     return redirect(url_for("portal_jugador", token=token))
 
@@ -15615,7 +15687,7 @@ def portal_jugador(token):
     conn.close()
 
     documentos_por_vencer = 0
-    hoy = datetime.now().date()
+    hoy = ahora_sig().date()
     for documento in documentos:
         fecha_vencimiento = validar_fecha_movimiento(documento.get("fecha_vencimiento"))
         if not fecha_vencimiento:
@@ -15750,6 +15822,7 @@ def portal_confirmar_asistencia(token, evento_id):
         abort(404)
 
     if es_evento_partido(evento):
+        confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
         guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
         conn.commit()
         conn.close()
@@ -15758,12 +15831,16 @@ def portal_confirmar_asistencia(token, evento_id):
             "portal_jugador",
             str(jugador["id"]),
             {
+                **detalle_actor_portal(jugador),
                 "evento_id": evento["id"],
                 "asistencia_evento_id": evento["asistencia_evento_id"],
+                "evento": evento.get("titulo") or "",
+                "fecha_evento": formato_fecha_hora_evento(evento),
                 "estado": estado,
+                "confirmado_en": confirmado_en,
                 "bienestar": False,
             },
-            username="portal",
+            username=username_portal_jugador(jugador),
             rol="portal",
         )
         flash("Confirmacion guardada.", "ok")
@@ -15818,6 +15895,7 @@ def portal_bienestar_asistencia(token, evento_id):
 
     if es_evento_partido(evento):
         if request.method == "POST" or request.args.get("estado"):
+            confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
             guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
             conn.commit()
             registrar_auditoria(
@@ -15825,12 +15903,16 @@ def portal_bienestar_asistencia(token, evento_id):
                 "portal_jugador",
                 str(jugador["id"]),
                 {
+                    **detalle_actor_portal(jugador),
                     "evento_id": evento["id"],
                     "asistencia_evento_id": evento["asistencia_evento_id"],
+                    "evento": evento.get("titulo") or "",
+                    "fecha_evento": formato_fecha_hora_evento(evento),
                     "estado": estado,
+                    "confirmado_en": confirmado_en,
                     "bienestar": False,
                 },
-                username="portal",
+                username=username_portal_jugador(jugador),
                 rol="portal",
             )
             flash("Confirmacion guardada.", "ok")
@@ -15895,6 +15977,7 @@ def portal_bienestar_asistencia(token, evento_id):
             int(campos["estres"]), int(campos["animo"]), int(campos["motivacion"]), int(campos["recuperacion"]),
             json.dumps(dolor_zonas, ensure_ascii=False), dolor_otro or None, comentarios or None,
         ))
+        confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
         conn.commit()
         conn.close()
 
@@ -15903,12 +15986,16 @@ def portal_bienestar_asistencia(token, evento_id):
             "portal_jugador",
             str(jugador["id"]),
             {
+                **detalle_actor_portal(jugador),
                 "evento_id": evento["id"],
                 "asistencia_evento_id": evento["asistencia_evento_id"],
+                "evento": evento.get("titulo") or "",
+                "fecha_evento": formato_fecha_hora_evento(evento),
                 "estado": estado,
+                "confirmado_en": confirmado_en,
                 "bienestar": True,
             },
-            username="portal",
+            username=username_portal_jugador(jugador),
             rol="portal",
         )
         flash("Confirmacion y bienestar guardados.", "ok")
@@ -16049,7 +16136,7 @@ def portal_actualizar_contacto(token):
         data["parentesco_tutor"],
         data["telefono_tutor"],
         data["email_tutor"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
         jugador["id"],
     ))
     if campos_modificados:
@@ -16069,10 +16156,11 @@ def portal_actualizar_contacto(token):
         "portal_jugador",
         str(jugador["id"]),
         {
+            **detalle_actor_portal(jugador),
             "campos": campos_modificados or list(data.keys()),
             "cambios": cambios_detalle,
         },
-        username="portal",
+        username=username_portal_jugador(jugador),
         rol="portal",
     )
     flash("Datos personales actualizados.", "ok")
@@ -16121,7 +16209,7 @@ def portal_subir_comprobante(token, cuota_id):
         flash(mensaje_error_drive(error), "error")
         return redirect(url_for("portal_jugador", token=token))
 
-    comprobante_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    comprobante_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("""
         UPDATE cuotas
         SET referencia_pago = COALESCE(NULLIF(%s, ''), referencia_pago),
@@ -16154,8 +16242,14 @@ def portal_subir_comprobante(token, cuota_id):
         "subir_comprobante",
         "portal_jugador",
         str(cuota["jugador_id"]),
-        {"cuota_id": cuota_id, "archivo": comprobante_info["nombre"]},
-        username="portal",
+        {
+            **detalle_actor_portal(cuota),
+            "cuota_id": cuota_id,
+            "periodo": cuota.get("periodo") or "",
+            "archivo": comprobante_info["nombre"],
+            "subido_en": comprobante_fecha,
+        },
+        username=username_portal_jugador(cuota),
         rol="portal",
     )
     flash("Comprobante recibido. La cuota queda pendiente de validacion interna.", "ok")
@@ -16259,7 +16353,7 @@ def portal_descargar_constancia(token):
     pdf.setFont("Helvetica", 11)
     pdf.drawString(25 * mm, y, f"Club: Ruda Macho Rugby Club")
     y -= 8 * mm
-    pdf.drawString(25 * mm, y, f"Fecha de emision: {datetime.now().strftime('%Y-%m-%d')}")
+    pdf.drawString(25 * mm, y, f"Fecha de emision: {ahora_sig().strftime('%Y-%m-%d')}")
     y -= 14 * mm
 
     nombre_completo = f"{jugador.get('apellido') or ''}, {jugador.get('nombre') or ''}".strip(", ")
@@ -16300,7 +16394,7 @@ def ver_calendario():
     if check:
         return check
 
-    mes = normalizar_mes(request.args.get("mes"), datetime.now().strftime("%Y-%m"))
+    mes = normalizar_mes(request.args.get("mes"), ahora_sig().strftime("%Y-%m"))
     calendario = obtener_calendario(mes)
     mes_actual = datetime.strptime(mes, "%Y-%m")
 
@@ -16606,7 +16700,7 @@ def eliminar_evento_calendario(evento_id):
     })
 
     flash("Evento eliminado.", "ok")
-    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
+    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or ahora_sig().strftime("%Y-%m-%d"))[:7]))
 
 
 @app.route("/calendario/<int:evento_id>/recordatorio", methods=["POST"])
@@ -16648,7 +16742,7 @@ def enviar_recordatorio_evento_calendario(evento_id):
 
     registrar_auditoria("enviar_recordatorio", "calendario_evento", str(evento_id), {"cantidad": enviados})
     flash(f"Se enviaron {enviados} recordatorios del evento.", "ok" if enviados else "error")
-    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or datetime.now().strftime("%Y-%m-%d"))[:7]))
+    return redirect(url_for("ver_calendario", mes=(evento["fecha"] or ahora_sig().strftime("%Y-%m-%d"))[:7]))
 
 
 @app.route("/alertas")
@@ -16701,8 +16795,8 @@ def ver_reportes():
 @app.route("/urba/circulares")
 def listar_circulares_urba():
     anios = anios_circulares_urba()
-    anio = request.args.get("anio", str(datetime.now().year)).strip()
-    anio = int(anio) if anio.isdigit() and int(anio) in anios else datetime.now().year
+    anio = request.args.get("anio", str(ahora_sig().year)).strip()
+    anio = int(anio) if anio.isdigit() and int(anio) in anios else ahora_sig().year
     conn = get_connection()
     circulares = conn.execute("""
         SELECT *
@@ -16746,7 +16840,7 @@ def sincronizar_circulares_urba_view():
         return redirect(url_for("listar_circulares_urba"))
     anio_raw = (request.form.get("anio") or "").strip()
     anios = anios_circulares_urba()
-    anio = int(anio_raw) if anio_raw.isdigit() and int(anio_raw) in anios else datetime.now().year
+    anio = int(anio_raw) if anio_raw.isdigit() and int(anio_raw) in anios else ahora_sig().year
     conn = get_connection()
     try:
         resultado = sincronizar_circulares_urba(conn, anio, session.get("username"))
@@ -16785,7 +16879,7 @@ def guardar_notificaciones_circulares_urba():
     conn.commit()
     conn.close()
     flash("Usuarios de notificacion automatica actualizados.", "ok")
-    return redirect(url_for("listar_circulares_urba", anio=request.form.get("anio") or datetime.now().year))
+    return redirect(url_for("listar_circulares_urba", anio=request.form.get("anio") or ahora_sig().year))
 
 
 def estilizar_hoja_reporte(ws, header_row=1):
@@ -16825,7 +16919,7 @@ def agregar_hoja_reporte(wb, titulo, encabezados, filas):
 
 def normalizar_valor_excel_reporte(valor):
     if isinstance(valor, datetime) and valor.tzinfo is not None and valor.utcoffset() is not None:
-        return valor.strftime("%Y-%m-%d %H:%M:%S")
+        return valor.astimezone(APP_TZ).strftime("%Y-%m-%d %H:%M:%S")
     return valor
 
 
@@ -17319,7 +17413,7 @@ def exportar_datos_integral():
 
     export_dir = BASE_DIR / "exports"
     export_dir.mkdir(exist_ok=True)
-    fecha = datetime.now().strftime("%Y%m%d_%H%M")
+    fecha = ahora_sig().strftime("%Y%m%d_%H%M")
     archivo = export_dir / f"sig_export_integral_{fecha}.xlsx"
     wb.save(archivo)
 
@@ -18252,7 +18346,7 @@ def configurar_facturas_email():
                 if password:
                     secret_path = guardar_secret_manager(secret_name, password)
                     guardar_app_setting(conn, factura_email_setting_key("secret_name", indice), secret_path, session.get("username"))
-                    guardar_app_setting(conn, factura_email_setting_key("secret_actualizado_en", indice), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"))
+                    guardar_app_setting(conn, factura_email_setting_key("secret_actualizado_en", indice), ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"))
                     guardar_app_setting(conn, factura_email_setting_key("secret_actualizado_por", indice), session.get("username") or "", session.get("username"))
                 else:
                     guardar_app_setting(conn, factura_email_setting_key("secret_name", indice), secret_name, session.get("username"))
@@ -18349,32 +18443,38 @@ def ver_auditoria():
         patron = f"%{filtros['q']}%"
         condiciones.append("""
             (
-                accion ILIKE %s OR entidad ILIKE %s OR entidad_id ILIKE %s
-                OR detalle ILIKE %s OR ip ILIKE %s OR username ILIKE %s
+                a.accion ILIKE %s OR a.entidad ILIKE %s OR a.entidad_id ILIKE %s
+                OR a.detalle ILIKE %s OR a.ip ILIKE %s OR a.username ILIKE %s
+                OR j.nombre ILIKE %s OR j.apellido ILIKE %s
             )
         """)
-        params.extend([patron, patron, patron, patron, patron, patron])
+        params.extend([patron, patron, patron, patron, patron, patron, patron, patron])
 
     if filtros["accion"]:
-        condiciones.append("accion = %s")
+        condiciones.append("a.accion = %s")
         params.append(filtros["accion"])
 
     if filtros["entidad"]:
-        condiciones.append("entidad = %s")
+        condiciones.append("a.entidad = %s")
         params.append(filtros["entidad"])
 
     if filtros["usuario"]:
-        condiciones.append("username ILIKE %s")
-        params.append(f"%{filtros['usuario']}%")
+        condiciones.append("""
+            (
+                a.username ILIKE %s OR j.nombre ILIKE %s OR j.apellido ILIKE %s
+            )
+        """)
+        usuario_patron = f"%{filtros['usuario']}%"
+        params.extend([usuario_patron, usuario_patron, usuario_patron])
 
     if validar_fecha_movimiento(filtros["desde"]):
-        condiciones.append("fecha::date >= %s::date")
+        condiciones.append("a.fecha::date >= %s::date")
         params.append(filtros["desde"])
     else:
         filtros["desde"] = ""
 
     if validar_fecha_movimiento(filtros["hasta"]):
-        condiciones.append("fecha::date <= %s::date")
+        condiciones.append("a.fecha::date <= %s::date")
         params.append(filtros["hasta"])
     else:
         filtros["hasta"] = ""
@@ -18385,10 +18485,23 @@ def ver_auditoria():
 
     conn = get_connection()
     registros = conn.execute(f"""
-        SELECT *
-        FROM auditoria
+        SELECT
+            a.*,
+            CASE
+                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
+                    AND a.username LIKE 'portal - %'
+                    THEN a.username
+                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
+                    THEN CONCAT(COALESCE(NULLIF(a.username, ''), 'portal'), ' - ', j.apellido, ', ', j.nombre, ' #', j.id)
+                ELSE a.username
+            END AS actor_display
+        FROM auditoria a
+        LEFT JOIN jugadores j
+          ON a.entidad = 'portal_jugador'
+         AND a.entidad_id ~ '^[0-9]+$'
+         AND j.id = a.entidad_id::integer
         {where_sql}
-        ORDER BY fecha DESC, id DESC
+        ORDER BY a.fecha DESC, a.id DESC
         LIMIT 300
     """, tuple(params)).fetchall()
 
@@ -18437,34 +18550,53 @@ def exportar_auditoria():
         patron = f"%{filtros['q']}%"
         condiciones.append("""
             (
-                accion ILIKE %s OR entidad ILIKE %s OR entidad_id ILIKE %s
-                OR detalle ILIKE %s OR ip ILIKE %s OR username ILIKE %s
+                a.accion ILIKE %s OR a.entidad ILIKE %s OR a.entidad_id ILIKE %s
+                OR a.detalle ILIKE %s OR a.ip ILIKE %s OR a.username ILIKE %s
+                OR j.nombre ILIKE %s OR j.apellido ILIKE %s
             )
         """)
-        params.extend([patron, patron, patron, patron, patron, patron])
+        params.extend([patron, patron, patron, patron, patron, patron, patron, patron])
     if filtros["accion"]:
-        condiciones.append("accion = %s")
+        condiciones.append("a.accion = %s")
         params.append(filtros["accion"])
     if filtros["entidad"]:
-        condiciones.append("entidad = %s")
+        condiciones.append("a.entidad = %s")
         params.append(filtros["entidad"])
     if filtros["usuario"]:
-        condiciones.append("username ILIKE %s")
-        params.append(f"%{filtros['usuario']}%")
+        condiciones.append("""
+            (
+                a.username ILIKE %s OR j.nombre ILIKE %s OR j.apellido ILIKE %s
+            )
+        """)
+        usuario_patron = f"%{filtros['usuario']}%"
+        params.extend([usuario_patron, usuario_patron, usuario_patron])
     if validar_fecha_movimiento(filtros["desde"]):
-        condiciones.append("fecha::date >= %s::date")
+        condiciones.append("a.fecha::date >= %s::date")
         params.append(filtros["desde"])
     if validar_fecha_movimiento(filtros["hasta"]):
-        condiciones.append("fecha::date <= %s::date")
+        condiciones.append("a.fecha::date <= %s::date")
         params.append(filtros["hasta"])
 
     where_sql = "WHERE " + " AND ".join(condiciones) if condiciones else ""
     conn = get_connection()
     registros = conn.execute(f"""
-        SELECT *
-        FROM auditoria
+        SELECT
+            a.*,
+            CASE
+                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
+                    AND a.username LIKE 'portal - %'
+                    THEN a.username
+                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
+                    THEN CONCAT(COALESCE(NULLIF(a.username, ''), 'portal'), ' - ', j.apellido, ', ', j.nombre, ' #', j.id)
+                ELSE a.username
+            END AS actor_display
+        FROM auditoria a
+        LEFT JOIN jugadores j
+          ON a.entidad = 'portal_jugador'
+         AND a.entidad_id ~ '^[0-9]+$'
+         AND j.id = a.entidad_id::integer
         {where_sql}
-        ORDER BY fecha DESC, id DESC
+        ORDER BY a.fecha DESC, a.id DESC
         LIMIT 5000
     """, tuple(params)).fetchall()
     conn.close()
@@ -18474,8 +18606,8 @@ def exportar_auditoria():
     writer.writerow(["Fecha", "Usuario", "Rol", "Accion", "Entidad", "Entidad ID", "IP", "Detalle"])
     for registro in registros:
         writer.writerow([
-            registro["fecha"],
-            registro["username"],
+            formato_fecha_hora(registro["fecha"]),
+            registro["actor_display"] or registro["username"],
             registro["rol"],
             registro["accion"],
             registro["entidad"],
@@ -19117,7 +19249,7 @@ def generar_recibo_pdf(cuota_id):
 
     pdf.setFillColor(colors.HexColor("#475569"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawRightString(margen_derecho - 2 * mm, meta_sub_y, f"Emitido: {datetime.now().strftime('%d/%m/%Y')}")
+    pdf.drawRightString(margen_derecho - 2 * mm, meta_sub_y, f"Emitido: {ahora_sig().strftime('%d/%m/%Y')}")
 
     pdf.setStrokeColor(colors.HexColor("#d6dee8"))
     pdf.setLineWidth(1)
@@ -19270,7 +19402,7 @@ def exportar_caja():
         return check
 
     mes = request.args.get("mes")
-    mes_actual = mes or datetime.now().strftime("%Y-%m")
+    mes_actual = mes or ahora_sig().strftime("%Y-%m")
 
     conn = get_connection()
 
@@ -19498,7 +19630,7 @@ def editar_movimiento(movimiento_id):
             comprobante_info["nombre"] if comprobante_info else None,
             comprobante_info["mime_type"] if comprobante_info else None,
             comprobante_info["tamano"] if comprobante_info else None,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if comprobante_info else None,
             session.get("username") if comprobante_info else None,
             comprobante_info["web_url"] if comprobante_info else None,
             numero_operacion or None,
@@ -19826,7 +19958,7 @@ def cargar_test_resultados(test_id):
         "test_carga.html",
         test=test,
         jugadores=jugadores,
-        fecha_hoy=datetime.now().strftime("%Y-%m-%d"),
+        fecha_hoy=ahora_sig().strftime("%Y-%m-%d"),
     )
 
 
@@ -19871,7 +20003,7 @@ def importar_test_resultados():
         }
 
         jugadores = obtener_jugadores_selector(conn)
-        batch_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_urlsafe(6)}"
+        batch_id = f"{ahora_sig().strftime('%Y%m%d%H%M%S')}_{secrets.token_urlsafe(6)}"
         pendientes = 0
 
         for numero_fila, row in enumerate(filas[1:], start=2):
@@ -20296,12 +20428,12 @@ def exportar_tests():
         ["Hasta", filtros["hasta"] or "Sin filtro"],
         ["Jugadores seleccionados", len(filtros["jugadores"]) if filtros["jugadores"] else "Todos"],
         ["Registros exportados", len(resultados)],
-        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Generado", ahora_sig().strftime("%Y-%m-%d %H:%M")],
         ["Usuario", session.get("username") or ""],
     ]
     agregar_hoja_reporte(wb, "Filtros", ["Filtro", "Valor"], filtros_texto)
 
-    filename = f"tests_deportivos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"tests_deportivos_{ahora_sig().strftime('%Y%m%d_%H%M%S')}.xlsx"
     path = os.path.join("exports", filename)
     os.makedirs("exports", exist_ok=True)
     wb.save(path)
@@ -20777,7 +20909,7 @@ def exportar_evento_asistencia(evento_id):
         ["Total participantes", len(filas)],
         ["Con asistencia registrada", sum(1 for fila in filas if fila.get("estado_asistencia"))],
         ["Confirmaciones portal", sum(1 for fila in filas if fila.get("confirmacion_portal"))],
-        ["Generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["Generado", ahora_sig().strftime("%Y-%m-%d %H:%M")],
         ["Usuario", session.get("username") or ""],
     ]
     agregar_hoja_reporte(wb, "Resumen", ["Dato", "Valor"], resumen_filas)

@@ -76,8 +76,8 @@
         <tbody>
             {% for registro in registros %}
             <tr>
-                <td class="audit-date">{{ registro['fecha'] }}</td>
-                <td class="audit-user">{{ registro['username'] or '-' }}</td>
+                <td class="audit-date">{{ registro['fecha'] | fecha_hora }}</td>
+                <td class="audit-user">{{ registro['actor_display'] or registro['username'] or '-' }}</td>
                 <td class="audit-action"><strong>{{ registro['accion'] }}</strong></td>
                 <td class="audit-entity">
                     {{ registro['entidad'] or '-' }}
