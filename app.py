@@ -18498,8 +18498,10 @@ def ver_auditoria():
         FROM auditoria a
         LEFT JOIN jugadores j
           ON a.entidad = 'portal_jugador'
-         AND a.entidad_id ~ '^[0-9]+$'
-         AND j.id = a.entidad_id::integer
+         AND j.id = CASE
+             WHEN a.entidad_id ~ '^[0-9]+$' THEN a.entidad_id::integer
+             ELSE NULL
+         END
         {where_sql}
         ORDER BY a.fecha DESC, a.id DESC
         LIMIT 300
@@ -18593,8 +18595,10 @@ def exportar_auditoria():
         FROM auditoria a
         LEFT JOIN jugadores j
           ON a.entidad = 'portal_jugador'
-         AND a.entidad_id ~ '^[0-9]+$'
-         AND j.id = a.entidad_id::integer
+         AND j.id = CASE
+             WHEN a.entidad_id ~ '^[0-9]+$' THEN a.entidad_id::integer
+             ELSE NULL
+         END
         {where_sql}
         ORDER BY a.fecha DESC, a.id DESC
         LIMIT 5000
