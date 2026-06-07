@@ -283,6 +283,40 @@ def detalle_actor_portal(jugador):
     }
 
 
+def enriquecer_actores_auditoria(conn, registros):
+    registros = [dict(registro) for registro in registros]
+    jugador_ids = sorted({
+        int(registro["entidad_id"])
+        for registro in registros
+        if registro.get("entidad") == "portal_jugador"
+        and str(registro.get("entidad_id") or "").isdigit()
+    })
+    jugadores_por_id = {}
+    if jugador_ids:
+        jugadores = conn.execute("""
+            SELECT id, nombre, apellido
+            FROM jugadores
+            WHERE id = ANY(%s)
+        """, (jugador_ids,)).fetchall()
+        jugadores_por_id = {jugador["id"]: jugador for jugador in jugadores}
+
+    for registro in registros:
+        actor = registro.get("username")
+        if registro.get("entidad") == "portal_jugador":
+            entidad_id = str(registro.get("entidad_id") or "")
+            jugador = jugadores_por_id.get(int(entidad_id)) if entidad_id.isdigit() else None
+            if jugador:
+                if actor and actor.startswith("portal - "):
+                    registro["actor_display"] = actor
+                else:
+                    registro["actor_display"] = (
+                        f"{actor or 'portal'} - {jugador['apellido']}, {jugador['nombre']} #{jugador['id']}"
+                    )
+                continue
+        registro["actor_display"] = actor
+    return registros
+
+
 def grupos_permisos():
     grupos = {}
     for clave, permiso in PERMISOS.items():
@@ -18443,38 +18477,32 @@ def ver_auditoria():
         patron = f"%{filtros['q']}%"
         condiciones.append("""
             (
-                a.accion ILIKE %s OR a.entidad ILIKE %s OR a.entidad_id ILIKE %s
-                OR a.detalle ILIKE %s OR a.ip ILIKE %s OR a.username ILIKE %s
-                OR j.nombre ILIKE %s OR j.apellido ILIKE %s
+                accion ILIKE %s OR entidad ILIKE %s OR entidad_id ILIKE %s
+                OR detalle ILIKE %s OR ip ILIKE %s OR username ILIKE %s
             )
         """)
-        params.extend([patron, patron, patron, patron, patron, patron, patron, patron])
+        params.extend([patron, patron, patron, patron, patron, patron])
 
     if filtros["accion"]:
-        condiciones.append("a.accion = %s")
+        condiciones.append("accion = %s")
         params.append(filtros["accion"])
 
     if filtros["entidad"]:
-        condiciones.append("a.entidad = %s")
+        condiciones.append("entidad = %s")
         params.append(filtros["entidad"])
 
     if filtros["usuario"]:
-        condiciones.append("""
-            (
-                a.username ILIKE %s OR j.nombre ILIKE %s OR j.apellido ILIKE %s
-            )
-        """)
-        usuario_patron = f"%{filtros['usuario']}%"
-        params.extend([usuario_patron, usuario_patron, usuario_patron])
+        condiciones.append("username ILIKE %s")
+        params.append(f"%{filtros['usuario']}%")
 
     if validar_fecha_movimiento(filtros["desde"]):
-        condiciones.append("a.fecha::date >= %s::date")
+        condiciones.append("fecha::date >= %s::date")
         params.append(filtros["desde"])
     else:
         filtros["desde"] = ""
 
     if validar_fecha_movimiento(filtros["hasta"]):
-        condiciones.append("a.fecha::date <= %s::date")
+        condiciones.append("fecha::date <= %s::date")
         params.append(filtros["hasta"])
     else:
         filtros["hasta"] = ""
@@ -18485,27 +18513,13 @@ def ver_auditoria():
 
     conn = get_connection()
     registros = conn.execute(f"""
-        SELECT
-            a.*,
-            CASE
-                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
-                    AND a.username LIKE 'portal - %'
-                    THEN a.username
-                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
-                    THEN CONCAT(COALESCE(NULLIF(a.username, ''), 'portal'), ' - ', j.apellido, ', ', j.nombre, ' #', j.id)
-                ELSE a.username
-            END AS actor_display
-        FROM auditoria a
-        LEFT JOIN jugadores j
-          ON a.entidad = 'portal_jugador'
-         AND j.id = CASE
-             WHEN a.entidad_id ~ '^[0-9]+$' THEN a.entidad_id::integer
-             ELSE NULL
-         END
+        SELECT *
+        FROM auditoria
         {where_sql}
-        ORDER BY a.fecha DESC, a.id DESC
+        ORDER BY fecha DESC, id DESC
         LIMIT 300
     """, tuple(params)).fetchall()
+    registros = enriquecer_actores_auditoria(conn, registros)
 
     acciones = conn.execute("""
         SELECT DISTINCT accion
@@ -18552,57 +18566,37 @@ def exportar_auditoria():
         patron = f"%{filtros['q']}%"
         condiciones.append("""
             (
-                a.accion ILIKE %s OR a.entidad ILIKE %s OR a.entidad_id ILIKE %s
-                OR a.detalle ILIKE %s OR a.ip ILIKE %s OR a.username ILIKE %s
-                OR j.nombre ILIKE %s OR j.apellido ILIKE %s
+                accion ILIKE %s OR entidad ILIKE %s OR entidad_id ILIKE %s
+                OR detalle ILIKE %s OR ip ILIKE %s OR username ILIKE %s
             )
         """)
-        params.extend([patron, patron, patron, patron, patron, patron, patron, patron])
+        params.extend([patron, patron, patron, patron, patron, patron])
     if filtros["accion"]:
-        condiciones.append("a.accion = %s")
+        condiciones.append("accion = %s")
         params.append(filtros["accion"])
     if filtros["entidad"]:
-        condiciones.append("a.entidad = %s")
+        condiciones.append("entidad = %s")
         params.append(filtros["entidad"])
     if filtros["usuario"]:
-        condiciones.append("""
-            (
-                a.username ILIKE %s OR j.nombre ILIKE %s OR j.apellido ILIKE %s
-            )
-        """)
-        usuario_patron = f"%{filtros['usuario']}%"
-        params.extend([usuario_patron, usuario_patron, usuario_patron])
+        condiciones.append("username ILIKE %s")
+        params.append(f"%{filtros['usuario']}%")
     if validar_fecha_movimiento(filtros["desde"]):
-        condiciones.append("a.fecha::date >= %s::date")
+        condiciones.append("fecha::date >= %s::date")
         params.append(filtros["desde"])
     if validar_fecha_movimiento(filtros["hasta"]):
-        condiciones.append("a.fecha::date <= %s::date")
+        condiciones.append("fecha::date <= %s::date")
         params.append(filtros["hasta"])
 
     where_sql = "WHERE " + " AND ".join(condiciones) if condiciones else ""
     conn = get_connection()
     registros = conn.execute(f"""
-        SELECT
-            a.*,
-            CASE
-                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
-                    AND a.username LIKE 'portal - %'
-                    THEN a.username
-                WHEN a.entidad = 'portal_jugador' AND j.id IS NOT NULL
-                    THEN CONCAT(COALESCE(NULLIF(a.username, ''), 'portal'), ' - ', j.apellido, ', ', j.nombre, ' #', j.id)
-                ELSE a.username
-            END AS actor_display
-        FROM auditoria a
-        LEFT JOIN jugadores j
-          ON a.entidad = 'portal_jugador'
-         AND j.id = CASE
-             WHEN a.entidad_id ~ '^[0-9]+$' THEN a.entidad_id::integer
-             ELSE NULL
-         END
+        SELECT *
+        FROM auditoria
         {where_sql}
-        ORDER BY a.fecha DESC, a.id DESC
+        ORDER BY fecha DESC, id DESC
         LIMIT 5000
     """, tuple(params)).fetchall()
+    registros = enriquecer_actores_auditoria(conn, registros)
     conn.close()
 
     output = io.StringIO()
