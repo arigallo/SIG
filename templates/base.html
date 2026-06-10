@@ -152,7 +152,7 @@
                 </details>
                 {% endif %}
 
-                {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') %}
+                {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'denuncias_ver', 'sugerencias_configurar') %}
                 {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_denuncias', 'configurar_sugerencias_denuncias', 'configurar_mantenimiento', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
                 <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
@@ -163,8 +163,12 @@
                             <a class="{% if endpoint == 'listar_roles' %}active{% endif %}" href="{{ url_for('listar_roles') }}">Roles</a>
                             <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
                             <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
-                            <a class="{% if endpoint in ['listar_sugerencias_denuncias', 'configurar_sugerencias_denuncias'] %}active{% endif %}" href="{{ url_for('listar_sugerencias_denuncias') }}">Sugerencias</a>
                             <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
+                        {% endif %}
+                        {% if puede('sugerencias_ver', 'denuncias_ver') %}
+                            <a class="{% if endpoint in ['listar_sugerencias_denuncias', 'configurar_sugerencias_denuncias'] %}active{% endif %}" href="{{ url_for('listar_sugerencias_denuncias') }}">Sugerencias</a>
+                        {% elif puede('sugerencias_configurar') %}
+                            <a class="{% if endpoint == 'configurar_sugerencias_denuncias' %}active{% endif %}" href="{{ url_for('configurar_sugerencias_denuncias') }}">Sugerencias</a>
                         {% endif %}
                         {% if puede('auditoria_ver') %}
                             <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditor&iacute;a</a>

@@ -707,6 +707,26 @@ PERMISOS = {
         "nombre": "Gestionar secretaria",
         "descripcion": "Subir, categorizar y eliminar documentos administrativos internos.",
     },
+    "sugerencias_ver": {
+        "grupo": "Administracion",
+        "nombre": "Ver sugerencias",
+        "descripcion": "Consultar sugerencias enviadas desde el formulario publico.",
+    },
+    "denuncias_ver": {
+        "grupo": "Administracion",
+        "nombre": "Ver denuncias",
+        "descripcion": "Consultar denuncias enviadas desde el formulario publico.",
+    },
+    "sugerencias_gestionar": {
+        "grupo": "Administracion",
+        "nombre": "Gestionar sugerencias y denuncias",
+        "descripcion": "Actualizar estados, notas internas y reenviar notificaciones.",
+    },
+    "sugerencias_configurar": {
+        "grupo": "Administracion",
+        "nombre": "Configurar sugerencias y denuncias",
+        "descripcion": "Definir destinatarios y categorias derivadas a disciplina.",
+    },
     "calendario_ver": {
         "grupo": "Deportivo",
         "nombre": "Ver calendario",
@@ -6713,6 +6733,9 @@ AUDIT_ENDPOINTS = {
     "editar_rol": ("editar", "rol"),
     "eliminar_rol": ("eliminar", "rol"),
     "configurar_mantenimiento": ("configurar", "mantenimiento"),
+    "actualizar_sugerencia_denuncia": ("actualizar", "sugerencia_denuncia"),
+    "reenviar_sugerencia_denuncia": ("reenviar", "sugerencia_denuncia"),
+    "configurar_sugerencias_denuncias": ("configurar", "sugerencia_denuncia"),
     "cambiar_mi_password": ("cambiar_password", "usuario"),
     "resetear_password_usuario": ("resetear_password", "usuario"),
     "solicitar_recuperacion_password": ("solicitar_reset", "usuario"),
@@ -7651,9 +7674,28 @@ def init_db():
             mensaje TEXT NOT NULL,
             destinatarios TEXT,
             email_estado TEXT,
+            seguimiento_estado TEXT NOT NULL DEFAULT 'nuevo',
+            notas_internas TEXT,
+            actualizado_en TIMESTAMPTZ,
+            actualizado_por TEXT,
+            notificacion_reintentos INTEGER DEFAULT 0,
+            notificado_en TIMESTAMPTZ,
             creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    columnas_sugerencias = get_columns(conn, "sugerencias_denuncias")
+    columnas_extra_sugerencias = {
+        "seguimiento_estado": "TEXT NOT NULL DEFAULT 'nuevo'",
+        "notas_internas": "TEXT",
+        "actualizado_en": "TIMESTAMPTZ",
+        "actualizado_por": "TEXT",
+        "notificacion_reintentos": "INTEGER DEFAULT 0",
+        "notificado_en": "TIMESTAMPTZ",
+    }
+    for columna, definicion in columnas_extra_sugerencias.items():
+        if columna not in columnas_sugerencias:
+            conn.execute(f"ALTER TABLE sugerencias_denuncias ADD COLUMN {columna} {definicion}")
 
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_tipo_fecha
@@ -7663,6 +7705,11 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_email_estado
         ON sugerencias_denuncias (email_estado, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_seguimiento
+        ON sugerencias_denuncias (seguimiento_estado, creado_en DESC)
     """)
 
     conn.execute("""
@@ -9612,6 +9659,25 @@ SUGERENCIA_EMAIL_ESTADOS = {
     },
 }
 
+SUGERENCIA_SEGUIMIENTO_ESTADOS = {
+    "nuevo": {
+        "label": "Nuevo",
+        "badge": "badge-info",
+    },
+    "en_revision": {
+        "label": "En revision",
+        "badge": "badge-warning",
+    },
+    "resuelto": {
+        "label": "Resuelto",
+        "badge": "badge-success",
+    },
+    "archivado": {
+        "label": "Archivado",
+        "badge": "badge-muted",
+    },
+}
+
 
 def info_email_estado_sugerencia(estado):
     return SUGERENCIA_EMAIL_ESTADOS.get(estado or "", {
@@ -9619,6 +9685,28 @@ def info_email_estado_sugerencia(estado):
         "badge": "badge-muted",
         "descripcion": "Estado no reconocido.",
     })
+
+
+def info_seguimiento_estado_sugerencia(estado):
+    return SUGERENCIA_SEGUIMIENTO_ESTADOS.get(estado or "", {
+        "label": estado or "Sin estado",
+        "badge": "badge-muted",
+    })
+
+
+def puede_ver_tipo_sugerencia(tipo):
+    if tipo == "denuncia":
+        return tiene_permiso("denuncias_ver")
+    return tiene_permiso("sugerencias_ver")
+
+
+def puede_gestionar_tipo_sugerencia(tipo):
+    return tiene_permiso("sugerencias_gestionar") and puede_ver_tipo_sugerencia(tipo)
+
+
+def normalizar_estado_seguimiento_sugerencia(estado):
+    estado = (estado or "").strip().lower()
+    return estado if estado in SUGERENCIA_SEGUIMIENTO_ESTADOS else "nuevo"
 
 
 @app.route("/sugerencias-denuncias", methods=["GET", "POST"])
@@ -9672,9 +9760,10 @@ def sugerencias_denuncias():
         email_estado, enviados = enviar_notificacion_sugerencia_denuncia(data, registro["id"], destinatarios)
         conn.execute("""
             UPDATE sugerencias_denuncias
-            SET email_estado = %s
+            SET email_estado = %s,
+                notificado_en = CASE WHEN %s IN ('enviado', 'parcial') THEN CURRENT_TIMESTAMP ELSE notificado_en END
             WHERE id = %s
-        """, (email_estado, registro["id"]))
+        """, (email_estado, email_estado, registro["id"]))
         conn.commit()
         conn.close()
 
@@ -18731,7 +18820,7 @@ def configurar_facturas_email():
 
 @app.route("/admin/sugerencias-denuncias")
 def listar_sugerencias_denuncias():
-    check = rol_requerido("admin")
+    check = permiso_requerido("sugerencias_ver", "denuncias_ver")
     if check:
         return check
 
@@ -18740,12 +18829,18 @@ def listar_sugerencias_denuncias():
         "tipo": request.args.get("tipo", "").strip().lower(),
         "categoria": request.args.get("categoria", "").strip().lower(),
         "email_estado": request.args.get("email_estado", "").strip().lower(),
+        "seguimiento_estado": request.args.get("seguimiento_estado", "").strip().lower(),
     }
     categorias_validas = {item["clave"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
     estados_validos = set(SUGERENCIA_EMAIL_ESTADOS)
+    estados_seguimiento_validos = set(SUGERENCIA_SEGUIMIENTO_ESTADOS)
 
     condiciones = []
     params = []
+    if not tiene_permiso("sugerencias_ver"):
+        condiciones.append("tipo <> 'sugerencia'")
+    if not tiene_permiso("denuncias_ver"):
+        condiciones.append("tipo <> 'denuncia'")
     if filtros["q"]:
         like = f"%{filtros['q']}%"
         condiciones.append("(mensaje ILIKE %s OR nombre ILIKE %s OR contacto ILIKE %s)")
@@ -18765,6 +18860,11 @@ def listar_sugerencias_denuncias():
         params.append(filtros["email_estado"])
     else:
         filtros["email_estado"] = ""
+    if filtros["seguimiento_estado"] in estados_seguimiento_validos:
+        condiciones.append("seguimiento_estado = %s")
+        params.append(filtros["seguimiento_estado"])
+    else:
+        filtros["seguimiento_estado"] = ""
 
     where_sql = "WHERE " + " AND ".join(condiciones) if condiciones else ""
     conn = get_connection()
@@ -18775,14 +18875,29 @@ def listar_sugerencias_denuncias():
         ORDER BY creado_en DESC, id DESC
         LIMIT 300
     """, params).fetchall()
-    resumen = conn.execute("""
+    resumen = conn.execute(f"""
         SELECT
             COUNT(*) AS total,
             SUM(CASE WHEN tipo = 'sugerencia' THEN 1 ELSE 0 END) AS sugerencias,
             SUM(CASE WHEN tipo = 'denuncia' THEN 1 ELSE 0 END) AS denuncias,
-            SUM(CASE WHEN email_estado NOT IN ('enviado', 'parcial') OR email_estado IS NULL THEN 1 ELSE 0 END) AS pendientes
+            SUM(CASE WHEN email_estado NOT IN ('enviado', 'parcial') OR email_estado IS NULL THEN 1 ELSE 0 END) AS pendientes,
+            SUM(CASE WHEN seguimiento_estado = 'nuevo' OR seguimiento_estado IS NULL THEN 1 ELSE 0 END) AS nuevos,
+            SUM(CASE WHEN seguimiento_estado = 'en_revision' THEN 1 ELSE 0 END) AS en_revision
         FROM sugerencias_denuncias
-    """).fetchone()
+        {where_sql}
+    """, params).fetchone()
+    resumen_total = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN tipo = 'sugerencia' THEN 1 ELSE 0 END) AS sugerencias,
+            SUM(CASE WHEN tipo = 'denuncia' THEN 1 ELSE 0 END) AS denuncias,
+            SUM(CASE WHEN email_estado NOT IN ('enviado', 'parcial') OR email_estado IS NULL THEN 1 ELSE 0 END) AS pendientes,
+            SUM(CASE WHEN seguimiento_estado = 'nuevo' OR seguimiento_estado IS NULL THEN 1 ELSE 0 END) AS nuevos,
+            SUM(CASE WHEN seguimiento_estado = 'en_revision' THEN 1 ELSE 0 END) AS en_revision
+        FROM sugerencias_denuncias
+        WHERE (%s OR tipo <> 'sugerencia')
+          AND (%s OR tipo <> 'denuncia')
+    """, (tiene_permiso("sugerencias_ver"), tiene_permiso("denuncias_ver"))).fetchone()
     conn.close()
 
     categoria_labels = {item["clave"]: item["nombre"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
@@ -18790,21 +18905,123 @@ def listar_sugerencias_denuncias():
     for registro in registros:
         registro["destinatarios_lista"] = leer_lista_config(registro.get("destinatarios"))
         registro["email_info"] = info_email_estado_sugerencia(registro.get("email_estado"))
+        registro["seguimiento_info"] = info_seguimiento_estado_sugerencia(registro.get("seguimiento_estado"))
         registro["categoria_label"] = categoria_labels.get(registro.get("categoria"), registro.get("categoria") or "General")
+        registro["puede_gestionar"] = puede_gestionar_tipo_sugerencia(registro.get("tipo"))
 
     return render_template(
         "sugerencias_denuncias_admin.html",
         registros=registros,
         resumen=resumen,
+        resumen_total=resumen_total,
         filtros=filtros,
         categorias=SUGERENCIA_DENUNCIA_CATEGORIAS,
         estados=SUGERENCIA_EMAIL_ESTADOS,
+        estados_seguimiento=SUGERENCIA_SEGUIMIENTO_ESTADOS,
+        puede_configurar_sugerencias=tiene_permiso("sugerencias_configurar"),
+        puede_gestionar_sugerencias=tiene_permiso("sugerencias_gestionar"),
     )
+
+
+@app.route("/admin/sugerencias-denuncias/<int:registro_id>/seguimiento", methods=["POST"])
+def actualizar_sugerencia_denuncia(registro_id):
+    check = permiso_requerido("sugerencias_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    registro = conn.execute("SELECT * FROM sugerencias_denuncias WHERE id = %s", (registro_id,)).fetchone()
+    if not registro:
+        conn.close()
+        flash("Registro no encontrado.", "error")
+        return redirect(url_for("listar_sugerencias_denuncias"))
+    if not puede_ver_tipo_sugerencia(registro["tipo"]):
+        conn.close()
+        flash("No tenes permiso para gestionar este registro.", "error")
+        return redirect(url_for("listar_sugerencias_denuncias"))
+
+    seguimiento_estado = normalizar_estado_seguimiento_sugerencia(request.form.get("seguimiento_estado"))
+    notas_internas = request.form.get("notas_internas", "").strip()
+    conn.execute("""
+        UPDATE sugerencias_denuncias
+        SET seguimiento_estado = %s,
+            notas_internas = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (seguimiento_estado, notas_internas or None, session.get("username"), registro_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("actualizar", "sugerencia_denuncia", str(registro_id), {
+        "seguimiento_estado": seguimiento_estado,
+        "notas_internas": bool(notas_internas),
+    })
+    flash("Seguimiento actualizado.", "ok")
+    return redirect(destino_interno(request.form.get("next"), fallback="listar_sugerencias_denuncias"))
+
+
+@app.route("/admin/sugerencias-denuncias/<int:registro_id>/reenviar", methods=["POST"])
+def reenviar_sugerencia_denuncia(registro_id):
+    check = permiso_requerido("sugerencias_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    registro = conn.execute("SELECT * FROM sugerencias_denuncias WHERE id = %s", (registro_id,)).fetchone()
+    if not registro:
+        conn.close()
+        flash("Registro no encontrado.", "error")
+        return redirect(url_for("listar_sugerencias_denuncias"))
+    if not puede_ver_tipo_sugerencia(registro["tipo"]):
+        conn.close()
+        flash("No tenes permiso para reenviar este registro.", "error")
+        return redirect(url_for("listar_sugerencias_denuncias"))
+
+    data = {
+        "tipo": registro["tipo"],
+        "categoria": registro["categoria"],
+        "anonima": bool(registro["anonima"]),
+        "nombre": registro["nombre"] or "",
+        "contacto": registro["contacto"] or "",
+        "mensaje": registro["mensaje"] or "",
+    }
+    destinatarios = obtener_destinatarios_sugerencias(conn, data["tipo"], data["categoria"])
+    email_estado, enviados = enviar_notificacion_sugerencia_denuncia(data, registro_id, destinatarios)
+    conn.execute("""
+        UPDATE sugerencias_denuncias
+        SET email_estado = %s,
+            destinatarios = %s,
+            notificacion_reintentos = COALESCE(notificacion_reintentos, 0) + 1,
+            notificado_en = CASE WHEN %s IN ('enviado', 'parcial') THEN CURRENT_TIMESTAMP ELSE notificado_en END,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (
+        email_estado,
+        json.dumps(destinatarios, ensure_ascii=False),
+        email_estado,
+        session.get("username"),
+        registro_id,
+    ))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("reenviar", "sugerencia_denuncia", str(registro_id), {
+        "email_estado": email_estado,
+        "emails_enviados": enviados,
+        "destinatarios": len(destinatarios),
+    })
+    if email_estado in {"enviado", "parcial"}:
+        flash("Notificacion reenviada.", "ok")
+    else:
+        flash("No se pudo reenviar la notificacion. El registro sigue disponible en la bandeja.", "warning")
+    return redirect(destino_interno(request.form.get("next"), fallback="listar_sugerencias_denuncias"))
 
 
 @app.route("/admin/sugerencias-denuncias/config", methods=["GET", "POST"])
 def configurar_sugerencias_denuncias():
-    check = rol_requerido("admin")
+    check = permiso_requerido("sugerencias_configurar")
     if check:
         return check
 

@@ -212,8 +212,23 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Bandeja interna", template)
         self.assertIn("Email pendiente", template)
         self.assertIn("registro.email_info.descripcion", template)
+        self.assertIn("Notas internas", template)
+        self.assertIn("Reenviar email", template)
+        self.assertIn("actualizar_sugerencia_denuncia", source)
+        self.assertIn("reenviar_sugerencia_denuncia", source)
         self.assertIn("No pudimos enviar el aviso por email", source)
         self.assertIn("data-anonymous-select", public_template)
+
+    def test_sugerencias_permissions_are_registered(self):
+        for permiso in [
+            "sugerencias_ver",
+            "denuncias_ver",
+            "sugerencias_gestionar",
+            "sugerencias_configurar",
+        ]:
+            self.assertIn(permiso, app.PERMISOS)
+
+        self.assertIn("sugerencias_gestionar", app.ROLE_PRESETS["admin"])
 
     def test_drive_runtime_error_reports_missing_secretaria_config(self):
         mensaje = app.mensaje_error_drive(

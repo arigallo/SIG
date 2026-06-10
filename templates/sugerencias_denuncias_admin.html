@@ -9,7 +9,9 @@
         <p class="page-intro">Bandeja interna de mensajes enviados desde el formulario publico.</p>
     </div>
     <div class="actions">
-        <a class="button secondary" href="{{ url_for('configurar_sugerencias_denuncias') }}">Configurar</a>
+        {% if puede_configurar_sugerencias %}
+            <a class="button secondary" href="{{ url_for('configurar_sugerencias_denuncias') }}">Configurar</a>
+        {% endif %}
         <a class="button secondary" href="{{ url_for('sugerencias_denuncias') }}">Ver formulario</a>
     </div>
 </div>
@@ -17,19 +19,20 @@
 <div class="dashboard-cards report-cards spaced">
     <div class="card stat-card">
         <h3>Total</h3>
-        <p class="stat-number compact">{{ resumen.total or 0 }}</p>
+        <p class="stat-number compact">{{ resumen_total.total or 0 }}</p>
+        <span class="muted-line">Mostrando {{ resumen.total or 0 }}</span>
     </div>
     <div class="card stat-card alert-card-info">
-        <h3>Sugerencias</h3>
-        <p class="stat-number compact">{{ resumen.sugerencias or 0 }}</p>
+        <h3>Nuevos</h3>
+        <p class="stat-number compact">{{ resumen_total.nuevos or 0 }}</p>
     </div>
     <div class="card stat-card alert-card-warning">
-        <h3>Denuncias</h3>
-        <p class="stat-number compact">{{ resumen.denuncias or 0 }}</p>
+        <h3>En revision</h3>
+        <p class="stat-number compact">{{ resumen_total.en_revision or 0 }}</p>
     </div>
-    <div class="card stat-card {% if resumen.pendientes %}alert-card-critical{% endif %}">
+    <div class="card stat-card {% if resumen_total.pendientes %}alert-card-critical{% endif %}">
         <h3>Email pendiente</h3>
-        <p class="stat-number compact">{{ resumen.pendientes or 0 }}</p>
+        <p class="stat-number compact">{{ resumen_total.pendientes or 0 }}</p>
     </div>
 </div>
 
@@ -44,6 +47,15 @@
             <option value="">Todos</option>
             <option value="sugerencia" {% if filtros.tipo == 'sugerencia' %}selected{% endif %}>Sugerencia</option>
             <option value="denuncia" {% if filtros.tipo == 'denuncia' %}selected{% endif %}>Denuncia</option>
+        </select>
+    </div>
+    <div class="search-field-filter">
+        <label>Seguimiento</label>
+        <select name="seguimiento_estado">
+            <option value="">Todos</option>
+            {% for clave, estado in estados_seguimiento.items() %}
+                <option value="{{ clave }}" {% if filtros.seguimiento_estado == clave %}selected{% endif %}>{{ estado.label }}</option>
+            {% endfor %}
         </select>
     </div>
     <div class="search-field-filter">
@@ -76,14 +88,20 @@
                 <th>Tipo</th>
                 <th>Identidad</th>
                 <th>Mensaje</th>
+                <th>Seguimiento</th>
                 <th>Email</th>
-                <th>Destinatarios</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for registro in registros %}
                 <tr>
-                    <td>{{ registro.creado_en|fecha_hora }}</td>
+                    <td>
+                        {{ registro.creado_en|fecha_hora }}
+                        {% if registro.actualizado_en %}
+                            <span class="muted-line">Actualizado {{ registro.actualizado_en|fecha_hora }}</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <strong>{{ 'Sugerencia' if registro.tipo == 'sugerencia' else 'Denuncia' }}</strong>
                         <span class="muted-line">{{ registro.categoria_label }}</span>
@@ -102,23 +120,57 @@
                             <pre class="audit-detail-pre">{{ registro.mensaje }}</pre>
                         </details>
                     </td>
+                    <td class="wide-cell">
+                        <span class="badge {{ registro.seguimiento_info.badge }}">{{ registro.seguimiento_info.label }}</span>
+                        {% if registro.notas_internas %}
+                            <pre class="audit-detail-pre">{{ registro.notas_internas }}</pre>
+                        {% else %}
+                            <span class="muted-line">Sin notas internas</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="badge {{ registro.email_info.badge }}">{{ registro.email_info.label }}</span>
                         <span class="muted-line">{{ registro.email_info.descripcion }}</span>
-                    </td>
-                    <td>
+                        {% if registro.notificado_en %}
+                            <span class="muted-line">Ultimo aviso {{ registro.notificado_en|fecha_hora }}</span>
+                        {% endif %}
+                        {% if registro.notificacion_reintentos %}
+                            <span class="muted-line">Reintentos: {{ registro.notificacion_reintentos }}</span>
+                        {% endif %}
                         {% if registro.destinatarios_lista %}
                             {% for destinatario in registro.destinatarios_lista %}
                                 <span class="muted-line">{{ destinatario }}</span>
                             {% endfor %}
+                        {% endif %}
+                    </td>
+                    <td class="wide-cell">
+                        {% if registro.puede_gestionar %}
+                            <form method="post" action="{{ url_for('actualizar_sugerencia_denuncia', registro_id=registro.id) }}" class="inline-form-stack">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                <label>Estado</label>
+                                <select name="seguimiento_estado">
+                                    {% for clave, estado in estados_seguimiento.items() %}
+                                        <option value="{{ clave }}" {% if (registro.seguimiento_estado or 'nuevo') == clave %}selected{% endif %}>{{ estado.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label>Notas internas</label>
+                                <textarea name="notas_internas" rows="3" placeholder="Proximo paso, resolucion o comentario interno">{{ registro.notas_internas or '' }}</textarea>
+                                <button class="button secondary" type="submit">Guardar</button>
+                            </form>
+                            <form method="post" action="{{ url_for('reenviar_sugerencia_denuncia', registro_id=registro.id) }}" class="inline-form-stack stack-gap">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                <button class="button secondary" type="submit">Reenviar email</button>
+                            </form>
                         {% else %}
-                            <span class="muted-line">Sin destinatarios</span>
+                            <span class="muted-line">Solo lectura</span>
                         {% endif %}
                     </td>
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="6">No hay sugerencias o denuncias para los filtros seleccionados.</td>
+                    <td colspan="7">No hay sugerencias o denuncias para los filtros seleccionados.</td>
                 </tr>
             {% endfor %}
         </tbody>

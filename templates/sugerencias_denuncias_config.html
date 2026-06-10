@@ -9,8 +9,12 @@
         <p class="page-intro">Configuracion de destinatarios y derivacion interna del formulario publico.</p>
     </div>
     <div class="actions">
-        <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
-        <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Bandeja</a>
+        {% if session.get('rol') == 'admin' %}
+            <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+        {% endif %}
+        {% if puede('sugerencias_ver', 'denuncias_ver') %}
+            <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Bandeja</a>
+        {% endif %}
         <a class="button secondary" href="{{ url_for('sugerencias_denuncias') }}">Ver formulario</a>
     </div>
 </div>
@@ -79,7 +83,7 @@
 
     <div class="actions-row">
         <button class="button" type="submit">Guardar configuracion</button>
-        <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Cancelar</a>
+        <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') if puede('sugerencias_ver', 'denuncias_ver') else url_for('index') }}">Cancelar</a>
     </div>
 </form>
 {% endblock %}
