@@ -9584,6 +9584,42 @@ SUGERENCIA_DENUNCIA_CATEGORIAS = [
     {"clave": "seguridad", "nombre": "Seguridad"},
 ]
 
+SUGERENCIA_EMAIL_ESTADOS = {
+    "enviado": {
+        "label": "Email enviado",
+        "badge": "badge-success",
+        "descripcion": "La notificacion salio a todos los destinatarios configurados.",
+    },
+    "parcial": {
+        "label": "Email parcial",
+        "badge": "badge-warning",
+        "descripcion": "La notificacion salio solo a algunos destinatarios.",
+    },
+    "sin_destinatarios": {
+        "label": "Sin destinatarios",
+        "badge": "badge-danger",
+        "descripcion": "No habia emails configurados para el area correspondiente.",
+    },
+    "fallo_email": {
+        "label": "Fallo email",
+        "badge": "badge-danger",
+        "descripcion": "Habia destinatarios, pero el servidor SMTP no pudo enviar la notificacion.",
+    },
+    "pendiente": {
+        "label": "Pendiente",
+        "badge": "badge-warning",
+        "descripcion": "El registro quedo guardado antes de completar el intento de notificacion.",
+    },
+}
+
+
+def info_email_estado_sugerencia(estado):
+    return SUGERENCIA_EMAIL_ESTADOS.get(estado or "", {
+        "label": estado or "Sin estado",
+        "badge": "badge-muted",
+        "descripcion": "Estado no reconocido.",
+    })
+
 
 @app.route("/sugerencias-denuncias", methods=["GET", "POST"])
 def sugerencias_denuncias():
@@ -9653,7 +9689,7 @@ def sugerencias_denuncias():
         if email_estado in {"enviado", "parcial"}:
             flash("Tu mensaje fue registrado y derivado al area correspondiente.", "ok")
         else:
-            flash("Tu mensaje fue registrado. La notificacion por email quedo pendiente de revision.", "warning")
+            flash("Tu mensaje fue registrado. No pudimos enviar el aviso por email, pero quedo disponible para revision interna.", "warning")
         return redirect(url_for("sugerencias_denuncias"))
 
     return render_template("sugerencias_denuncias.html", data=data, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
@@ -18693,7 +18729,80 @@ def configurar_facturas_email():
     return render_template("facturas_email_config.html", config=configs[0], config2=configs[1], configs=configs)
 
 
-@app.route("/admin/sugerencias-denuncias", methods=["GET", "POST"])
+@app.route("/admin/sugerencias-denuncias")
+def listar_sugerencias_denuncias():
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    filtros = {
+        "q": request.args.get("q", "").strip(),
+        "tipo": request.args.get("tipo", "").strip().lower(),
+        "categoria": request.args.get("categoria", "").strip().lower(),
+        "email_estado": request.args.get("email_estado", "").strip().lower(),
+    }
+    categorias_validas = {item["clave"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
+    estados_validos = set(SUGERENCIA_EMAIL_ESTADOS)
+
+    condiciones = []
+    params = []
+    if filtros["q"]:
+        like = f"%{filtros['q']}%"
+        condiciones.append("(mensaje ILIKE %s OR nombre ILIKE %s OR contacto ILIKE %s)")
+        params.extend([like, like, like])
+    if filtros["tipo"] in {"sugerencia", "denuncia"}:
+        condiciones.append("tipo = %s")
+        params.append(filtros["tipo"])
+    else:
+        filtros["tipo"] = ""
+    if filtros["categoria"] in categorias_validas:
+        condiciones.append("categoria = %s")
+        params.append(filtros["categoria"])
+    else:
+        filtros["categoria"] = ""
+    if filtros["email_estado"] in estados_validos:
+        condiciones.append("email_estado = %s")
+        params.append(filtros["email_estado"])
+    else:
+        filtros["email_estado"] = ""
+
+    where_sql = "WHERE " + " AND ".join(condiciones) if condiciones else ""
+    conn = get_connection()
+    registros = conn.execute(f"""
+        SELECT *
+        FROM sugerencias_denuncias
+        {where_sql}
+        ORDER BY creado_en DESC, id DESC
+        LIMIT 300
+    """, params).fetchall()
+    resumen = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN tipo = 'sugerencia' THEN 1 ELSE 0 END) AS sugerencias,
+            SUM(CASE WHEN tipo = 'denuncia' THEN 1 ELSE 0 END) AS denuncias,
+            SUM(CASE WHEN email_estado NOT IN ('enviado', 'parcial') OR email_estado IS NULL THEN 1 ELSE 0 END) AS pendientes
+        FROM sugerencias_denuncias
+    """).fetchone()
+    conn.close()
+
+    categoria_labels = {item["clave"]: item["nombre"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
+    registros = [dict(registro) for registro in registros]
+    for registro in registros:
+        registro["destinatarios_lista"] = leer_lista_config(registro.get("destinatarios"))
+        registro["email_info"] = info_email_estado_sugerencia(registro.get("email_estado"))
+        registro["categoria_label"] = categoria_labels.get(registro.get("categoria"), registro.get("categoria") or "General")
+
+    return render_template(
+        "sugerencias_denuncias_admin.html",
+        registros=registros,
+        resumen=resumen,
+        filtros=filtros,
+        categorias=SUGERENCIA_DENUNCIA_CATEGORIAS,
+        estados=SUGERENCIA_EMAIL_ESTADOS,
+    )
+
+
+@app.route("/admin/sugerencias-denuncias/config", methods=["GET", "POST"])
 def configurar_sugerencias_denuncias():
     check = rol_requerido("admin")
     if check:

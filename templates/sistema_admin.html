@@ -11,7 +11,7 @@
     <div class="actions">
         {% if session.get('rol') == 'admin' %}
             <a class="button secondary" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
-            <a class="button secondary" href="{{ url_for('configurar_sugerencias_denuncias') }}">Sugerencias</a>
+            <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Sugerencias</a>
             <a class="button secondary" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('index') }}">Volver</a>

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Sugerencias y denuncias{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Sugerencias y denuncias</h2>
+        <p class="page-intro">Bandeja interna de mensajes enviados desde el formulario publico.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('configurar_sugerencias_denuncias') }}">Configurar</a>
+        <a class="button secondary" href="{{ url_for('sugerencias_denuncias') }}">Ver formulario</a>
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Total</h3>
+        <p class="stat-number compact">{{ resumen.total or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-info">
+        <h3>Sugerencias</h3>
+        <p class="stat-number compact">{{ resumen.sugerencias or 0 }}</p>
+    </div>
+    <div class="card stat-card alert-card-warning">
+        <h3>Denuncias</h3>
+        <p class="stat-number compact">{{ resumen.denuncias or 0 }}</p>
+    </div>
+    <div class="card stat-card {% if resumen.pendientes %}alert-card-critical{% endif %}">
+        <h3>Email pendiente</h3>
+        <p class="stat-number compact">{{ resumen.pendientes or 0 }}</p>
+    </div>
+</div>
+
+<form method="get" class="search-form search-form-wide spaced">
+    <div class="search-field-primary">
+        <label>Buscar</label>
+        <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="Mensaje, nombre o contacto">
+    </div>
+    <div class="search-field-filter">
+        <label>Tipo</label>
+        <select name="tipo">
+            <option value="">Todos</option>
+            <option value="sugerencia" {% if filtros.tipo == 'sugerencia' %}selected{% endif %}>Sugerencia</option>
+            <option value="denuncia" {% if filtros.tipo == 'denuncia' %}selected{% endif %}>Denuncia</option>
+        </select>
+    </div>
+    <div class="search-field-filter">
+        <label>Categoria</label>
+        <select name="categoria">
+            <option value="">Todas</option>
+            {% for categoria in categorias %}
+                <option value="{{ categoria.clave }}" {% if filtros.categoria == categoria.clave %}selected{% endif %}>{{ categoria.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="search-field-filter">
+        <label>Email</label>
+        <select name="email_estado">
+            <option value="">Todos</option>
+            {% for clave, estado in estados.items() %}
+                <option value="{{ clave }}" {% if filtros.email_estado == clave %}selected{% endif %}>{{ estado.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="button" type="submit">Filtrar</button>
+    <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Limpiar</a>
+</form>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Identidad</th>
+                <th>Mensaje</th>
+                <th>Email</th>
+                <th>Destinatarios</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.creado_en|fecha_hora }}</td>
+                    <td>
+                        <strong>{{ 'Sugerencia' if registro.tipo == 'sugerencia' else 'Denuncia' }}</strong>
+                        <span class="muted-line">{{ registro.categoria_label }}</span>
+                    </td>
+                    <td>
+                        {% if registro.anonima %}
+                            <span class="badge badge-muted">Anonima</span>
+                        {% else %}
+                            <strong>{{ registro.nombre or '-' }}</strong>
+                            <span class="muted-line">{{ registro.contacto or '-' }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="wide-cell">
+                        <details>
+                            <summary>{{ registro.mensaje[:120] }}{% if registro.mensaje|length > 120 %}...{% endif %}</summary>
+                            <pre class="audit-detail-pre">{{ registro.mensaje }}</pre>
+                        </details>
+                    </td>
+                    <td>
+                        <span class="badge {{ registro.email_info.badge }}">{{ registro.email_info.label }}</span>
+                        <span class="muted-line">{{ registro.email_info.descripcion }}</span>
+                    </td>
+                    <td>
+                        {% if registro.destinatarios_lista %}
+                            {% for destinatario in registro.destinatarios_lista %}
+                                <span class="muted-line">{{ destinatario }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="muted-line">Sin destinatarios</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="6">No hay sugerencias o denuncias para los filtros seleccionados.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

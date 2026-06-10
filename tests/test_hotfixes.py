@@ -197,9 +197,23 @@ class HotfixTests(unittest.TestCase):
     def test_sistema_admin_links_sugerencias_config(self):
         template = Path("templates/sistema_admin.html").read_text(encoding="utf-8")
         nav = Path("templates/base.html").read_text(encoding="utf-8")
+        admin_template = Path("templates/sugerencias_denuncias_admin.html").read_text(encoding="utf-8")
 
-        self.assertIn("url_for('configurar_sugerencias_denuncias')", template)
+        self.assertIn("url_for('listar_sugerencias_denuncias')", template)
+        self.assertIn("listar_sugerencias_denuncias", nav)
+        self.assertIn("url_for('configurar_sugerencias_denuncias')", admin_template)
         self.assertIn("configurar_sugerencias_denuncias", nav)
+
+    def test_sugerencias_admin_template_explains_pending_email_states(self):
+        template = Path("templates/sugerencias_denuncias_admin.html").read_text(encoding="utf-8")
+        public_template = Path("templates/sugerencias_denuncias.html").read_text(encoding="utf-8")
+        source = Path("app.py").read_text(encoding="utf-8")
+
+        self.assertIn("Bandeja interna", template)
+        self.assertIn("Email pendiente", template)
+        self.assertIn("registro.email_info.descripcion", template)
+        self.assertIn("No pudimos enviar el aviso por email", source)
+        self.assertIn("data-anonymous-select", public_template)
 
     def test_drive_runtime_error_reports_missing_secretaria_config(self):
         mensaje = app.mensaje_error_drive(

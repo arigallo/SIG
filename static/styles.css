@@ -1928,6 +1928,8 @@ tbody tr:hover {
 }
 
 .entry-logo img {
+    width: 142px;
+    height: 142px;
     margin-bottom: 0;
 }
 
@@ -2122,6 +2124,23 @@ tbody tr:hover {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px 14px;
+}
+
+.wide-cell {
+    min-width: 280px;
+    max-width: 460px;
+    white-space: normal;
+}
+
+.audit-detail-pre {
+    max-width: 100%;
+    margin: 10px 0 0;
+    padding: 10px;
+    border-radius: var(--radius-tight);
+    background: var(--surface-soft);
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .honeypot {
