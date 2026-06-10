@@ -6,50 +6,74 @@
     <title>SIG - Ruda Macho Rugby Club</title>
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
-<body class="login-body">
+<body class="login-body entry-body">
 
-    <div class="login-card">
-        <div class="login-logo">
-            <picture>
-                <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
-            </picture>
-        </div>
-
-        <h1>Ruda Macho Rugby Club</h1>
-        <h2>Sistema Integral de Gesti&oacute;n (SIG)</h2>
-
-        <form method="post">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <div>
-                <label>Usuario</label>
-                <input type="text" name="username" required>
+    <main class="entry-shell">
+        <section class="entry-hero">
+            <div class="login-logo entry-logo">
+                <picture>
+                    <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+                </picture>
             </div>
 
             <div>
-                <label>Clave</label>
-                <input type="password" name="password" required>
+                <p class="entry-kicker">Ruda Macho Rugby Club</p>
+                <h1>Sistema Integral de Gesti&oacute;n</h1>
+                <p>Eleg&iacute; el acceso que necesit&aacute;s para operar el SIG, entrar al portal del jugador o enviar una sugerencia o denuncia.</p>
             </div>
+        </section>
 
-            <button class="button login-button" type="submit">Ingresar</button>
-        </form>
+        <section class="entry-actions" aria-label="Accesos principales">
+            <details class="entry-action entry-action-admin" {% if request.method == 'POST' %}open{% endif %}>
+                <summary>
+                    <span>Acceso Administrativo</span>
+                    <small>Usuarios internos del club</small>
+                </summary>
 
-        <div class="login-links">
-            <a href="{{ url_for('portal_buscar') }}">Portal del jugador</a>
-            <span> &middot; </span>
-            <a href="{{ url_for('solicitar_recuperacion_password') }}">Olvid&eacute; mi clave</a>
-        </div>
+                <form method="post" class="entry-login-form">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div>
+                        <label>Usuario</label>
+                        <input type="text" name="username" autocomplete="username" required>
+                    </div>
+
+                    <div>
+                        <label>Clave</label>
+                        <input type="password" name="password" autocomplete="current-password" required>
+                    </div>
+
+                    <button class="button login-button" type="submit">Ingresar al SIG</button>
+                </form>
+
+                <div class="login-links">
+                    <a href="{{ url_for('solicitar_recuperacion_password') }}">Olvid&eacute; mi clave</a>
+                </div>
+            </details>
+
+            <a class="entry-action" href="{{ url_for('portal_buscar') }}">
+                <span>Portal del Jugador</span>
+                <small>Datos, cuotas, comprobantes y asistencia</small>
+            </a>
+
+            <a class="entry-action" href="{{ url_for('sugerencias_denuncias') }}">
+                <span>Sugerencias / Denuncias</span>
+                <small>Con opci&oacute;n de env&iacute;o an&oacute;nimo</small>
+            </a>
+        </section>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="flash {{ category }} login-flash">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+                <section class="entry-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }} login-flash">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </section>
             {% endif %}
         {% endwith %}
-    </div>
+    </main>
 
 </body>
 </html>

@@ -172,6 +172,35 @@ class HotfixTests(unittest.TestCase):
                     ["tesoreria@example.com"],
                 )
 
+    def test_login_template_exposes_three_entry_actions(self):
+        template = Path("templates/login.html").read_text(encoding="utf-8")
+
+        self.assertIn("Acceso Administrativo", template)
+        self.assertIn("Portal del Jugador", template)
+        self.assertIn("Sugerencias / Denuncias", template)
+        self.assertIn("url_for('sugerencias_denuncias')", template)
+
+    def test_denuncia_disciplina_reaches_configured_directiva_and_disciplina(self):
+        config = {
+            "directiva_emails": ["directiva@example.com"],
+            "disciplina_emails": ["disciplina@example.com"],
+            "disciplina_categorias": {"disciplina"},
+            "actualizado_en": None,
+            "actualizado_por": None,
+        }
+
+        with patch.object(app, "obtener_sugerencias_config", return_value=config):
+            destinatarios = app.obtener_destinatarios_sugerencias(object(), "denuncia", "disciplina")
+
+        self.assertEqual(destinatarios, ["directiva@example.com", "disciplina@example.com"])
+
+    def test_sistema_admin_links_sugerencias_config(self):
+        template = Path("templates/sistema_admin.html").read_text(encoding="utf-8")
+        nav = Path("templates/base.html").read_text(encoding="utf-8")
+
+        self.assertIn("url_for('configurar_sugerencias_denuncias')", template)
+        self.assertIn("configurar_sugerencias_denuncias", nav)
+
     def test_drive_runtime_error_reports_missing_secretaria_config(self):
         mensaje = app.mensaje_error_drive(
             RuntimeError("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID, GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."),

@@ -478,6 +478,23 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER).strip()
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Tesoreria - RMR").strip() or "Tesoreria - RMR"
+DENUNCIA_CATEGORIAS_DISCIPLINA = {
+    "convivencia",
+    "disciplina",
+    "violencia",
+    "discriminacion",
+    "acoso",
+    "abuso",
+    "seguridad",
+}
+SUGERENCIAS_DIRECTIVA_EMAILS_KEY = "sugerencias_directiva_emails"
+SUGERENCIAS_DISCIPLINA_EMAILS_KEY = "sugerencias_disciplina_emails"
+SUGERENCIAS_DISCIPLINA_CATEGORIAS_KEY = "sugerencias_disciplina_categorias"
+SUGERENCIAS_CONFIG_KEYS = [
+    SUGERENCIAS_DIRECTIVA_EMAILS_KEY,
+    SUGERENCIAS_DISCIPLINA_EMAILS_KEY,
+    SUGERENCIAS_DISCIPLINA_CATEGORIAS_KEY,
+]
 WHATSAPP_INBOX_NOTIFY_EMAILS = [
     email.strip()
     for email in re.split(r"[;,]", os.environ.get("WHATSAPP_INBOX_NOTIFY_EMAILS", ""))
@@ -7624,6 +7641,31 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS sugerencias_denuncias (
+            id SERIAL PRIMARY KEY,
+            tipo TEXT NOT NULL,
+            categoria TEXT,
+            anonima INTEGER DEFAULT 1,
+            nombre TEXT,
+            contacto TEXT,
+            mensaje TEXT NOT NULL,
+            destinatarios TEXT,
+            email_estado TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_tipo_fecha
+        ON sugerencias_denuncias (tipo, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_email_estado
+        ON sugerencias_denuncias (email_estado, creado_en DESC)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id SERIAL PRIMARY KEY,
             usuario_id INTEGER NOT NULL,
@@ -8665,6 +8707,7 @@ def proteger_rutas():
         "meta_data_deletion_callback",
         "meta_data_deletion_callback_info",
         "meta_data_deletion_status",
+        "sugerencias_denuncias",
         "portal_buscar",
         "portal_jugador",
         "portal_actualizar_contacto",
@@ -8966,6 +9009,147 @@ def normalizar_username(username):
 
 def normalizar_email(email):
     return (email or "").strip().lower()
+
+
+def normalizar_clave_texto(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip().lower())
+    return "".join(ch for ch in texto if not unicodedata.combining(ch))
+
+
+def normalizar_lista_emails(valores):
+    emails = []
+    invalidos = []
+    for valor in valores:
+        email = normalizar_email(valor)
+        if not email:
+            continue
+        if "@" not in email or email.startswith("@") or email.endswith("@"):
+            invalidos.append(valor.strip())
+            continue
+        if email not in emails:
+            emails.append(email)
+    return emails, invalidos
+
+
+def parsear_emails_config(texto):
+    partes = re.split(r"[\s,;]+", str(texto or ""))
+    return normalizar_lista_emails(partes)
+
+
+def serializar_lista_config(valores):
+    return json.dumps(list(valores or []), ensure_ascii=False)
+
+
+def leer_lista_config(valor, default=None):
+    texto = str(valor or "").strip()
+    if not texto:
+        return list(default or [])
+    try:
+        data = json.loads(texto)
+    except (TypeError, ValueError):
+        data = re.split(r"[\s,;]+", texto)
+    if not isinstance(data, list):
+        return list(default or [])
+    return [str(item).strip() for item in data if str(item or "").strip()]
+
+
+def obtener_sugerencias_config(conn=None):
+    own_conn = conn is None
+    conn = conn or get_connection()
+    settings = obtener_app_settings(conn, SUGERENCIAS_CONFIG_KEYS)
+    if own_conn:
+        conn.close()
+
+    directiva, _ = normalizar_lista_emails(leer_lista_config((settings.get(SUGERENCIAS_DIRECTIVA_EMAILS_KEY) or {}).get("valor")))
+    disciplina, _ = normalizar_lista_emails(leer_lista_config((settings.get(SUGERENCIAS_DISCIPLINA_EMAILS_KEY) or {}).get("valor")))
+    categorias = {
+        normalizar_clave_texto(categoria)
+        for categoria in leer_lista_config(
+            (settings.get(SUGERENCIAS_DISCIPLINA_CATEGORIAS_KEY) or {}).get("valor"),
+            DENUNCIA_CATEGORIAS_DISCIPLINA,
+        )
+    }
+    categorias = {categoria for categoria in categorias if categoria}
+
+    actualizado_en = None
+    actualizado_por = None
+    for row in settings.values():
+        if row.get("actualizado_en") and (actualizado_en is None or row["actualizado_en"] > actualizado_en):
+            actualizado_en = row["actualizado_en"]
+            actualizado_por = row.get("actualizado_por")
+
+    return {
+        "directiva_emails": directiva,
+        "disciplina_emails": disciplina,
+        "disciplina_categorias": categorias,
+        "actualizado_en": actualizado_en,
+        "actualizado_por": actualizado_por,
+    }
+
+
+def obtener_destinatarios_sugerencias(conn, tipo, categoria):
+    config = obtener_sugerencias_config(conn)
+    tipo_normalizado = normalizar_clave_texto(tipo)
+    categoria_normalizada = normalizar_clave_texto(categoria)
+    incluir_disciplina = (
+        tipo_normalizado == "denuncia"
+        and categoria_normalizada in config["disciplina_categorias"]
+    )
+
+    destinatarios = list(config["directiva_emails"])
+    if incluir_disciplina:
+        for email in config["disciplina_emails"]:
+            if email not in destinatarios:
+                destinatarios.append(email)
+
+    return destinatarios
+
+
+def asunto_sugerencia_denuncia(tipo, categoria, registro_id):
+    etiqueta = "Sugerencia" if tipo == "sugerencia" else "Denuncia"
+    categoria_texto = f" - {categoria}" if categoria else ""
+    return f"{etiqueta}{categoria_texto} #{registro_id} - SIG"
+
+
+def cuerpo_sugerencia_denuncia(data, registro_id):
+    identidad = "Anonima" if data["anonima"] else (data["nombre"] or "Sin nombre informado")
+    contacto = "No informado" if data["anonima"] else (data["contacto"] or "No informado")
+    tipo = "Sugerencia" if data["tipo"] == "sugerencia" else "Denuncia"
+    return "\n".join([
+        f"Se registro una nueva {tipo.lower()} en el SIG.",
+        "",
+        f"ID: {registro_id}",
+        f"Tipo: {tipo}",
+        f"Categoria: {data['categoria'] or 'General'}",
+        f"Identidad: {identidad}",
+        f"Contacto: {contacto}",
+        "",
+        "Mensaje:",
+        data["mensaje"],
+    ])
+
+
+def enviar_notificacion_sugerencia_denuncia(data, registro_id, destinatarios):
+    if not destinatarios:
+        return "sin_destinatarios", 0
+
+    asunto = asunto_sugerencia_denuncia(data["tipo"], data["categoria"], registro_id)
+    cuerpo = cuerpo_sugerencia_denuncia(data, registro_id)
+    enviados = 0
+    for destinatario in destinatarios:
+        try:
+            enviado, _ = enviar_email(destinatario, asunto, cuerpo)
+        except Exception:
+            app.logger.exception("No se pudo enviar sugerencia/denuncia %s a %s.", registro_id, destinatario)
+            enviado = False
+        if enviado:
+            enviados += 1
+
+    if enviados == len(destinatarios):
+        return "enviado", enviados
+    if enviados:
+        return "parcial", enviados
+    return "fallo_email", enviados
 
 
 def formatear_numero_socio(numero):
@@ -9384,6 +9568,95 @@ def registrar_intento_login(conn, username, ip, success):
             DELETE FROM login_attempts
             WHERE fecha < CURRENT_TIMESTAMP - INTERVAL '7 days'
         """)
+
+
+SUGERENCIA_DENUNCIA_CATEGORIAS = [
+    {"clave": "general", "nombre": "General"},
+    {"clave": "infraestructura", "nombre": "Infraestructura"},
+    {"clave": "comunicacion", "nombre": "Comunicacion"},
+    {"clave": "finanzas", "nombre": "Finanzas / cuotas"},
+    {"clave": "convivencia", "nombre": "Convivencia"},
+    {"clave": "disciplina", "nombre": "Disciplina"},
+    {"clave": "violencia", "nombre": "Violencia"},
+    {"clave": "discriminacion", "nombre": "Discriminacion"},
+    {"clave": "acoso", "nombre": "Acoso"},
+    {"clave": "abuso", "nombre": "Abuso"},
+    {"clave": "seguridad", "nombre": "Seguridad"},
+]
+
+
+@app.route("/sugerencias-denuncias", methods=["GET", "POST"])
+def sugerencias_denuncias():
+    categorias_validas = {item["clave"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
+    data = {
+        "tipo": request.form.get("tipo", "sugerencia").strip().lower(),
+        "categoria": request.form.get("categoria", "general").strip().lower(),
+        "anonima": request.form.get("anonima", "1") == "1",
+        "nombre": request.form.get("nombre", "").strip(),
+        "contacto": request.form.get("contacto", "").strip(),
+        "mensaje": request.form.get("mensaje", "").strip(),
+    }
+
+    if request.method == "POST":
+        if request.form.get("website", "").strip():
+            flash("No se pudo registrar el formulario.", "error")
+            return render_template("sugerencias_denuncias.html", data=data, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
+
+        if data["tipo"] not in {"sugerencia", "denuncia"}:
+            data["tipo"] = "sugerencia"
+        if data["categoria"] not in categorias_validas:
+            data["categoria"] = "general"
+        if data["anonima"]:
+            data["nombre"] = ""
+            data["contacto"] = ""
+
+        if len(data["mensaje"]) < 10:
+            flash("Escribi un mensaje de al menos 10 caracteres.", "error")
+            return render_template("sugerencias_denuncias.html", data=data, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
+
+        conn = get_connection()
+        destinatarios = obtener_destinatarios_sugerencias(conn, data["tipo"], data["categoria"])
+        registro = conn.execute("""
+            INSERT INTO sugerencias_denuncias (
+                tipo, categoria, anonima, nombre, contacto, mensaje, destinatarios, email_estado
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data["tipo"],
+            data["categoria"],
+            1 if data["anonima"] else 0,
+            data["nombre"] or None,
+            data["contacto"] or None,
+            data["mensaje"],
+            json.dumps(destinatarios, ensure_ascii=False),
+            "pendiente",
+        )).fetchone()
+
+        email_estado, enviados = enviar_notificacion_sugerencia_denuncia(data, registro["id"], destinatarios)
+        conn.execute("""
+            UPDATE sugerencias_denuncias
+            SET email_estado = %s
+            WHERE id = %s
+        """, (email_estado, registro["id"]))
+        conn.commit()
+        conn.close()
+
+        registrar_auditoria("crear", "sugerencia_denuncia", str(registro["id"]), {
+            "tipo": data["tipo"],
+            "categoria": data["categoria"],
+            "anonima": data["anonima"],
+            "email_estado": email_estado,
+            "emails_enviados": enviados,
+        }, username="portal")
+
+        if email_estado in {"enviado", "parcial"}:
+            flash("Tu mensaje fue registrado y derivado al area correspondiente.", "ok")
+        else:
+            flash("Tu mensaje fue registrado. La notificacion por email quedo pendiente de revision.", "warning")
+        return redirect(url_for("sugerencias_denuncias"))
+
+    return render_template("sugerencias_denuncias.html", data=data, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -18418,6 +18691,73 @@ def configurar_facturas_email():
     configs = obtener_factura_email_configs(conn)
     conn.close()
     return render_template("facturas_email_config.html", config=configs[0], config2=configs[1], configs=configs)
+
+
+@app.route("/admin/sugerencias-denuncias", methods=["GET", "POST"])
+def configurar_sugerencias_denuncias():
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    categorias_validas = {item["clave"] for item in SUGERENCIA_DENUNCIA_CATEGORIAS}
+    conn = get_connection()
+
+    if request.method == "POST":
+        directiva_texto = request.form.get("directiva_emails", "")
+        disciplina_texto = request.form.get("disciplina_emails", "")
+        directiva_emails, directiva_invalidos = parsear_emails_config(directiva_texto)
+        disciplina_emails, disciplina_invalidos = parsear_emails_config(disciplina_texto)
+        categorias_seleccionadas = {
+            normalizar_clave_texto(categoria)
+            for categoria in request.form.getlist("disciplina_categorias")
+            if normalizar_clave_texto(categoria) in categorias_validas
+        }
+        categorias_ordenadas = [
+            categoria["clave"]
+            for categoria in SUGERENCIA_DENUNCIA_CATEGORIAS
+            if categoria["clave"] in categorias_seleccionadas
+        ]
+
+        form_config = {
+            "directiva_emails": directiva_emails,
+            "disciplina_emails": disciplina_emails,
+            "disciplina_categorias": set(categorias_ordenadas),
+            "actualizado_en": None,
+            "actualizado_por": None,
+        }
+        invalidos = directiva_invalidos + disciplina_invalidos
+        if invalidos:
+            conn.close()
+            flash("Hay emails con formato invalido: " + ", ".join(invalidos), "error")
+            return render_template("sugerencias_denuncias_config.html", config=form_config, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
+
+        if not directiva_emails:
+            conn.close()
+            flash("Configura al menos un email de Comision Directiva.", "error")
+            return render_template("sugerencias_denuncias_config.html", config=form_config, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
+
+        if categorias_ordenadas and not disciplina_emails:
+            conn.close()
+            flash("Si hay categorias derivadas a Disciplina, configura al menos un email de Disciplina.", "error")
+            return render_template("sugerencias_denuncias_config.html", config=form_config, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
+
+        guardar_app_setting(conn, SUGERENCIAS_DIRECTIVA_EMAILS_KEY, serializar_lista_config(directiva_emails), session.get("username"))
+        guardar_app_setting(conn, SUGERENCIAS_DISCIPLINA_EMAILS_KEY, serializar_lista_config(disciplina_emails), session.get("username"))
+        guardar_app_setting(conn, SUGERENCIAS_DISCIPLINA_CATEGORIAS_KEY, serializar_lista_config(categorias_ordenadas), session.get("username"))
+        conn.commit()
+        conn.close()
+
+        registrar_auditoria("configurar", "sugerencia_denuncia_config", None, {
+            "directiva_emails": len(directiva_emails),
+            "disciplina_emails": len(disciplina_emails),
+            "disciplina_categorias": categorias_ordenadas,
+        })
+        flash("Configuracion de sugerencias y denuncias guardada.", "ok")
+        return redirect(url_for("configurar_sugerencias_denuncias"))
+
+    config = obtener_sugerencias_config(conn)
+    conn.close()
+    return render_template("sugerencias_denuncias_config.html", config=config, categorias=SUGERENCIA_DENUNCIA_CATEGORIAS)
 
 
 @app.route("/admin/mantenimiento", methods=["GET", "POST"])

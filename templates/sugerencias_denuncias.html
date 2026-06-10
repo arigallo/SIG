@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Sugerencias y denuncias - SIG</title>
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="login-body entry-body">
+
+    <main class="public-form-shell">
+        <section class="public-form-header">
+            <a class="back-link" href="{{ url_for('login') }}">Volver</a>
+            <div class="login-logo entry-logo">
+                <picture>
+                    <source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+                </picture>
+            </div>
+            <p class="entry-kicker">Ruda Macho Rugby Club</p>
+            <h1>Sugerencias / Denuncias</h1>
+            <p>El mensaje queda registrado en el SIG y se deriva al &aacute;rea correspondiente.</p>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }} login-flash">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="post" class="public-form-card">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input class="honeypot" type="text" name="website" autocomplete="off" tabindex="-1" aria-hidden="true">
+
+            <div class="segmented-field">
+                <label>Tipo</label>
+                <div class="segmented-control">
+                    <label>
+                        <input type="radio" name="tipo" value="sugerencia" {% if data.tipo != 'denuncia' %}checked{% endif %}>
+                        <span>Sugerencia</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="tipo" value="denuncia" {% if data.tipo == 'denuncia' %}checked{% endif %}>
+                        <span>Denuncia</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div>
+                    <label>Categoria</label>
+                    <select name="categoria">
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.clave }}" {% if data.categoria == categoria.clave %}selected{% endif %}>{{ categoria.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label>Identidad</label>
+                    <select name="anonima" data-anonymous-select>
+                        <option value="1" {% if data.anonima %}selected{% endif %}>An&oacute;nima</option>
+                        <option value="0" {% if not data.anonima %}selected{% endif %}>Con mis datos</option>
+                    </select>
+                </div>
+
+                <div data-identity-field>
+                    <label>Nombre</label>
+                    <input type="text" name="nombre" value="{{ data.nombre or '' }}" autocomplete="name">
+                </div>
+
+                <div data-identity-field>
+                    <label>Contacto</label>
+                    <input type="text" name="contacto" value="{{ data.contacto or '' }}" autocomplete="email" placeholder="Email o telefono">
+                </div>
+
+                <div class="full">
+                    <label>Mensaje</label>
+                    <textarea name="mensaje" rows="7" maxlength="4000" required>{{ data.mensaje or '' }}</textarea>
+                    <span class="field-hint">Minimo 10 caracteres. Maximo 4000.</span>
+                </div>
+            </div>
+
+            <button class="button login-button" type="submit">Enviar</button>
+        </form>
+    </main>
+
+    <script>
+        const anonymousSelect = document.querySelector("[data-anonymous-select]");
+        const identityFields = document.querySelectorAll("[data-identity-field]");
+        const syncIdentityFields = () => {
+            const anonymous = anonymousSelect && anonymousSelect.value === "1";
+            identityFields.forEach((field) => {
+                field.hidden = anonymous;
+                field.querySelectorAll("input").forEach((input) => {
+                    input.disabled = anonymous;
+                });
+            });
+        };
+        if (anonymousSelect) {
+            anonymousSelect.addEventListener("change", syncIdentityFields);
+            syncIdentityFields();
+        }
+    </script>
+
+</body>
+</html>
