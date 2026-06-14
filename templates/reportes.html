@@ -89,6 +89,30 @@
     </div>
 </div>
 
+<div class="card page-section">
+    <div class="section-header compact">
+        <div>
+            <h3>Deuda total y antig&uuml;edad</h3>
+            <span class="muted-line">Cuotas y gastos compartidos pendientes</span>
+        </div>
+        <strong class="text-danger">{{ reportes['resumen']['deuda_total_unificada'] | moneda }}</strong>
+    </div>
+    <div class="table-wrapper flush">
+        <table>
+            <thead><tr><th>Por vencer</th><th>1 a 30 d&iacute;as</th><th>31 a 60</th><th>61 a 90</th><th>M&aacute;s de 90</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>{{ reportes['antiguedad_deuda']['por_vencer'] | moneda }}</td>
+                    <td>{{ reportes['antiguedad_deuda']['dias_1_30'] | moneda }}</td>
+                    <td>{{ reportes['antiguedad_deuda']['dias_31_60'] | moneda }}</td>
+                    <td>{{ reportes['antiguedad_deuda']['dias_61_90'] | moneda }}</td>
+                    <td class="strong-danger">{{ reportes['antiguedad_deuda']['mas_90'] | moneda }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="page-section">
     <div class="section-header">
         <h3>Evolución mensual</h3>

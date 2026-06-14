@@ -229,6 +229,18 @@ class HotfixTests(unittest.TestCase):
         self.assertNotIn("denuncias_ver", app.PERMISOS)
         self.assertIn("sugerencias_gestionar", app.ROLE_PRESETS["admin"])
 
+    def test_closed_shared_expenses_remain_visible_as_player_debt(self):
+        source = Path("app.py").read_text(encoding="utf-8")
+        player_template = Path("templates/jugador_detalle.html").read_text(encoding="utf-8")
+        portal_template = Path("templates/portal_jugador.html").read_text(encoding="utf-8")
+
+        self.assertIn("OR i.estado = 'pendiente'", source)
+        self.assertIn("deuda_gastos_compartidos", source)
+        self.assertIn("gastos_compartidos_pendientes", player_template)
+        self.assertIn("Cerrado con deuda", player_template)
+        self.assertIn("Cerrado con saldo pendiente", portal_template)
+        self.assertIn("Cuotas: {{ deuda_cuotas | moneda }}", portal_template)
+
     def test_drive_runtime_error_reports_missing_secretaria_config(self):
         mensaje = app.mensaje_error_drive(
             RuntimeError("Falta configurar GOOGLE_DRIVE_SECRETARIA_FOLDER_ID, GOOGLE_DRIVE_COMPROBANTES_FOLDER_ID o GOOGLE_DRIVE_SHARED_DRIVE_ID."),
@@ -558,6 +570,27 @@ class HotfixTests(unittest.TestCase):
                 app.sincronizar_circulares_urba(None, 2026, "admin")
 
         self.assertIn("URBA no respondio", str(contexto.exception))
+
+    def test_management_package_keeps_closed_debt_and_later_payment(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        template = (Path(app.__file__).parent / "templates" / "gasto_compartido_detalle.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("def registrar_pago_posterior_gasto_compartido", source)
+        self.assertIn("Pago posterior gasto compartido", source)
+        self.assertIn("i.estado = 'pendiente'", source)
+        self.assertIn("Registrar pago", template)
+
+    def test_management_package_exposes_ledger_automation_and_rate_limit(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
+        sistema = (Path(app.__file__).parent / "templates" / "sistema_admin.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("def obtener_cuenta_corriente_jugador", source)
+        self.assertIn("def ejecutar_automatizaciones", source)
+        self.assertIn("def consumir_limite_publico", source)
+        self.assertIn("/tasks/automatizaciones", source)
+        self.assertIn("Cuenta corriente", portal)
+        self.assertIn("Automatizaciones", sistema)
 
 
 if __name__ == "__main__":

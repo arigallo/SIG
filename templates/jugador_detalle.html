@@ -84,13 +84,45 @@
     {% endif %}
 </div>
 
+{% if puede_ver_finanzas %}
+<div class="card page-section">
+    <div class="section-header compact">
+        <div>
+            <h3>Cuenta corriente</h3>
+            <span class="muted-line">Cuotas y gastos compartidos en una sola vista</span>
+        </div>
+    </div>
+    <div class="table-wrapper flush">
+        <table>
+            <thead>
+                <tr><th>Fecha</th><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+                {% for movimiento in cuenta_corriente %}
+                <tr>
+                    <td>{{ movimiento['fecha_pago'] or movimiento['fecha'] or '-' }}</td>
+                    <td>{{ movimiento['concepto'] }}</td>
+                    <td>{{ movimiento['importe'] | moneda }}</td>
+                    <td><span class="badge {% if movimiento['estado'] == 'pagado' %}badge-success{% elif movimiento['estado'] == 'pendiente' %}badge-warning{% else %}badge-muted{% endif %}">{{ movimiento['estado'] }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="empty">No hay movimientos financieros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="detail-grid page-section">
     {% if puede_ver_finanzas %}
     <div class="card">
         <div class="section-header compact">
             <h3>Resumen financiero</h3>
         </div>
-        <p><strong>Deuda:</strong> {{ deuda | moneda }}</p>
+        <p><strong>Deuda total:</strong> {{ deuda | moneda }}</p>
+        <p><strong>Cuotas:</strong> {{ deuda_cuotas | moneda }}</p>
+        <p><strong>Gastos compartidos:</strong> {{ deuda_gastos_compartidos | moneda }}</p>
         <p><strong>Cuotas pendientes:</strong> {{ cuotas_pendientes_count }}</p>
         <p><strong>Plan activo:</strong> {{ plan_activo['descripcion'] if plan_activo else '-' }}</p>
         {% if plan_activo %}
@@ -464,6 +496,51 @@
             </div>
         {% else %}
             <p>No hay planes de pago cargados.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="section-header compact">
+            <h3>Gastos compartidos pendientes</h3>
+            <span class="muted-line">{{ deuda_gastos_compartidos | moneda }}</span>
+        </div>
+        {% if gastos_compartidos_pendientes %}
+            <div class="table-wrapper flush">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Importe</th>
+                            <th>Vencimiento</th>
+                            <th>Gasto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in gastos_compartidos_pendientes %}
+                        <tr>
+                            <td>
+                                <strong>{{ item['titulo'] }}</strong>
+                                {% if item['concepto'] %}
+                                    <span class="muted-line">{{ item['concepto'] }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="strong-danger">{{ item['importe'] | moneda }}</td>
+                            <td>{{ item['fecha_vencimiento'] or '-' }}</td>
+                            <td>
+                                {% if item['gasto_estado']|lower == 'cerrado' %}
+                                    <span class="badge badge-warning">Cerrado con deuda</span>
+                                {% else %}
+                                    <span class="status-pending">Activo</span>
+                                {% endif %}
+                                <a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No hay gastos compartidos pendientes.</p>
         {% endif %}
     </div>
 

@@ -945,6 +945,226 @@ def obtener_app_settings(conn, claves):
     return {row["clave"]: row for row in rows}
 
 
+def obtener_cuenta_corriente_jugador(conn, jugador_id, limite=30):
+    return conn.execute("""
+        SELECT *
+        FROM (
+            SELECT
+                c.fecha_vencimiento AS fecha,
+                'cuota' AS origen,
+                c.id AS origen_id,
+                'Cuota ' || c.periodo AS concepto,
+                c.importe AS importe,
+                CASE
+                    WHEN COALESCE(c.anulada, 0) = 1 THEN 'anulado'
+                    WHEN c.pagado = 1 THEN 'pagado'
+                    ELSE 'pendiente'
+                END AS estado,
+                c.fecha_pago
+            FROM cuotas c
+            WHERE c.jugador_id = %s
+
+            UNION ALL
+
+            SELECT
+                COALESCE(g.fecha_vencimiento, g.fecha_evento, g.creado_en::text) AS fecha,
+                'gasto_compartido' AS origen,
+                i.id AS origen_id,
+                'Gasto compartido: ' || g.titulo AS concepto,
+                i.importe AS importe,
+                i.estado,
+                i.fecha_pago
+            FROM gasto_compartido_items i
+            JOIN gastos_compartidos g ON g.id = i.gasto_id
+            WHERE i.jugador_id = %s
+        ) cuenta
+        ORDER BY COALESCE(fecha_pago, fecha) DESC NULLS LAST, origen_id DESC
+        LIMIT %s
+    """, (jugador_id, jugador_id, limite)).fetchall()
+
+
+AUTOMATION_SETTING_KEYS = (
+    "automation_reminders_enabled",
+    "automation_reminders_days_before",
+    "automation_invoices_enabled",
+    "automation_last_run",
+    "automation_last_status",
+    "automation_last_detail",
+)
+
+
+def obtener_config_automatizaciones(conn=None):
+    own_conn = conn is None
+    conn = conn or get_connection()
+    rows = obtener_app_settings(conn, AUTOMATION_SETTING_KEYS)
+    if own_conn:
+        conn.close()
+    return {
+        "recordatorios_activos": parse_bool_setting((rows.get("automation_reminders_enabled") or {}).get("valor")),
+        "dias_antes": int_setting((rows.get("automation_reminders_days_before") or {}).get("valor"), 3, 0, 30),
+        "facturas_activas": parse_bool_setting((rows.get("automation_invoices_enabled") or {}).get("valor")),
+        "ultima_ejecucion": (rows.get("automation_last_run") or {}).get("valor"),
+        "ultimo_estado": (rows.get("automation_last_status") or {}).get("valor"),
+        "ultimo_detalle": (rows.get("automation_last_detail") or {}).get("valor"),
+    }
+
+
+def consumir_limite_publico(endpoint, max_intentos=5, minutos=60):
+    ip = audit_request_ip() or "desconocida"
+    conn = get_connection()
+    conn.execute("""
+        DELETE FROM public_rate_limits
+        WHERE creado_en < CURRENT_TIMESTAMP - INTERVAL '2 days'
+    """)
+    cantidad = conn.execute("""
+        SELECT COUNT(*) AS total
+        FROM public_rate_limits
+        WHERE endpoint = %s
+          AND ip = %s
+          AND creado_en >= CURRENT_TIMESTAMP - (%s * INTERVAL '1 minute')
+    """, (endpoint, ip, minutos)).fetchone()["total"]
+    if cantidad >= max_intentos:
+        conn.commit()
+        conn.close()
+        return False
+    conn.execute("""
+        INSERT INTO public_rate_limits (endpoint, ip)
+        VALUES (%s, %s)
+    """, (endpoint, ip))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def ejecutar_automatizaciones(usuario="sistema"):
+    conn = get_connection()
+    config = obtener_config_automatizaciones(conn)
+    resultado = {"recordatorios_enviados": 0, "recordatorios_omitidos": 0, "facturas": None, "errores": []}
+    hoy = ahora_sig().strftime("%Y-%m-%d")
+
+    if config["recordatorios_activos"]:
+        cuotas = conn.execute("""
+            SELECT
+                c.id AS cuota_id,
+                c.jugador_id,
+                c.periodo,
+                c.importe,
+                c.fecha_vencimiento,
+                j.nombre,
+                j.apellido,
+                j.email,
+                j.email_tutor,
+                j.portal_token,
+                j.portal_activo
+            FROM cuotas c
+            JOIN jugadores j ON j.id = c.jugador_id
+            WHERE c.pagado = 0
+              AND COALESCE(c.anulada, 0) = 0
+              AND COALESCE(c.importe, 0) > 0
+              AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+              AND c.fecha_vencimiento::date <= CURRENT_DATE + (%s * INTERVAL '1 day')
+            ORDER BY c.fecha_vencimiento, c.id
+        """, (config["dias_antes"],)).fetchall()
+
+        for cuota in cuotas:
+            clave = f"{cuota['cuota_id']}:{hoy}"
+            reserva = conn.execute("""
+                INSERT INTO automatizacion_ejecuciones (tipo, clave, estado, detalle)
+                VALUES ('recordatorio_cuota', %s, 'procesando', NULL)
+                ON CONFLICT(tipo, clave) DO NOTHING
+                RETURNING id
+            """, (clave,)).fetchone()
+            if not reserva:
+                resultado["recordatorios_omitidos"] += 1
+                continue
+
+            cuerpo = construir_texto_recordatorio_cuota(cuota)
+            enviado, destinatario, motivo = enviar_email_jugador(
+                cuota,
+                f"Recordatorio de cuota {cuota['periodo']}",
+                cuerpo,
+            )
+            conn.execute("""
+                UPDATE automatizacion_ejecuciones
+                SET estado = %s, detalle = %s
+                WHERE id = %s
+            """, ("enviado" if enviado else "error", destinatario or motivo, reserva["id"]))
+            if enviado:
+                resultado["recordatorios_enviados"] += 1
+            else:
+                resultado["errores"].append(f"Cuota {cuota['cuota_id']}: {motivo}")
+
+        gastos = conn.execute("""
+            SELECT
+                i.id,
+                i.jugador_id,
+                i.importe,
+                g.titulo,
+                g.concepto,
+                g.fecha_vencimiento,
+                g.estado AS gasto_estado,
+                j.nombre,
+                j.apellido,
+                j.email,
+                j.email_tutor
+            FROM gasto_compartido_items i
+            JOIN gastos_compartidos g ON g.id = i.gasto_id
+            JOIN jugadores j ON j.id = i.jugador_id
+            WHERE i.estado = 'pendiente'
+              AND COALESCE(i.importe, 0) > 0
+              AND g.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+              AND g.fecha_vencimiento::date <= CURRENT_DATE + (%s * INTERVAL '1 day')
+            ORDER BY g.fecha_vencimiento, i.id
+        """, (config["dias_antes"],)).fetchall()
+
+        for item in gastos:
+            clave = f"{item['id']}:{hoy}"
+            reserva = conn.execute("""
+                INSERT INTO automatizacion_ejecuciones (tipo, clave, estado, detalle)
+                VALUES ('recordatorio_gasto_compartido', %s, 'procesando', NULL)
+                ON CONFLICT(tipo, clave) DO NOTHING
+                RETURNING id
+            """, (clave,)).fetchone()
+            if not reserva:
+                resultado["recordatorios_omitidos"] += 1
+                continue
+
+            enviado, destinatario, motivo = enviar_email_jugador(
+                item,
+                f"Gasto compartido pendiente - {item.get('titulo') or 'Ruda Macho Rugby Club'}",
+                construir_texto_gasto_compartido(item),
+            )
+            conn.execute("""
+                UPDATE automatizacion_ejecuciones
+                SET estado = %s, detalle = %s
+                WHERE id = %s
+            """, ("enviado" if enviado else "error", destinatario or motivo, reserva["id"]))
+            if enviado:
+                resultado["recordatorios_enviados"] += 1
+            else:
+                resultado["errores"].append(f"Gasto compartido {item['id']}: {motivo}")
+
+    if config["facturas_activas"]:
+        try:
+            resultado["facturas"] = sincronizar_facturas_email(conn, usuario=usuario)
+            resultado["errores"].extend(
+                f"Facturas: {error}"
+                for error in (resultado["facturas"].get("errores") or [])
+            )
+        except Exception as error:
+            app.logger.exception("Fallo la sincronizacion automatica de facturas.")
+            resultado["errores"].append(f"Facturas: {error}")
+
+    estado = "error" if resultado["errores"] else "ok"
+    detalle = json.dumps(resultado, ensure_ascii=False, default=str)
+    guardar_app_setting(conn, "automation_last_run", ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), usuario)
+    guardar_app_setting(conn, "automation_last_status", estado, usuario)
+    guardar_app_setting(conn, "automation_last_detail", detalle, usuario)
+    conn.commit()
+    conn.close()
+    return resultado
+
+
 def presence_key(username):
     username = normalizar_username(username)
     return f"presence:{username}" if username else ""
@@ -3592,6 +3812,32 @@ def obtener_reportes(desde, hasta):
         WHERE substring(COALESCE(g.fecha_evento::text, g.fecha_vencimiento::text, g.creado_en::text) from 1 for 7) BETWEEN %s AND %s
     """, (desde, hasta)).fetchone()
 
+    antiguedad_deuda = conn.execute("""
+        SELECT
+            COALESCE(SUM(importe) FILTER (WHERE dias <= 0), 0) AS por_vencer,
+            COALESCE(SUM(importe) FILTER (WHERE dias BETWEEN 1 AND 30), 0) AS dias_1_30,
+            COALESCE(SUM(importe) FILTER (WHERE dias BETWEEN 31 AND 60), 0) AS dias_31_60,
+            COALESCE(SUM(importe) FILTER (WHERE dias BETWEEN 61 AND 90), 0) AS dias_61_90,
+            COALESCE(SUM(importe) FILTER (WHERE dias > 90), 0) AS mas_90
+        FROM (
+            SELECT c.importe,
+                CASE WHEN c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                     THEN CURRENT_DATE - c.fecha_vencimiento::date ELSE 0 END AS dias
+            FROM cuotas c
+            WHERE c.pagado = 0
+              AND COALESCE(c.anulada, 0) = 0
+              AND COALESCE(c.importe, 0) > 0
+            UNION ALL
+            SELECT i.importe,
+                CASE WHEN g.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                     THEN CURRENT_DATE - g.fecha_vencimiento::date ELSE 0 END AS dias
+            FROM gasto_compartido_items i
+            JOIN gastos_compartidos g ON g.id = i.gasto_id
+            WHERE i.estado = 'pendiente'
+              AND COALESCE(i.importe, 0) > 0
+        ) deuda
+    """).fetchone()
+
     conn.close()
 
     movimientos_por_mes = {fila["mes"]: fila for fila in movimientos_mensuales}
@@ -3666,6 +3912,10 @@ def obtener_reportes(desde, hasta):
             "gastos_compartidos_pendiente": gastos_compartidos_resumen["pendiente"] or 0,
             "gastos_compartidos_items_pagados": gastos_compartidos_resumen["items_pagados"] or 0,
             "gastos_compartidos_items_pendientes": gastos_compartidos_resumen["items_pendientes"] or 0,
+            "deuda_total_unificada": sum(
+                antiguedad_deuda[clave] or 0
+                for clave in ("por_vencer", "dias_1_30", "dias_31_60", "dias_61_90", "mas_90")
+            ),
         },
         "mensual": mensual,
         "deuda_por_categoria": deuda_por_categoria,
@@ -3673,6 +3923,7 @@ def obtener_reportes(desde, hasta):
         "morosos_recurrentes": morosos_recurrentes,
         "asistencia_por_categoria": asistencia_por_categoria,
         "becas_jugadores": becas_jugadores,
+        "antiguedad_deuda": antiguedad_deuda,
     }
 
 
@@ -4077,14 +4328,18 @@ def obtener_estado_sistema_admin():
             "facturas_email_user": obtener_factura_email_config().get("user") or "",
             "drive_shared": bool(DRIVE_SHARED_DRIVE_ID),
             "drive_comprobantes": bool(DRIVE_COMPROBANTES_FOLDER_ID or DRIVE_SHARED_DRIVE_ID),
+            "drive_secretaria": bool(DRIVE_SECRETARIA_FOLDER_ID or DRIVE_COMPROBANTES_FOLDER_ID or DRIVE_SHARED_DRIVE_ID),
             "drive_fichas": bool(
                 DRIVE_FICHAS_MEDICAS_FOLDER_ID
                 or DRIVE_COMPROBANTES_FOLDER_ID
                 or DRIVE_SHARED_DRIVE_ID
             ),
             "cloud_sql_ok": bool(CLOUD_SQL_CONNECTION_NAME or (CLOUD_SQL_PROJECT and CLOUD_SQL_INSTANCE)),
+            "whatsapp_ok": bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID),
+            "automation_token_ok": bool(os.environ.get("AUTOMATION_TOKEN", "").strip()),
             "secret_key_default": app.secret_key == "cambiar-esto-por-una-clave-segura",
         },
+        "automatizaciones": {},
     }
 
     conn = None
@@ -4093,6 +4348,7 @@ def obtener_estado_sistema_admin():
         estado["db_ok"] = True
         estado["db_time"] = conn.execute("SELECT CURRENT_TIMESTAMP AS ahora").fetchone()["ahora"]
         estado["mantenimiento"] = obtener_config_mantenimiento(conn)
+        estado["automatizaciones"] = obtener_config_automatizaciones(conn)
         estado["conteos"] = conn.execute("""
             SELECT
                 (SELECT COUNT(*) FROM jugadores) AS jugadores,
@@ -6965,6 +7221,50 @@ def init_db():
     """, (MAINTENANCE_DEFAULT_MESSAGE,))
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            aplicado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        INSERT INTO schema_migrations (version)
+        VALUES ('2026-06-14-paquete-gestion-v1')
+        ON CONFLICT(version) DO NOTHING
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS automatizacion_ejecuciones (
+            id SERIAL PRIMARY KEY,
+            tipo TEXT NOT NULL,
+            clave TEXT NOT NULL,
+            estado TEXT NOT NULL,
+            detalle TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tipo, clave)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_automatizacion_ejecuciones_tipo_fecha
+        ON automatizacion_ejecuciones (tipo, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS public_rate_limits (
+            id SERIAL PRIMARY KEY,
+            endpoint TEXT NOT NULL,
+            ip TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_public_rate_limits_endpoint_ip_fecha
+        ON public_rate_limits (endpoint, ip, creado_en DESC)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS cuotas (
             id SERIAL PRIMARY KEY,
             jugador_id INTEGER,
@@ -8752,9 +9052,15 @@ def proteger_rutas():
         "portal_calendario_ics",
         "whatsapp_webhook_verify",
         "whatsapp_webhook_receive",
+        "ejecutar_automatizaciones_programadas",
     }
 
-    csrf_exentas = {"static", "whatsapp_webhook_receive", "meta_data_deletion_callback"}
+    csrf_exentas = {
+        "static",
+        "whatsapp_webhook_receive",
+        "meta_data_deletion_callback",
+        "ejecutar_automatizaciones_programadas",
+    }
 
     if request.method == "POST" and request.endpoint not in csrf_exentas:
         if not csrf_valido():
@@ -9683,6 +9989,13 @@ def sugerencias_recomendaciones():
     }
 
     if request.method == "POST":
+        if not consumir_limite_publico("sugerencias_recomendaciones", max_intentos=5, minutos=60):
+            flash("Se alcanzo el limite de envios. Intenta nuevamente mas tarde.", "error")
+            return render_template(
+                "sugerencias_recomendaciones.html",
+                data=data,
+                categorias=SUGERENCIA_RECOMENDACION_CATEGORIAS,
+            ), 429
         if request.form.get("website", "").strip():
             flash("No se pudo registrar el formulario.", "error")
             return render_template(
@@ -14276,13 +14589,40 @@ def detalle_jugador(jugador_id):
     puede_ver_asistencia = puede_ver_asistencia and es_jugador_deportivo
     puede_ver_tests = puede_ver_tests and es_jugador_deportivo
 
-    deuda = conn.execute("""
+    deuda_cuotas = conn.execute("""
         SELECT COALESCE(SUM(importe), 0) AS total
         FROM cuotas
         WHERE jugador_id = %s
           AND pagado = 0
+          AND COALESCE(anulada, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (jugador_id,)).fetchone()["total"]
+
+    gastos_compartidos_pendientes = conn.execute("""
+        SELECT
+            i.id,
+            i.importe,
+            i.estado,
+            g.id AS gasto_id,
+            g.titulo,
+            g.concepto,
+            g.fecha_evento,
+            g.fecha_vencimiento,
+            g.estado AS gasto_estado
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        WHERE i.jugador_id = %s
+          AND i.estado = 'pendiente'
+          AND COALESCE(i.importe, 0) > 0
+        ORDER BY
+            COALESCE(g.fecha_vencimiento, g.fecha_evento, g.creado_en::text) DESC,
+            i.id DESC
+    """, (jugador_id,)).fetchall()
+    deuda_gastos_compartidos = round(
+        sum(float(item.get("importe") or 0) for item in gastos_compartidos_pendientes),
+        2,
+    )
+    deuda = round(float(deuda_cuotas or 0) + deuda_gastos_compartidos, 2)
 
     resumen_cuotas = conn.execute("""
         SELECT
@@ -14479,6 +14819,8 @@ def detalle_jugador(jugador_id):
         for cambio in cambios_portal:
             cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
 
+    cuenta_corriente = obtener_cuenta_corriente_jugador(conn, jugador_id, limite=20)
+
     for item in bienestar_reciente:
         try:
             item["dolor_zonas_lista"] = json.loads(item.get("dolor_zonas") or "[]")
@@ -14513,6 +14855,9 @@ def detalle_jugador(jugador_id):
         "jugador_detalle.html",
         jugador=jugador,
         deuda=deuda,
+        deuda_cuotas=deuda_cuotas,
+        deuda_gastos_compartidos=deuda_gastos_compartidos,
+        gastos_compartidos_pendientes=gastos_compartidos_pendientes,
         resumen_cuotas=resumen_cuotas,
         ultimas_cuotas=ultimas_cuotas,
         ficha=ficha,
@@ -14543,7 +14888,8 @@ def detalle_jugador(jugador_id):
         ficha_estado=ficha_estado,
         puede_gestionar_portal=puede_gestionar_portal,
         puede_ver_cambios_portal=puede_ver_cambios_portal,
-        cambios_portal=cambios_portal
+        cambios_portal=cambios_portal,
+        cuenta_corriente=cuenta_corriente,
         )
 
 
@@ -15527,11 +15873,14 @@ def cerrar_gasto_compartido(gasto_id):
         return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
 
     resumen = conn.execute("""
-        SELECT COALESCE(SUM(importe) FILTER (WHERE estado = 'pagado'), 0) AS total_cobrado
+        SELECT
+            COALESCE(SUM(importe) FILTER (WHERE estado = 'pagado'), 0) AS total_cobrado,
+            COUNT(*) FILTER (WHERE estado = 'pendiente') AS pendientes
         FROM gasto_compartido_items
         WHERE gasto_id = %s
     """, (gasto_id,)).fetchone()
     total_cobrado = round(float(resumen.get("total_cobrado") or 0), 2)
+    pendientes = int(resumen.get("pendientes") or 0)
     fecha_cierre = ahora_sig().strftime("%Y-%m-%d")
     if mes_esta_cerrado(fecha_cierre[:7]):
         conn.close()
@@ -15565,11 +15914,100 @@ def cerrar_gasto_compartido(gasto_id):
     """, (session.get("username"), movimiento_id, total_cobrado, gasto_id))
     conn.commit()
     conn.close()
+    deuda_pendiente = (
+        f" {pendientes} deuda(s) impaga(s) seguiran visibles en los perfiles y portales."
+        if pendientes
+        else ""
+    )
     if movimiento_id:
-        flash("Gasto compartido cerrado y cobro registrado en caja como un unico ingreso.", "ok")
+        flash(
+            "Gasto compartido cerrado y cobro registrado en caja como un unico ingreso."
+            + deuda_pendiente,
+            "ok",
+        )
     else:
-        flash("Gasto compartido cerrado. No habia cobros pagados para registrar en caja.", "ok")
+        flash(
+            "Gasto compartido cerrado. No habia cobros pagados para registrar en caja."
+            + deuda_pendiente,
+            "ok",
+        )
     return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
+
+
+@app.route("/gastos-compartidos/items/<int:item_id>/pago-posterior", methods=["POST"])
+def registrar_pago_posterior_gasto_compartido(item_id):
+    check = permiso_requerido("cuotas_gestionar", "caja_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT
+            i.*,
+            g.id AS gasto_id,
+            g.titulo,
+            g.estado AS gasto_estado,
+            j.nombre,
+            j.apellido
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        JOIN jugadores j ON j.id = i.jugador_id
+        WHERE i.id = %s
+    """, (item_id,)).fetchone()
+
+    if item is None:
+        conn.close()
+        flash("Pago compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if not gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+        conn.close()
+        flash("El pago posterior se usa solo para gastos compartidos cerrados.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    if item.get("estado") != "pendiente":
+        conn.close()
+        flash("Ese saldo ya no esta pendiente.", "warning")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+    fecha_pago = validar_fecha_movimiento(request.form.get("fecha_pago")) or ahora_sig().strftime("%Y-%m-%d")
+    if mes_esta_cerrado(fecha_pago[:7]):
+        conn.close()
+        flash("No se puede registrar el pago en un mes de caja cerrado.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+    titulo_gasto = item.get("titulo") or f"#{item['gasto_id']}"
+    movimiento = conn.execute("""
+        INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+    """, (
+        "ingreso",
+        f"Pago posterior gasto compartido: {titulo_gasto}",
+        round(float(item.get("importe") or 0), 2),
+        fecha_pago,
+        f"Gasto compartido #{item['gasto_id']} item #{item_id}",
+    )).fetchone()
+    conn.execute("""
+        UPDATE gasto_compartido_items
+        SET estado = 'pagado',
+            fecha_pago = %s,
+            comprobante_estado = CASE
+                WHEN comprobante_drive_file_id IS NOT NULL THEN 'aceptado'
+                ELSE comprobante_estado
+            END
+        WHERE id = %s
+    """, (fecha_pago, item_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria("registrar_pago_posterior", "gasto_compartido_item", str(item_id), {
+        "gasto_id": item["gasto_id"],
+        "jugador_id": item["jugador_id"],
+        "importe": item["importe"],
+        "movimiento_id": movimiento["id"],
+        "fecha_pago": fecha_pago,
+    })
+    flash("Pago posterior registrado en caja y deuda cancelada.", "ok")
+    return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
 
 @app.route("/gastos-compartidos/<int:gasto_id>/reabrir", methods=["POST"])
@@ -15938,7 +16376,7 @@ def portal_jugador(token):
         LIMIT 24
     """, (jugador["id"],)).fetchall()
 
-    deuda = conn.execute("""
+    deuda_cuotas = conn.execute("""
         SELECT COALESCE(SUM(importe), 0) AS total
         FROM cuotas
         WHERE jugador_id = %s
@@ -15981,11 +16419,15 @@ def portal_jugador(token):
             g.titulo,
             g.concepto,
             g.fecha_evento,
-            g.fecha_vencimiento
+            g.fecha_vencimiento,
+            g.estado AS gasto_estado
         FROM gasto_compartido_items i
         JOIN gastos_compartidos g ON g.id = i.gasto_id
         WHERE i.jugador_id = %s
-          AND g.estado = 'Activo'
+          AND (
+              g.estado = 'Activo'
+              OR i.estado = 'pendiente'
+          )
         ORDER BY
             CASE i.estado
                 WHEN 'pendiente' THEN 0
@@ -16094,6 +16536,7 @@ def portal_jugador(token):
     evento_ids_confirmables = [evento["asistencia_evento_id"] for evento in eventos_deportivos if evento.get("asistencia_evento_id")]
     if evento_ids_confirmables:
         confirmaciones_portal = obtener_confirmaciones_portal(conn, evento_ids_confirmables, jugador["id"])
+    cuenta_corriente = obtener_cuenta_corriente_jugador(conn, jugador["id"], limite=20)
     conn.close()
 
     documentos_por_vencer = 0
@@ -16109,6 +16552,11 @@ def portal_jugador(token):
         if fecha <= hoy + timedelta(days=30):
             documentos_por_vencer += 1
 
+    gastos_pendientes = [item for item in gastos_compartidos if item.get("estado") == "pendiente"]
+    gastos_pagados = [item for item in gastos_compartidos if item.get("estado") == "pagado"]
+    gasto_pendiente_total = round(sum(float(item.get("importe") or 0) for item in gastos_pendientes), 2)
+    deuda = round(float(deuda_cuotas or 0) + gasto_pendiente_total, 2)
+
     portal_alertas = []
     if deuda > 0:
         portal_alertas.append({
@@ -16116,9 +16564,6 @@ def portal_jugador(token):
             "titulo": "Tenes deuda pendiente",
             "detalle": f"Actualmente tenes {formato_moneda(deuda)} pendientes de pago.",
         })
-    gastos_pendientes = [item for item in gastos_compartidos if item.get("estado") == "pendiente"]
-    gastos_pagados = [item for item in gastos_compartidos if item.get("estado") == "pagado"]
-    gasto_pendiente_total = round(sum(float(item.get("importe") or 0) for item in gastos_pendientes), 2)
     if gastos_pendientes:
         portal_alertas.append({
             "nivel": "warning",
@@ -16168,6 +16613,7 @@ def portal_jugador(token):
         jugador=jugador,
         cuotas=cuotas,
         deuda=deuda,
+        deuda_cuotas=deuda_cuotas,
         ficha=ficha,
         documentos=documentos,
         historial_asistencia=historial_asistencia,
@@ -16194,6 +16640,7 @@ def portal_jugador(token):
         calendario_webcal_url=calendario_webcal_url,
         calendario_google_url=calendario_google_url,
         calendario_android_url=calendario_android_url,
+        cuenta_corriente=cuenta_corriente,
         token=token,
     )
 
@@ -18711,6 +19158,49 @@ def panel_sistema_admin():
         estado=obtener_estado_sistema_admin(),
         solo_backup=False,
     )
+
+
+@app.route("/admin/sistema/automatizaciones", methods=["POST"])
+def configurar_automatizaciones():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    conn = get_connection()
+    guardar_app_setting(conn, "automation_reminders_enabled", "true" if request.form.get("recordatorios_activos") else "false", session.get("username"))
+    guardar_app_setting(conn, "automation_reminders_days_before", str(int_setting(request.form.get("dias_antes"), 3, 0, 30)), session.get("username"))
+    guardar_app_setting(conn, "automation_invoices_enabled", "true" if request.form.get("facturas_activas") else "false", session.get("username"))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("configurar", "automatizaciones", None, {
+        "recordatorios_activos": bool(request.form.get("recordatorios_activos")),
+        "dias_antes": int_setting(request.form.get("dias_antes"), 3, 0, 30),
+        "facturas_activas": bool(request.form.get("facturas_activas")),
+    })
+    flash("Automatizaciones actualizadas.", "ok")
+    return redirect(url_for("panel_sistema_admin"))
+
+
+@app.route("/admin/sistema/automatizaciones/ejecutar", methods=["POST"])
+def ejecutar_automatizaciones_admin():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    resultado = ejecutar_automatizaciones(session.get("username") or "admin")
+    flash(
+        f"Ejecucion completada: {resultado['recordatorios_enviados']} recordatorio(s) enviado(s), "
+        f"{len(resultado['errores'])} error(es).",
+        "warning" if resultado["errores"] else "ok",
+    )
+    return redirect(url_for("panel_sistema_admin"))
+
+
+@app.route("/tasks/automatizaciones", methods=["POST"])
+def ejecutar_automatizaciones_programadas():
+    token_configurado = os.environ.get("AUTOMATION_TOKEN", "").strip()
+    token_recibido = request.headers.get("X-Automation-Token", "").strip()
+    if not token_configurado or not secrets.compare_digest(token_configurado, token_recibido):
+        abort(403)
+    return jsonify(ejecutar_automatizaciones("scheduler"))
 
 
 @app.route("/admin/sistema/facturas-email", methods=["GET", "POST"])

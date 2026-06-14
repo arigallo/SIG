@@ -1,6 +1,7 @@
-# Sistema simple de gestion de jugadores
+# SIG - Sistema integral de gestion
 
-Base inicial hecha con **Flask + SQLite**.
+Aplicacion Flask desplegable en Cloud Run, con PostgreSQL/Cloud SQL, Drive,
+Secret Manager, email y WhatsApp.
 
 ## Incluye
 - Alta de jugadores
@@ -26,12 +27,32 @@ Despues abri en tu navegador:
 http://127.0.0.1:5000
 ```
 
-## Proximos pasos recomendados
-1. Agregar cuotas y deuda
-2. Agregar ficha medica
-3. Agregar lesiones
-4. Agregar panel de alertas
-5. Agregar backup/exportacion
+## Automatizaciones
+
+Desde `Admin > Sistema` se pueden habilitar:
+
+- recordatorios de cuotas por email, con anticipacion configurable;
+- sincronizacion automatica de facturas recibidas.
+
+El endpoint para Cloud Scheduler es:
+
+```text
+POST /tasks/automatizaciones
+X-Automation-Token: <AUTOMATION_TOKEN>
+```
+
+Debe configurarse `AUTOMATION_TOKEN` en Cloud Run y enviar el mismo valor desde
+Cloud Scheduler. Cada recordatorio se registra de forma idempotente para evitar
+duplicados durante el mismo dia.
+
+## Cuenta corriente
+
+El perfil administrativo y el portal muestran una cuenta corriente unificada
+con cuotas y gastos compartidos. Las deudas pendientes sobreviven al cierre del
+gasto y pueden cobrarse posteriormente, generando un ingreso individual en caja.
+
+Las actualizaciones de esquema se registran en `schema_migrations`; `init_db`
+continua aplicando cambios compatibles durante el arranque.
 
 ## Facturas recibidas por email
 

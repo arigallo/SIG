@@ -196,6 +196,12 @@
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <button class="button secondary" type="submit" {% if not (item['email'] or item['email_tutor']) %}disabled{% endif %}>Email</button>
                         </form>
+                    {% elif gasto['estado'] == 'Cerrado' and item['estado'] == 'pendiente' and puede('cuotas_gestionar') and puede('caja_gestionar') %}
+                        <form method="post" action="{{ url_for('registrar_pago_posterior_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Registrar este pago en caja y cancelar la deuda?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
+                            <button class="button" type="submit">Registrar pago</button>
+                        </form>
                     {% elif gasto['estado'] == 'Cerrado' %}
                         <span class="muted-line">Solo consulta</span>
                     {% endif %}

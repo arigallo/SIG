@@ -45,7 +45,13 @@
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Deuda actual</span>
                 <strong class="portal-summary-value {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</strong>
-                <span class="muted-line">{% if deuda > 0 %}Tenes saldo pendiente para regularizar.{% else %}No hay deuda pendiente.{% endif %}</span>
+                <span class="muted-line">
+                    {% if deuda > 0 %}
+                        Cuotas: {{ deuda_cuotas | moneda }} · Gastos compartidos: {{ gasto_pendiente_total | moneda }}
+                    {% else %}
+                        No hay deuda pendiente.
+                    {% endif %}
+                </span>
             </article>
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Ficha m&eacute;dica</span>
@@ -84,6 +90,34 @@
             </div>
         </section>
         {% endif %}
+
+        <section class="card page-section">
+            <div class="section-header compact">
+                <div>
+                    <h3>Cuenta corriente</h3>
+                    <span class="muted-line">Tus cuotas y gastos compartidos recientes</span>
+                </div>
+            </div>
+            <div class="table-wrapper flush">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in cuenta_corriente %}
+                        <tr>
+                            <td>{{ movimiento['fecha_pago'] or movimiento['fecha'] or '-' }}</td>
+                            <td>{{ movimiento['concepto'] }}</td>
+                            <td>{{ movimiento['importe'] | moneda }}</td>
+                            <td><span class="badge {% if movimiento['estado'] == 'pagado' %}badge-success{% elif movimiento['estado'] == 'pendiente' %}badge-warning{% else %}badge-muted{% endif %}">{{ movimiento['estado'] }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="empty">Todav&iacute;a no hay movimientos financieros.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         <section class="portal-overview-grid page-section">
             <article class="card portal-panel portal-panel-large">
@@ -406,6 +440,9 @@
                                 {% if item['fecha_evento'] %}
                                     <span class="muted-line">Evento: {{ item['fecha_evento'] }}</span>
                                 {% endif %}
+                                {% if item['gasto_estado']|lower == 'cerrado' and item['estado'] == 'pendiente' %}
+                                    <span class="badge badge-warning">Cerrado con saldo pendiente</span>
+                                {% endif %}
                             </td>
                             <td>{{ item['importe'] | moneda }}</td>
                             <td>
@@ -451,19 +488,23 @@
                                             {% endwith %}
                                         </details>
                                     {% endif %}
-                                    <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">
-                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                        <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
-                                            <input class="upload-input"
-                                                   type="file"
-                                                   name="comprobante_pago"
-                                                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                                   required>
-                                            <span class="upload-title">Arrastra o pega el comprobante</span>
-                                            <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
-                                        </label>
-                                        <button class="button secondary" type="submit">{% if item['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
-                                    </form>
+                                    {% if item['gasto_estado']|lower == 'cerrado' %}
+                                        <span class="muted-line">Este saldo sigue pendiente. Contact&aacute; a administraci&oacute;n para regularizarlo.</span>
+                                    {% else %}
+                                        <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                            <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
+                                                <input class="upload-input"
+                                                       type="file"
+                                                       name="comprobante_pago"
+                                                       accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                       required>
+                                                <span class="upload-title">Arrastra o pega el comprobante</span>
+                                                <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
+                                            </label>
+                                            <button class="button secondary" type="submit">{% if item['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
+                                        </form>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>
