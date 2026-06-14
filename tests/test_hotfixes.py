@@ -177,36 +177,34 @@ class HotfixTests(unittest.TestCase):
 
         self.assertIn("Acceso Administrativo", template)
         self.assertIn("Portal del Jugador", template)
-        self.assertIn("Sugerencias / Denuncias", template)
-        self.assertIn("url_for('sugerencias_denuncias')", template)
+        self.assertIn("Sugerencias / Recomendaciones", template)
+        self.assertIn("url_for('sugerencias_recomendaciones')", template)
 
-    def test_denuncia_disciplina_reaches_configured_directiva_and_disciplina(self):
+    def test_sugerencias_use_configured_recipients(self):
         config = {
             "directiva_emails": ["directiva@example.com"],
-            "disciplina_emails": ["disciplina@example.com"],
-            "disciplina_categorias": {"disciplina"},
             "actualizado_en": None,
             "actualizado_por": None,
         }
 
         with patch.object(app, "obtener_sugerencias_config", return_value=config):
-            destinatarios = app.obtener_destinatarios_sugerencias(object(), "denuncia", "disciplina")
+            destinatarios = app.obtener_destinatarios_sugerencias(object())
 
-        self.assertEqual(destinatarios, ["directiva@example.com", "disciplina@example.com"])
+        self.assertEqual(destinatarios, ["directiva@example.com"])
 
     def test_sistema_admin_links_sugerencias_config(self):
         template = Path("templates/sistema_admin.html").read_text(encoding="utf-8")
         nav = Path("templates/base.html").read_text(encoding="utf-8")
-        admin_template = Path("templates/sugerencias_denuncias_admin.html").read_text(encoding="utf-8")
+        admin_template = Path("templates/sugerencias_recomendaciones_admin.html").read_text(encoding="utf-8")
 
-        self.assertIn("url_for('listar_sugerencias_denuncias')", template)
-        self.assertIn("listar_sugerencias_denuncias", nav)
-        self.assertIn("url_for('configurar_sugerencias_denuncias')", admin_template)
-        self.assertIn("configurar_sugerencias_denuncias", nav)
+        self.assertIn("url_for('listar_sugerencias_recomendaciones')", template)
+        self.assertIn("listar_sugerencias_recomendaciones", nav)
+        self.assertIn("url_for('configurar_sugerencias_recomendaciones')", admin_template)
+        self.assertIn("configurar_sugerencias_recomendaciones", nav)
 
     def test_sugerencias_admin_template_explains_pending_email_states(self):
-        template = Path("templates/sugerencias_denuncias_admin.html").read_text(encoding="utf-8")
-        public_template = Path("templates/sugerencias_denuncias.html").read_text(encoding="utf-8")
+        template = Path("templates/sugerencias_recomendaciones_admin.html").read_text(encoding="utf-8")
+        public_template = Path("templates/sugerencias_recomendaciones.html").read_text(encoding="utf-8")
         source = Path("app.py").read_text(encoding="utf-8")
 
         self.assertIn("Bandeja interna", template)
@@ -214,20 +212,21 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("registro.email_info.descripcion", template)
         self.assertIn("Notas internas", template)
         self.assertIn("Reenviar email", template)
-        self.assertIn("actualizar_sugerencia_denuncia", source)
-        self.assertIn("reenviar_sugerencia_denuncia", source)
+        self.assertIn("actualizar_sugerencia_recomendacion", source)
+        self.assertIn("reenviar_sugerencia_recomendacion", source)
         self.assertIn("No pudimos enviar el aviso por email", source)
         self.assertIn("data-anonymous-select", public_template)
+        self.assertNotIn("Denuncia", public_template)
 
     def test_sugerencias_permissions_are_registered(self):
         for permiso in [
             "sugerencias_ver",
-            "denuncias_ver",
             "sugerencias_gestionar",
             "sugerencias_configurar",
         ]:
             self.assertIn(permiso, app.PERMISOS)
 
+        self.assertNotIn("denuncias_ver", app.PERMISOS)
         self.assertIn("sugerencias_gestionar", app.ROLE_PRESETS["admin"])
 
     def test_drive_runtime_error_reports_missing_secretaria_config(self):

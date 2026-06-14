@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow">
-    <title>Sugerencias y denuncias - SIG</title>
+    <title>Sugerencias y recomendaciones - SIG</title>
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 <body class="login-body entry-body">
@@ -19,7 +19,7 @@
                 </picture>
             </div>
             <p class="entry-kicker">Ruda Macho Rugby Club</p>
-            <h1>Sugerencias / Denuncias</h1>
+            <h1>Sugerencias / Recomendaciones</h1>
             <p>El mensaje queda registrado en el SIG y se deriva al &aacute;rea correspondiente.</p>
         </section>
 
@@ -41,12 +41,12 @@
                 <label>Tipo</label>
                 <div class="segmented-control">
                     <label>
-                        <input type="radio" name="tipo" value="sugerencia" {% if data.tipo != 'denuncia' %}checked{% endif %}>
+                        <input type="radio" name="tipo" value="sugerencia" {% if data.tipo != 'recomendacion' %}checked{% endif %}>
                         <span>Sugerencia</span>
                     </label>
                     <label>
-                        <input type="radio" name="tipo" value="denuncia" {% if data.tipo == 'denuncia' %}checked{% endif %}>
-                        <span>Denuncia</span>
+                        <input type="radio" name="tipo" value="recomendacion" {% if data.tipo == 'recomendacion' %}checked{% endif %}>
+                        <span>Recomendaci&oacute;n</span>
                     </label>
                 </div>
             </div>

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Sugerencias y recomendaciones{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Sugerencias y recomendaciones</h2>
+        <p class="page-intro">Configuracion de destinatarios del formulario publico.</p>
+    </div>
+    <div class="actions">
+        {% if session.get('rol') == 'admin' %}
+            <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+        {% endif %}
+        {% if puede('sugerencias_ver') %}
+            <a class="button secondary" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Bandeja</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('sugerencias_recomendaciones') }}">Ver formulario</a>
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card {% if config.directiva_emails %}alert-card-info{% else %}alert-card-critical{% endif %}">
+        <h3>Comision Directiva</h3>
+        <p class="stat-number compact">{{ config.directiva_emails|length }}</p>
+        <span class="muted-line">destinatario(s)</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Ultima actualizacion</h3>
+        <p class="stat-number compact">{{ config.actualizado_por or '-' }}</p>
+        <span class="muted-line">{{ config.actualizado_en or '-' }}</span>
+    </div>
+</div>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="report-filter-grid">
+        <div class="full form-subtitle">
+            <h3>Comision Directiva</h3>
+            <span class="muted-line">Recibe todas las sugerencias y recomendaciones.</span>
+        </div>
+        <div class="full">
+            <label>Emails de Comision Directiva</label>
+            <textarea name="directiva_emails" rows="5" placeholder="directiva@club.com">{{ config.directiva_emails|join('\n') }}</textarea>
+            <span class="muted-line">Uno por linea, o separados por coma o punto y coma.</span>
+        </div>
+
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar configuracion</button>
+        <a class="button secondary" href="{{ url_for('listar_sugerencias_recomendaciones') if puede('sugerencias_ver') else url_for('index') }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

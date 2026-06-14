@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Sugerencias y denuncias{% endblock %}
+{% block title %}Sugerencias y recomendaciones{% endblock %}
 
 {% block content %}
 <div class="section-header">
     <div>
-        <h2>Sugerencias y denuncias</h2>
+        <h2>Sugerencias y recomendaciones</h2>
         <p class="page-intro">Bandeja interna de mensajes enviados desde el formulario publico.</p>
     </div>
     <div class="actions">
         {% if puede_configurar_sugerencias %}
-            <a class="button secondary" href="{{ url_for('configurar_sugerencias_denuncias') }}">Configurar</a>
+            <a class="button secondary" href="{{ url_for('configurar_sugerencias_recomendaciones') }}">Configurar</a>
         {% endif %}
-        <a class="button secondary" href="{{ url_for('sugerencias_denuncias') }}">Ver formulario</a>
+        <a class="button secondary" href="{{ url_for('sugerencias_recomendaciones') }}">Ver formulario</a>
     </div>
 </div>
 
@@ -46,7 +46,7 @@
         <select name="tipo">
             <option value="">Todos</option>
             <option value="sugerencia" {% if filtros.tipo == 'sugerencia' %}selected{% endif %}>Sugerencia</option>
-            <option value="denuncia" {% if filtros.tipo == 'denuncia' %}selected{% endif %}>Denuncia</option>
+            <option value="recomendacion" {% if filtros.tipo == 'recomendacion' %}selected{% endif %}>Recomendaci&oacute;n</option>
         </select>
     </div>
     <div class="search-field-filter">
@@ -77,7 +77,7 @@
         </select>
     </div>
     <button class="button" type="submit">Filtrar</button>
-    <a class="button secondary" href="{{ url_for('listar_sugerencias_denuncias') }}">Limpiar</a>
+    <a class="button secondary" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Limpiar</a>
 </form>
 
 <div class="table-wrapper">
@@ -103,7 +103,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <strong>{{ 'Sugerencia' if registro.tipo == 'sugerencia' else 'Denuncia' }}</strong>
+                        <strong>{{ 'Recomendacion' if registro.tipo == 'recomendacion' else 'Sugerencia' }}</strong>
                         <span class="muted-line">{{ registro.categoria_label }}</span>
                     </td>
                     <td>
@@ -145,7 +145,7 @@
                     </td>
                     <td class="wide-cell">
                         {% if registro.puede_gestionar %}
-                            <form method="post" action="{{ url_for('actualizar_sugerencia_denuncia', registro_id=registro.id) }}" class="inline-form-stack">
+                            <form method="post" action="{{ url_for('actualizar_sugerencia_recomendacion', registro_id=registro.id) }}" class="inline-form-stack">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
                                 <label>Estado</label>
@@ -158,7 +158,7 @@
                                 <textarea name="notas_internas" rows="3" placeholder="Proximo paso, resolucion o comentario interno">{{ registro.notas_internas or '' }}</textarea>
                                 <button class="button secondary" type="submit">Guardar</button>
                             </form>
-                            <form method="post" action="{{ url_for('reenviar_sugerencia_denuncia', registro_id=registro.id) }}" class="inline-form-stack stack-gap">
+                            <form method="post" action="{{ url_for('reenviar_sugerencia_recomendacion', registro_id=registro.id) }}" class="inline-form-stack stack-gap">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
                                 <button class="button secondary" type="submit">Reenviar email</button>
@@ -170,7 +170,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="7">No hay sugerencias o denuncias para los filtros seleccionados.</td>
+                    <td colspan="7">No hay sugerencias o recomendaciones para los filtros seleccionados.</td>
                 </tr>
             {% endfor %}
         </tbody>
