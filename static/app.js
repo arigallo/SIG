@@ -419,4 +419,140 @@
             }
         });
     });
+
+    const pwaActions = document.querySelector("[data-pwa-actions]");
+    const installButton = document.querySelector("[data-pwa-install]");
+    const pushButton = document.querySelector("[data-pwa-enable-push]");
+    const testPushButton = document.querySelector("[data-pwa-test-push]");
+    const pwaStatus = document.querySelector("[data-pwa-status]");
+    const portalToken = document.body?.dataset.portalToken || "";
+    let deferredInstallPrompt = null;
+    let pushConfig = null;
+
+    const setPwaStatus = (message, isError = false) => {
+        if (!pwaStatus) {
+            return;
+        }
+        pwaStatus.textContent = message || "";
+        pwaStatus.classList.toggle("text-danger", Boolean(isError));
+    };
+
+    const showPwaActions = () => {
+        if (pwaActions) {
+            pwaActions.hidden = false;
+        }
+    };
+
+    const urlBase64ToUint8Array = (base64String) => {
+        const padding = "=".repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+    };
+
+    const postPwaJson = async (url, body) => {
+        const response = await fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken,
+            },
+            body: JSON.stringify(body || {}),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) {
+            throw new Error(data.error || "No se pudo completar la accion.");
+        }
+        return data;
+    };
+
+    const currentPushSubscription = async () => {
+        if (!("serviceWorker" in navigator)) {
+            return null;
+        }
+        const registration = await navigator.serviceWorker.ready;
+        return registration.pushManager.getSubscription();
+    };
+
+    const refreshPwaButtons = async () => {
+        if (!("serviceWorker" in navigator)) {
+            return;
+        }
+        showPwaActions();
+        if (pushButton && "PushManager" in window && Notification.permission !== "denied") {
+            const subscription = await currentPushSubscription();
+            pushButton.hidden = Boolean(subscription);
+            testPushButton.hidden = !subscription;
+        }
+    };
+
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js").then(async () => {
+            showPwaActions();
+            pushConfig = await fetch("/pwa/config", {
+                credentials: "same-origin",
+                headers: { "Accept": "application/json" },
+            }).then((response) => response.json()).catch(() => null);
+            await refreshPwaButtons();
+        }).catch(() => {
+            setPwaStatus("No se pudo preparar la app instalable.", true);
+        });
+    }
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        showPwaActions();
+        if (installButton) {
+            installButton.hidden = false;
+        }
+    });
+
+    installButton?.addEventListener("click", async () => {
+        if (!deferredInstallPrompt) {
+            setPwaStatus("Usa el menu del navegador para instalar la app.");
+            return;
+        }
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice.catch(() => {});
+        deferredInstallPrompt = null;
+        installButton.hidden = true;
+    });
+
+    pushButton?.addEventListener("click", async () => {
+        try {
+            if (!pushConfig?.vapidPublicKey) {
+                setPwaStatus("Falta configurar la clave publica de notificaciones.", true);
+                return;
+            }
+            const permission = await Notification.requestPermission();
+            if (permission !== "granted") {
+                setPwaStatus("Permiso de notificaciones no concedido.", true);
+                return;
+            }
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
+            });
+            await postPwaJson("/pwa/push/subscribe", {
+                subscription,
+                portal_token: portalToken,
+            });
+            setPwaStatus("Notificaciones activadas.");
+            await refreshPwaButtons();
+        } catch (error) {
+            setPwaStatus(error.message || "No se pudieron activar las notificaciones.", true);
+        }
+    });
+
+    testPushButton?.addEventListener("click", async () => {
+        try {
+            const data = await postPwaJson("/pwa/push/test", { portal_token: portalToken });
+            setPwaStatus(data.enviados ? "Notificacion de prueba enviada." : "No hay dispositivos activos para probar.", !data.enviados);
+        } catch (error) {
+            setPwaStatus(error.message || "No se pudo enviar la prueba.", true);
+        }
+    });
 })();

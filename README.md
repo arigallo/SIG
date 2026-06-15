@@ -54,6 +54,23 @@ gasto y pueden cobrarse posteriormente, generando un ingreso individual en caja.
 Las actualizaciones de esquema se registran en `schema_migrations`; `init_db`
 continua aplicando cambios compatibles durante el arranque.
 
+## App instalable y notificaciones
+
+SIG funciona como PWA: publica `manifest.webmanifest`, `service-worker.js` y
+botones para instalar la app y activar notificaciones desde celulares.
+
+Para Web Push deben configurarse claves VAPID en Cloud Run:
+
+```text
+PWA_VAPID_PUBLIC_KEY=...
+PWA_VAPID_PRIVATE_KEY=...
+PWA_VAPID_CLAIMS_SUB=mailto:admin@tudominio.com
+```
+
+Las suscripciones se guardan por usuario administrativo o por portal de jugador.
+Desde la app se puede usar "Probar aviso" para validar que el celular recibe la
+notificacion.
+
 ## Facturas recibidas por email
 
 El modulo `Finanzas > Facturas recibidas` puede leer una casilla IMAP, aplicar filtros por remitente/asunto y guardar adjuntos PDF/JPG/PNG en Drive para luego registrarlos como egresos de caja.

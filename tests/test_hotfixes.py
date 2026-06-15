@@ -592,6 +592,20 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Cuenta corriente", portal)
         self.assertIn("Automatizaciones", sistema)
 
+    def test_pwa_install_and_push_infrastructure_is_present(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
+        js = (Path(app.__file__).parent / "static" / "app.js").read_text(encoding="utf-8-sig")
+        sw = (Path(app.__file__).parent / "static" / "service-worker.js").read_text(encoding="utf-8-sig")
+
+        self.assertIn("/manifest.webmanifest", source)
+        self.assertIn("pwa_push_subscribe", source)
+        self.assertIn("pwa_push_subscriptions", source)
+        self.assertIn("rel=\"manifest\"", base)
+        self.assertIn("serviceWorker.register", js)
+        self.assertIn("pushManager.subscribe", js)
+        self.assertIn("showNotification", sw)
+
 
 if __name__ == "__main__":
     unittest.main()

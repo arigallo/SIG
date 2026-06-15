@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SIG{% endblock %}</title>
-    {% if session.get('user_id') %}
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-    {% endif %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SIG">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
 
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 
-<body data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}">
+<body data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
     <header class="topbar">
         <div class="container topbar-content">
 
@@ -259,6 +263,13 @@
         {% endblock %}
 
     </main>
+
+    <div class="pwa-actions" data-pwa-actions hidden>
+        <button class="button secondary" type="button" data-pwa-install hidden>Instalar app</button>
+        <button class="button" type="button" data-pwa-enable-push hidden>Activar notificaciones</button>
+        <button class="button secondary" type="button" data-pwa-test-push hidden>Probar aviso</button>
+        <span class="pwa-status" data-pwa-status></span>
+    </div>
 
     <script src="{{ static_asset('app.js') }}" defer></script>
 </body>

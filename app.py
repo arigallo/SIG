@@ -1,5 +1,6 @@
 ﻿from flask import Flask, render_template, request, redirect, url_for, flash, Response, send_file, session, has_request_context, abort, g
 import psycopg
+from flask import jsonify
 from psycopg.rows import dict_row
 from pathlib import Path
 import csv
@@ -55,6 +56,12 @@ except ImportError:
     MediaIoBaseDownload = None
     MediaIoBaseUpload = None
 
+try:
+    from pywebpush import WebPushException, webpush
+except ImportError:
+    WebPushException = None
+    webpush = None
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambiar-esto-por-una-clave-segura")
 
@@ -77,6 +84,9 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 
 APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "America/Argentina/Buenos_Aires")
 APP_TZ = ZoneInfo(APP_TIMEZONE)
+PWA_VAPID_PUBLIC_KEY = os.environ.get("PWA_VAPID_PUBLIC_KEY", "").strip()
+PWA_VAPID_PRIVATE_KEY = os.environ.get("PWA_VAPID_PRIVATE_KEY", "").strip()
+PWA_VAPID_CLAIMS_SUB = os.environ.get("PWA_VAPID_CLAIMS_SUB", "mailto:admin@sig.local").strip()
 
 
 def ahora_sig():
@@ -138,6 +148,8 @@ def inject_now():
         "whatsapp_inbox_count": obtener_contador_whatsapp_inbox() if has_request_context() else 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
         "static_asset": static_asset,
+        "pwa_public_key": PWA_VAPID_PUBLIC_KEY,
+        "pwa_icon_url": pwa_icon_url,
         "asistencia_portal_opciones": asistencia_portal_opciones,
         "asistencia_portal_label": asistencia_portal_label,
         "asistencia_portal_badge_class": asistencia_portal_badge_class,
@@ -177,6 +189,11 @@ def static_asset(filename):
     except OSError:
         version = 1
     return url_for("static", filename=filename, v=version)
+
+
+def pwa_icon_url(size="192"):
+    normalized = "512" if str(size) == "512" else "192"
+    return url_for("static", filename=f"img/pwa-icon-{normalized}.png")
 
 
 def base64url_decode(value):
@@ -1093,6 +1110,12 @@ def ejecutar_automatizaciones(usuario="sistema"):
                 resultado["recordatorios_enviados"] += 1
             else:
                 resultado["errores"].append(f"Cuota {cuota['cuota_id']}: {motivo}")
+            enviar_push_por_actor("portal", {
+                "title": "Cuota pendiente",
+                "body": f"Tenes pendiente la cuota {cuota['periodo']} por {formato_moneda(cuota['importe'])}.",
+                "url": url_for("portal_jugador", token=cuota["portal_token"]) if cuota.get("portal_token") else "/portal",
+                "icon": pwa_icon_url("192"),
+            }, jugador_id=cuota["jugador_id"])
 
         gastos = conn.execute("""
             SELECT
@@ -1106,7 +1129,8 @@ def ejecutar_automatizaciones(usuario="sistema"):
                 j.nombre,
                 j.apellido,
                 j.email,
-                j.email_tutor
+                j.email_tutor,
+                j.portal_token
             FROM gasto_compartido_items i
             JOIN gastos_compartidos g ON g.id = i.gasto_id
             JOIN jugadores j ON j.id = i.jugador_id
@@ -1143,6 +1167,12 @@ def ejecutar_automatizaciones(usuario="sistema"):
                 resultado["recordatorios_enviados"] += 1
             else:
                 resultado["errores"].append(f"Gasto compartido {item['id']}: {motivo}")
+            enviar_push_por_actor("portal", {
+                "title": "Gasto compartido pendiente",
+                "body": f"{item.get('titulo') or 'Gasto compartido'}: {formato_moneda(item.get('importe') or 0)} pendiente.",
+                "url": url_for("portal_jugador", token=item["portal_token"]) if item.get("portal_token") else "/portal",
+                "icon": pwa_icon_url("192"),
+            }, jugador_id=item["jugador_id"])
 
     if config["facturas_activas"]:
         try:
@@ -1179,6 +1209,132 @@ def registrar_presencia_usuario(username):
     conn.commit()
     conn.close()
     return True
+
+
+def hash_portal_token(token):
+    token = (token or "").strip()
+    return hashlib.sha256(token.encode("utf-8")).hexdigest() if token else None
+
+
+def actor_push_actual(conn, portal_token=None):
+    if session.get("user_id"):
+        return {
+            "tipo": "usuario",
+            "usuario_id": session.get("user_id"),
+            "jugador_id": None,
+            "portal_token_hash": None,
+        }
+
+    portal_token = (portal_token or "").strip()
+    if portal_token:
+        jugador = conn.execute("""
+            SELECT id
+            FROM jugadores
+            WHERE portal_token = %s
+              AND COALESCE(portal_activo, 0) = 1
+        """, (portal_token,)).fetchone()
+        if jugador:
+            return {
+                "tipo": "portal",
+                "usuario_id": None,
+                "jugador_id": jugador["id"],
+                "portal_token_hash": hash_portal_token(portal_token),
+            }
+
+    return None
+
+
+def guardar_suscripcion_push(conn, subscription, actor, user_agent=None):
+    endpoint = (subscription or {}).get("endpoint")
+    if not endpoint:
+        raise ValueError("Suscripcion push sin endpoint.")
+    conn.execute("""
+        INSERT INTO pwa_push_subscriptions (
+            endpoint, actor_tipo, usuario_id, jugador_id, portal_token_hash,
+            subscription_json, user_agent, enabled, actualizado_en
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 1, CURRENT_TIMESTAMP)
+        ON CONFLICT(endpoint) DO UPDATE SET
+            actor_tipo = EXCLUDED.actor_tipo,
+            usuario_id = EXCLUDED.usuario_id,
+            jugador_id = EXCLUDED.jugador_id,
+            portal_token_hash = EXCLUDED.portal_token_hash,
+            subscription_json = EXCLUDED.subscription_json,
+            user_agent = EXCLUDED.user_agent,
+            enabled = 1,
+            actualizado_en = CURRENT_TIMESTAMP
+    """, (
+        endpoint,
+        actor["tipo"],
+        actor.get("usuario_id"),
+        actor.get("jugador_id"),
+        actor.get("portal_token_hash"),
+        json.dumps(subscription),
+        truncate_audit_value(user_agent or "", 500),
+    ))
+
+
+def desactivar_suscripcion_push(conn, endpoint):
+    if not endpoint:
+        return
+    conn.execute("""
+        UPDATE pwa_push_subscriptions
+        SET enabled = 0, actualizado_en = CURRENT_TIMESTAMP
+        WHERE endpoint = %s
+    """, (endpoint,))
+
+
+def enviar_push_subscription(subscription, payload):
+    if not webpush:
+        return False, "Falta instalar pywebpush."
+    if not (PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY):
+        return False, "Faltan PWA_VAPID_PUBLIC_KEY y PWA_VAPID_PRIVATE_KEY."
+    try:
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps(payload, ensure_ascii=False),
+            vapid_private_key=PWA_VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": PWA_VAPID_CLAIMS_SUB},
+        )
+        return True, None
+    except WebPushException as error:
+        return False, str(error)
+
+
+def enviar_push_por_actor(actor_tipo, payload, usuario_id=None, jugador_id=None):
+    conn = get_connection()
+    filtros = ["enabled = 1", "actor_tipo = %s"]
+    params = [actor_tipo]
+    if usuario_id is not None:
+        filtros.append("usuario_id = %s")
+        params.append(usuario_id)
+    if jugador_id is not None:
+        filtros.append("jugador_id = %s")
+        params.append(jugador_id)
+    where = " AND ".join(filtros)
+    rows = conn.execute(f"""
+        SELECT endpoint, subscription_json
+        FROM pwa_push_subscriptions
+        WHERE {where}
+    """, params).fetchall()
+
+    enviados = 0
+    errores = []
+    for row in rows:
+        try:
+            subscription = json.loads(row["subscription_json"] or "{}")
+        except (TypeError, ValueError):
+            subscription = {}
+        ok, error = enviar_push_subscription(subscription, payload)
+        if ok:
+            enviados += 1
+        else:
+            errores.append(error)
+            if error and ("410" in error or "404" in error):
+                desactivar_suscripcion_push(conn, row["endpoint"])
+    conn.commit()
+    conn.close()
+    return {"enviados": enviados, "errores": errores}
 
 
 def usuario_activo_reciente(username, segundos=120):
@@ -7265,6 +7421,27 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS pwa_push_subscriptions (
+            id SERIAL PRIMARY KEY,
+            endpoint TEXT NOT NULL UNIQUE,
+            actor_tipo TEXT NOT NULL,
+            usuario_id INTEGER,
+            jugador_id INTEGER,
+            portal_token_hash TEXT,
+            subscription_json TEXT NOT NULL,
+            user_agent TEXT,
+            enabled INTEGER DEFAULT 1,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pwa_push_subscriptions_actor
+        ON pwa_push_subscriptions (actor_tipo, usuario_id, jugador_id, enabled)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS cuotas (
             id SERIAL PRIMARY KEY,
             jugador_id INTEGER,
@@ -9050,6 +9227,12 @@ def proteger_rutas():
         "portal_confirmar_asistencia",
         "portal_bienestar_asistencia",
         "portal_calendario_ics",
+        "pwa_manifest",
+        "pwa_service_worker",
+        "pwa_config",
+        "pwa_push_subscribe",
+        "pwa_push_unsubscribe",
+        "pwa_push_test",
         "whatsapp_webhook_verify",
         "whatsapp_webhook_receive",
         "ejecutar_automatizaciones_programadas",
@@ -18667,6 +18850,113 @@ def estado_whatsapp_inbox():
         status=200,
         mimetype="application/json",
     )
+
+
+@app.route("/manifest.webmanifest")
+def pwa_manifest():
+    manifest = {
+        "name": "SIG - Sistema Integral de Gestion",
+        "short_name": "SIG",
+        "description": "Portal y administracion del club.",
+        "start_url": url_for("index"),
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "orientation": "portrait-primary",
+        "icons": [
+            {"src": pwa_icon_url("192"), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": pwa_icon_url("512"), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+        "shortcuts": [
+            {
+                "name": "Portal jugador",
+                "short_name": "Portal",
+                "url": url_for("portal_buscar"),
+                "description": "Abrir portal del jugador.",
+            },
+            {
+                "name": "Notificaciones",
+                "short_name": "Avisos",
+                "url": url_for("ver_notificaciones"),
+                "description": "Ver notificaciones operativas.",
+            },
+        ],
+    }
+    return Response(json.dumps(manifest, ensure_ascii=False), mimetype="application/manifest+json")
+
+
+@app.route("/service-worker.js")
+def pwa_service_worker():
+    response = send_file(BASE_DIR / "static" / "service-worker.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.route("/pwa/config")
+def pwa_config():
+    return jsonify({
+        "vapidPublicKey": PWA_VAPID_PUBLIC_KEY,
+        "pushEnabled": bool(PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY and webpush),
+    })
+
+
+@app.route("/pwa/push/subscribe", methods=["POST"])
+def pwa_push_subscribe():
+    data = request.get_json(silent=True) or {}
+    subscription = data.get("subscription") or {}
+    portal_token = data.get("portal_token") or ""
+
+    conn = get_connection()
+    actor = actor_push_actual(conn, portal_token=portal_token)
+    if not actor:
+        conn.close()
+        abort(403)
+    try:
+        guardar_suscripcion_push(conn, subscription, actor, request.headers.get("User-Agent", ""))
+    except ValueError as error:
+        conn.rollback()
+        conn.close()
+        return jsonify({"ok": False, "error": str(error)}), 400
+    conn.commit()
+    conn.close()
+    registrar_auditoria("suscribir", "pwa_push", None, {"actor": actor["tipo"]})
+    return jsonify({"ok": True})
+
+
+@app.route("/pwa/push/unsubscribe", methods=["POST"])
+def pwa_push_unsubscribe():
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint") or ""
+    conn = get_connection()
+    desactivar_suscripcion_push(conn, endpoint)
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/pwa/push/test", methods=["POST"])
+def pwa_push_test():
+    data = request.get_json(silent=True) or {}
+    portal_token = data.get("portal_token") or ""
+    conn = get_connection()
+    actor = actor_push_actual(conn, portal_token=portal_token)
+    conn.close()
+    if not actor:
+        abort(403)
+
+    payload = {
+        "title": "SIG",
+        "body": "Notificaciones activadas correctamente.",
+        "url": url_for("portal_jugador", token=portal_token) if actor["tipo"] == "portal" and portal_token else url_for("index"),
+        "icon": pwa_icon_url("192"),
+    }
+    if actor["tipo"] == "portal":
+        resultado = enviar_push_por_actor("portal", payload, jugador_id=actor["jugador_id"])
+    else:
+        resultado = enviar_push_por_actor("usuario", payload, usuario_id=actor["usuario_id"])
+    return jsonify({"ok": not resultado["errores"], **resultado})
 
 
 @app.route("/presencia/heartbeat", methods=["POST"])
