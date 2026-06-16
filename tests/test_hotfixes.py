@@ -252,6 +252,17 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Avisos del login", admin_template)
         self.assertIn("urgente_", admin_template)
 
+    def test_error_500_email_alerts_are_configurable(self):
+        source = Path("app.py").read_text(encoding="utf-8-sig")
+        sistema = Path("templates/sistema_admin.html").read_text(encoding="utf-8")
+
+        self.assertIn("@app.errorhandler(500)", source)
+        self.assertIn("def notificar_error_500", source)
+        self.assertIn("ERROR_500_ALERT_EMAILS_KEY", source)
+        self.assertIn("def configurar_alertas_500", source)
+        self.assertIn("Alertas error 500", sistema)
+        self.assertIn("configurar_alertas_500", sistema)
+
     def test_sugerencias_use_configured_recipients(self):
         config = {
             "directiva_emails": ["directiva@example.com"],

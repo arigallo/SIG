@@ -15,6 +15,7 @@ import mimetypes
 import imaplib
 import smtplib
 import secrets
+import traceback
 import unicodedata
 import hashlib
 import hmac
@@ -548,6 +549,13 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER).strip()
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Tesoreria - RMR").strip() or "Tesoreria - RMR"
+ERROR_500_NOTIFY_EMAILS = [
+    email.strip()
+    for email in re.split(r"[;,]", os.environ.get("ERROR_500_NOTIFY_EMAILS", ""))
+    if email.strip()
+]
+ERROR_500_ALERTS_ENABLED_KEY = "error_500_alerts_enabled"
+ERROR_500_ALERT_EMAILS_KEY = "error_500_alert_emails"
 SUGERENCIAS_DIRECTIVA_EMAILS_KEY = "sugerencias_directiva_emails"
 SUGERENCIAS_CONFIG_KEYS = [
     SUGERENCIAS_DIRECTIVA_EMAILS_KEY,
@@ -4251,6 +4259,13 @@ def obtener_estado_sistema_admin():
             "secret_key_default": app.secret_key == "cambiar-esto-por-una-clave-segura",
         },
         "automatizaciones": {},
+        "alertas_500": {
+            "activo": True,
+            "emails": [],
+            "invalidos": [],
+            "actualizado_en": None,
+            "actualizado_por": None,
+        },
     }
 
     conn = None
@@ -4260,6 +4275,7 @@ def obtener_estado_sistema_admin():
         estado["db_time"] = conn.execute("SELECT CURRENT_TIMESTAMP AS ahora").fetchone()["ahora"]
         estado["mantenimiento"] = obtener_config_mantenimiento(conn)
         estado["automatizaciones"] = obtener_config_automatizaciones(conn)
+        estado["alertas_500"] = obtener_config_alertas_500(conn)
         estado["conteos"] = conn.execute("""
             SELECT
                 (SELECT COUNT(*) FROM jugadores) AS jugadores,
@@ -9247,6 +9263,78 @@ def leer_lista_config(valor, default=None):
     return [str(item).strip() for item in data if str(item or "").strip()]
 
 
+def obtener_config_alertas_500(conn=None):
+    own_conn = conn is None
+    conn = conn or get_connection()
+    settings = obtener_app_settings(conn, [ERROR_500_ALERTS_ENABLED_KEY, ERROR_500_ALERT_EMAILS_KEY])
+    if own_conn:
+        conn.close()
+
+    env_emails, _ = normalizar_lista_emails(ERROR_500_NOTIFY_EMAILS)
+    enabled_row = settings.get(ERROR_500_ALERTS_ENABLED_KEY)
+    emails_row = settings.get(ERROR_500_ALERT_EMAILS_KEY)
+    emails, invalidos = normalizar_lista_emails(
+        leer_lista_config((emails_row or {}).get("valor"), default=env_emails)
+    )
+    return {
+        "activo": parse_bool_setting(enabled_row.get("valor")) if enabled_row else True,
+        "emails": emails,
+        "invalidos": invalidos,
+        "actualizado_en": (emails_row or enabled_row or {}).get("actualizado_en"),
+        "actualizado_por": (emails_row or enabled_row or {}).get("actualizado_por"),
+    }
+
+
+def cuerpo_alerta_error_500(error_id, exception):
+    original = getattr(exception, "original_exception", None) or exception
+    trace = "".join(traceback.format_exception(type(original), original, getattr(original, "__traceback__", None)))
+    usuario = session.get("username") or "sin sesion"
+    rol = session.get("rol") or "-"
+    query = request.query_string.decode("utf-8", errors="replace")
+    return "\n".join([
+        "Se detecto un error 500 en SIG.",
+        "",
+        f"ID: {error_id}",
+        f"Fecha SIG: {ahora_sig().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Metodo: {request.method}",
+        f"Ruta: {request.path}",
+        f"Query: {query or '-'}",
+        f"Endpoint: {request.endpoint or '-'}",
+        f"Usuario: {usuario}",
+        f"Rol: {rol}",
+        f"IP: {audit_request_ip() or '-'}",
+        f"User-Agent: {request.headers.get('User-Agent', '-')}",
+        f"Revision: {os.environ.get('K_REVISION') or APP_VERSION}",
+        "",
+        "Excepcion:",
+        repr(original),
+        "",
+        "Traceback:",
+        trace[-6000:],
+    ])
+
+
+def notificar_error_500(error_id, exception):
+    try:
+        config = obtener_config_alertas_500()
+        if not config["activo"] or not config["emails"]:
+            app.logger.warning("Alerta 500 no enviada: sin destinatarios o desactivada. id=%s", error_id)
+            return
+        asunto = f"SIG - Error 500 detectado ({error_id})"
+        cuerpo = cuerpo_alerta_error_500(error_id, exception)
+        enviados = 0
+        for destinatario in config["emails"]:
+            enviado, motivo = enviar_email(destinatario, asunto, cuerpo)
+            if enviado:
+                enviados += 1
+            else:
+                app.logger.warning("No se pudo enviar alerta 500 %s a %s: %s", error_id, destinatario, motivo)
+        if not enviados:
+            app.logger.warning("Alerta 500 %s sin envios exitosos.", error_id)
+    except Exception:
+        app.logger.exception("No se pudo enviar la alerta de error 500 %s.", error_id)
+
+
 def obtener_sugerencias_config(conn=None):
     own_conn = conn is None
     conn = conn or get_connection()
@@ -9486,6 +9574,25 @@ def enviar_email(destinatario, asunto, cuerpo, adjuntos=None):
             smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(mensaje)
     return True, None
+
+
+@app.errorhandler(500)
+def manejar_error_500(error):
+    error_id = secrets.token_hex(4)
+    app.logger.exception("Error 500 no controlado. id=%s path=%s", error_id, request.path)
+    notificar_error_500(error_id, error)
+    cuerpo = (
+        "<!doctype html><html lang='es'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>Error - SIG</title></head>"
+        "<body style='font-family:Arial,sans-serif;padding:32px;line-height:1.5;'>"
+        "<h1>Hubo un problema en SIG</h1>"
+        "<p>Ya registramos el error para revisarlo.</p>"
+        f"<p><strong>ID:</strong> {html.escape(error_id)}</p>"
+        "<p><a href='/'>Volver al inicio</a></p>"
+        "</body></html>"
+    )
+    return Response(cuerpo, status=500, mimetype="text/html")
 
 
 def email_jugador_preferido(jugador):
@@ -19323,6 +19430,31 @@ def configurar_automatizaciones():
         "facturas_activas": bool(request.form.get("facturas_activas")),
     })
     flash("Automatizaciones actualizadas.", "ok")
+    return redirect(url_for("panel_sistema_admin"))
+
+
+@app.route("/admin/sistema/alertas-500", methods=["POST"])
+def configurar_alertas_500():
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    emails, invalidos = parsear_emails_config(request.form.get("emails", ""))
+    activo = bool(request.form.get("activo"))
+    conn = get_connection()
+    guardar_app_setting(conn, ERROR_500_ALERTS_ENABLED_KEY, "true" if activo else "false", session.get("username"))
+    guardar_app_setting(conn, ERROR_500_ALERT_EMAILS_KEY, serializar_lista_config(emails), session.get("username"))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("configurar", "alertas_500", None, {
+        "activo": activo,
+        "destinatarios": len(emails),
+        "invalidos": invalidos,
+    })
+    if invalidos:
+        flash("Alertas 500 guardadas. Se ignoraron emails invalidos: " + ", ".join(invalidos), "warning")
+    else:
+        flash("Alertas 500 actualizadas.", "ok")
     return redirect(url_for("panel_sistema_admin"))
 
 

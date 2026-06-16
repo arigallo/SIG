@@ -149,6 +149,26 @@
         </form>
         <p class="muted-line">Estado: {{ estado['automatizaciones']['ultimo_estado'] or '-' }}</p>
     </div>
+    <div class="card">
+        <div class="section-header compact">
+            <div>
+                <h3>Alertas error 500</h3>
+                <span class="muted-line">Email autom&aacute;tico cuando alguien recibe un error interno.</span>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('configurar_alertas_500') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label><input type="checkbox" name="activo" {% if estado['alertas_500']['activo'] %}checked{% endif %}> Activar alertas por email</label>
+            <label>Destinatarios
+                <textarea name="emails" rows="3" placeholder="admin@club.com">{{ estado['alertas_500']['emails'] | join('\n') }}</textarea>
+            </label>
+            <span class="muted-line">Requiere SMTP configurado. Se puede separar por coma, punto y coma o salto de l&iacute;nea.</span>
+            {% if estado['alertas_500']['actualizado_por'] %}
+                <span class="muted-line">Actualizado por {{ estado['alertas_500']['actualizado_por'] }}.</span>
+            {% endif %}
+            <button class="button" type="submit">Guardar alertas</button>
+        </form>
+    </div>
     {% endif %}
 </div>
 
