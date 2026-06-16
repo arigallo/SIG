@@ -158,7 +158,7 @@
                 {% endif %}
 
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') %}
-                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'configurar_mantenimiento', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
+                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
                 <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
                     <summary>Admin</summary>
@@ -168,6 +168,7 @@
                             <a class="{% if endpoint == 'listar_roles' %}active{% endif %}" href="{{ url_for('listar_roles') }}">Roles</a>
                             <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
                             <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
+                            <a class="{% if endpoint == 'configurar_avisos_login' %}active{% endif %}" href="{{ url_for('configurar_avisos_login') }}">Avisos login</a>
                             <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
                         {% endif %}
                         {% if puede('sugerencias_ver') %}

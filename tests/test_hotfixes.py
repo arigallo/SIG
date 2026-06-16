@@ -244,6 +244,10 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Portal del Jugador", template)
         self.assertIn("Sugerencias / Recomendaciones", template)
         self.assertIn("url_for('sugerencias_recomendaciones')", template)
+        self.assertIn("avisos_login", template)
+        self.assertIn("entry-login-notice", template)
+        self.assertIn("configurar_avisos_login", Path("app.py").read_text(encoding="utf-8-sig"))
+        self.assertIn("Avisos del login", Path("templates/avisos_login_admin.html").read_text(encoding="utf-8"))
 
     def test_sugerencias_use_configured_recipients(self):
         config = {
@@ -745,9 +749,12 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("notificaciones_portal", source)
         self.assertIn("s.actualizado_en", source)
         self.assertIn("obtener_comunicaciones_portal_dia", source)
+        self.assertIn("obtener_avisos_login_publicos", source)
+        self.assertIn("LOGIN_AVISOS_KEY", source)
         self.assertIn("Notificaciones app", base)
         self.assertIn("Todos los portales suscriptos", template)
         self.assertIn("mostrar_portal", template)
+        self.assertNotIn("mostrar_login", template)
         self.assertIn("Historial de env", template)
         self.assertIn("Comunicaciones del d", portal)
         self.assertIn("data-pwa-enable-push", portal)

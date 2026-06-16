@@ -2046,6 +2046,63 @@ tbody tr:hover {
     font-size: 17px;
 }
 
+.entry-login-notices {
+    display: grid;
+    gap: 8px;
+    max-width: 560px;
+}
+
+.entry-login-notice {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-soft);
+    background: rgba(240, 253, 250, 0.8);
+    color: var(--text);
+    font-size: 13px;
+}
+
+.entry-login-notice strong {
+    color: var(--primary-dark);
+    font-size: 14px;
+}
+
+.entry-login-notice span {
+    color: var(--secondary);
+}
+
+.entry-login-notice a {
+    color: var(--primary);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.entry-login-notice a:hover,
+.entry-login-notice a:focus {
+    text-decoration: underline;
+}
+
+.login-notice-admin-list {
+    display: grid;
+    gap: 16px;
+}
+
+.login-notice-admin-item {
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-soft);
+    background: var(--surface-muted);
+}
+
+.login-notice-admin-item legend {
+    padding: 0 8px;
+    color: var(--primary-dark);
+    font-weight: 800;
+}
+
 .entry-actions {
     display: grid;
     gap: 12px;

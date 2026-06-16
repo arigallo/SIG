@@ -963,6 +963,71 @@ def obtener_app_settings(conn, claves):
     return {row["clave"]: row for row in rows}
 
 
+LOGIN_AVISOS_KEY = "login_avisos"
+LOGIN_AVISOS_MAX = 5
+
+
+def normalizar_url_aviso_login(valor):
+    valor = (valor or "").strip()
+    if not valor:
+        return ""
+    if valor.startswith("/") and not valor.startswith("//"):
+        return valor
+    if valor.startswith("https://") or valor.startswith("http://"):
+        return valor
+    return ""
+
+
+def normalizar_avisos_login(items):
+    avisos = []
+    hoy = ahora_sig().strftime("%Y-%m-%d")
+    for item in items or []:
+        titulo = (item.get("titulo") or "").strip()
+        mensaje = (item.get("mensaje") or "").strip()
+        if not titulo and not mensaje:
+            continue
+        aviso = {
+            "activo": bool(item.get("activo")),
+            "titulo": titulo,
+            "mensaje": mensaje,
+            "url": normalizar_url_aviso_login(item.get("url")),
+            "visible_hasta": validar_fecha_movimiento((item.get("visible_hasta") or "").strip()) or hoy,
+        }
+        avisos.append(aviso)
+        if len(avisos) >= LOGIN_AVISOS_MAX:
+            break
+    return avisos
+
+
+def obtener_config_avisos_login(conn=None):
+    own_conn = conn is None
+    conn = conn or get_connection()
+    rows = obtener_app_settings(conn, [LOGIN_AVISOS_KEY])
+    if own_conn:
+        conn.close()
+
+    raw = (rows.get(LOGIN_AVISOS_KEY) or {}).get("valor") or "[]"
+    try:
+        items = json.loads(raw)
+    except (TypeError, ValueError):
+        items = []
+    return normalizar_avisos_login(items if isinstance(items, list) else [])
+
+
+def obtener_avisos_login_publicos(limite=3):
+    try:
+        hoy = ahora_sig().strftime("%Y-%m-%d")
+        avisos = [
+            aviso
+            for aviso in obtener_config_avisos_login()
+            if aviso.get("activo") and (not aviso.get("visible_hasta") or aviso["visible_hasta"] >= hoy)
+        ]
+        return avisos[:limite]
+    except Exception:
+        app.logger.exception("No se pudieron obtener los avisos del login.")
+        return []
+
+
 AUTOMATION_SETTING_KEYS = (
     "automation_reminders_enabled",
     "automation_reminders_days_before",
@@ -9863,6 +9928,7 @@ def sugerencias_denuncias_legacy():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    avisos_login = obtener_avisos_login_publicos()
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -9879,7 +9945,7 @@ def login():
                 username=username,
             )
             flash("Demasiados intentos fallidos. Proba nuevamente en unos minutos.", "error")
-            return render_template("login.html")
+            return render_template("login.html", avisos_login=avisos_login)
 
         usuario = conn.execute("""
             SELECT u.*, r.permisos AS rol_permisos
@@ -9936,7 +10002,7 @@ def login():
             )
             flash("Usuario o contraseña incorrectos", "error")
 
-    return render_template("login.html")
+    return render_template("login.html", avisos_login=avisos_login)
 
 
 @app.route("/meta/data-deletion")
@@ -19183,6 +19249,56 @@ def panel_sistema_admin():
         estado=obtener_estado_sistema_admin(),
         solo_backup=False,
     )
+
+
+@app.route("/admin/sistema/avisos-login", methods=["GET", "POST"])
+def configurar_avisos_login():
+    check = rol_requerido("admin")
+    if check:
+        return check
+
+    if request.method == "POST":
+        avisos = []
+        for index in range(1, LOGIN_AVISOS_MAX + 1):
+            titulo = request.form.get(f"titulo_{index}", "").strip()
+            mensaje = request.form.get(f"mensaje_{index}", "").strip()
+            url = request.form.get(f"url_{index}", "").strip()
+            visible_hasta = request.form.get(f"visible_hasta_{index}", "").strip()
+            activo = request.form.get(f"activo_{index}") == "on"
+            if not titulo and not mensaje and not url:
+                continue
+            avisos.append({
+                "activo": activo,
+                "titulo": titulo,
+                "mensaje": mensaje,
+                "url": url,
+                "visible_hasta": visible_hasta,
+            })
+
+        avisos = normalizar_avisos_login(avisos)
+        conn = get_connection()
+        guardar_app_setting(
+            conn,
+            LOGIN_AVISOS_KEY,
+            json.dumps(avisos, ensure_ascii=False),
+            session.get("username"),
+        )
+        conn.commit()
+        conn.close()
+        registrar_auditoria("configurar", "avisos_login", None, {"cantidad": len(avisos)})
+        flash("Avisos del login actualizados.", "ok")
+        return redirect(url_for("configurar_avisos_login"))
+
+    avisos = obtener_config_avisos_login()
+    while len(avisos) < LOGIN_AVISOS_MAX:
+        avisos.append({
+            "activo": False,
+            "titulo": "",
+            "mensaje": "",
+            "url": "",
+            "visible_hasta": ahora_sig().strftime("%Y-%m-%d"),
+        })
+    return render_template("avisos_login_admin.html", avisos=avisos[:LOGIN_AVISOS_MAX])
 
 
 @app.route("/admin/sistema/automatizaciones", methods=["POST"])

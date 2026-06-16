@@ -12,6 +12,7 @@
         {% if session.get('rol') == 'admin' %}
             <a class="button secondary" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
             <a class="button secondary" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Sugerencias</a>
+            <a class="button secondary" href="{{ url_for('configurar_avisos_login') }}">Avisos login</a>
             <a class="button secondary" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('index') }}">Volver</a>

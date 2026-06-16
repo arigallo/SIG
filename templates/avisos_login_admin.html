@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Avisos login{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Avisos del login</h2>
+        <p class="page-intro">Mensajes peque&ntilde;os que aparecen en la pantalla inicial del SIG. No env&iacute;an notificaciones push.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+        <a class="button secondary" href="{{ url_for('index') }}">Volver</a>
+    </div>
+</div>
+
+<form method="post" class="card form-card form-card-wide">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="login-notice-admin-list">
+        {% for aviso in avisos %}
+            {% set index = loop.index %}
+            <fieldset class="login-notice-admin-item">
+                <legend>Aviso {{ index }}</legend>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="activo_{{ index }}" {% if aviso.activo %}checked{% endif %}>
+                    <span>Mostrar en el login</span>
+                </label>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>T&iacute;tulo</label>
+                        <input type="text" name="titulo_{{ index }}" maxlength="80" value="{{ aviso.titulo or '' }}" placeholder="Ej: Entrenamiento suspendido">
+                    </div>
+                    <div class="field">
+                        <label>Visible hasta</label>
+                        <input type="date" name="visible_hasta_{{ index }}" value="{{ aviso.visible_hasta or now().strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="field full">
+                        <label>Mensaje</label>
+                        <textarea name="mensaje_{{ index }}" rows="2" maxlength="220" placeholder="Mensaje corto para mostrar en la pantalla inicial.">{{ aviso.mensaje or '' }}</textarea>
+                    </div>
+                    <div class="field full">
+                        <label>Link opcional</label>
+                        <input type="text" name="url_{{ index }}" value="{{ aviso.url or '' }}" placeholder="/portal o https://...">
+                        <span class="report-note">Si queda vac&iacute;o, el aviso se muestra sin bot&oacute;n.</span>
+                    </div>
+                </div>
+            </fieldset>
+        {% endfor %}
+    </div>
+
+    <div class="actions-row">
+        <button class="button" type="submit">Guardar avisos</button>
+    </div>
+</form>
+{% endblock %}

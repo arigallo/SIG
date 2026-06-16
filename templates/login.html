@@ -29,6 +29,20 @@
                 <h1>Sistema Integral de Gesti&oacute;n</h1>
                 <p>Eleg&iacute; el acceso que necesit&aacute;s para operar el SIG, entrar al portal del jugador o enviar una sugerencia o recomendaci&oacute;n.</p>
             </div>
+
+            {% if avisos_login %}
+                <div class="entry-login-notices" aria-label="Avisos del d&iacute;a">
+                    {% for aviso in avisos_login %}
+                        <article class="entry-login-notice">
+                            <strong>{{ aviso['titulo'] }}</strong>
+                            <span>{{ aviso['mensaje'] }}</span>
+                            {% if aviso['url'] and aviso['url'] != url_for('index') %}
+                                <a href="{{ aviso['url'] }}">Ver m&aacute;s</a>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </section>
 
         <section class="entry-actions" aria-label="Accesos principales">
