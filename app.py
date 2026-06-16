@@ -1406,6 +1406,28 @@ def normalizar_url_push(valor, fallback="/"):
     return fallback
 
 
+def obtener_comunicaciones_portal_dia(conn, jugador, limite=5):
+    hoy = ahora_sig().strftime("%Y-%m-%d")
+    categoria = jugador.get("categoria") or ""
+    return conn.execute("""
+        SELECT id, titulo, mensaje, destino, categoria, jugador_id, url, creado_en, visible_hasta
+        FROM pwa_push_envios
+        WHERE COALESCE(mostrar_portal, 0) = 1
+          AND (
+              visible_hasta IS NULL
+              OR visible_hasta = ''
+              OR visible_hasta >= %s
+          )
+          AND (
+              destino = 'portal_todos'
+              OR (destino = 'categoria' AND COALESCE(categoria, '') = %s)
+              OR (destino = 'jugador' AND jugador_id = %s)
+          )
+        ORDER BY creado_en DESC, id DESC
+        LIMIT %s
+    """, (hoy, categoria, jugador["id"], limite)).fetchall()
+
+
 def usuario_activo_reciente(username, segundos=120):
     clave = presence_key(username)
     if not clave:
@@ -7530,6 +7552,20 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_pwa_push_envios_fecha
         ON pwa_push_envios (creado_en DESC)
+    """)
+
+    columnas_pwa_envios = get_columns(conn, "pwa_push_envios")
+    columnas_extra_pwa_envios = {
+        "mostrar_portal": "INTEGER DEFAULT 0",
+        "visible_hasta": "TEXT",
+    }
+    for columna, definicion in columnas_extra_pwa_envios.items():
+        if columna not in columnas_pwa_envios:
+            conn.execute(f"ALTER TABLE pwa_push_envios ADD COLUMN {columna} {definicion}")
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pwa_push_envios_portal
+        ON pwa_push_envios (mostrar_portal, visible_hasta, destino, categoria, jugador_id)
     """)
 
     conn.execute("""
@@ -16811,6 +16847,7 @@ def portal_jugador(token):
     if evento_ids_confirmables:
         confirmaciones_portal = obtener_confirmaciones_portal(conn, evento_ids_confirmables, jugador["id"])
     cuenta_corriente = obtener_cuenta_corriente_jugador(conn, jugador["id"], limite=20)
+    comunicaciones_portal = obtener_comunicaciones_portal_dia(conn, jugador)
     conn.close()
 
     documentos_por_vencer = 0
@@ -16915,6 +16952,7 @@ def portal_jugador(token):
         calendario_google_url=calendario_google_url,
         calendario_android_url=calendario_android_url,
         cuenta_corriente=cuenta_corriente,
+        comunicaciones_portal=comunicaciones_portal,
         token=token,
     )
 
@@ -18777,6 +18815,8 @@ def enviar_notificacion_app_manual():
         jugador_id_raw = request.form.get("jugador_id", "").strip()
         jugador_id = int(jugador_id_raw) if jugador_id_raw.isdigit() else None
         url = normalizar_url_push(request.form.get("url"), fallback=url_for("index"))
+        mostrar_portal = 1 if request.form.get("mostrar_portal") == "on" else 0
+        visible_hasta = validar_fecha_movimiento(request.form.get("visible_hasta", "").strip()) or ahora_sig().strftime("%Y-%m-%d")
 
         if not titulo or not mensaje:
             conn.close()
@@ -18816,9 +18856,9 @@ def enviar_notificacion_app_manual():
         envio = conn.execute("""
             INSERT INTO pwa_push_envios (
                 titulo, mensaje, destino, categoria, jugador_id, url,
-                enviados, errores, detalle, creado_por
+                enviados, errores, detalle, creado_por, mostrar_portal, visible_hasta
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             titulo,
@@ -18831,6 +18871,8 @@ def enviar_notificacion_app_manual():
             len(errores),
             json.dumps({"errores": errores[:20], "destinatarios": len(destinatarios)}, ensure_ascii=False),
             session.get("username"),
+            mostrar_portal,
+            visible_hasta,
         )).fetchone()
         conn.commit()
         conn.close()
@@ -18842,6 +18884,8 @@ def enviar_notificacion_app_manual():
             "destinatarios": len(destinatarios),
             "enviados": enviados,
             "errores": len(errores),
+            "mostrar_portal": bool(mostrar_portal),
+            "visible_hasta": visible_hasta,
         })
         if not destinatarios:
             flash("No hay dispositivos suscriptos para ese destino.", "warning")

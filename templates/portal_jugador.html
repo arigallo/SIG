@@ -41,6 +41,29 @@
             </div>
         </section>
 
+        {% if comunicaciones_portal %}
+        <section class="portal-daily-communications page-section">
+            <div class="section-header compact">
+                <div>
+                    <h3>Comunicaciones del d&iacute;a</h3>
+                    <span class="muted-line">Avisos enviados desde administraci&oacute;n</span>
+                </div>
+            </div>
+            <div class="portal-alert-grid">
+                {% for comunicacion in comunicaciones_portal %}
+                <article class="card portal-alert-card portal-alert-info">
+                    <h3>{{ comunicacion['titulo'] }}</h3>
+                    <p>{{ comunicacion['mensaje'] }}</p>
+                    <span class="muted-line">{{ comunicacion['creado_en'] | fecha_hora }}</span>
+                    {% if comunicacion['url'] %}
+                        <a class="button secondary top-gap" href="{{ comunicacion['url'] }}">Abrir</a>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
         <section class="portal-summary-grid">
             <article class="card portal-summary-card">
                 <span class="portal-summary-label">Deuda actual</span>

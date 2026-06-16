@@ -615,13 +615,17 @@ class HotfixTests(unittest.TestCase):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
         template = (Path(app.__file__).parent / "templates" / "notificaciones_app.html").read_text(encoding="utf-8-sig")
+        portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
 
         self.assertIn("def enviar_notificacion_app_manual", source)
         self.assertIn("pwa_push_envios", source)
         self.assertIn("obtener_destinatarios_push_manual", source)
+        self.assertIn("obtener_comunicaciones_portal_dia", source)
         self.assertIn("Notificaciones app", base)
         self.assertIn("Todos los portales suscriptos", template)
+        self.assertIn("mostrar_portal", template)
         self.assertIn("Historial de env", template)
+        self.assertIn("Comunicaciones del d", portal)
 
 
 if __name__ == "__main__":

@@ -83,6 +83,17 @@
             <input type="text" name="url" placeholder="/portal, /calendario, /notificaciones o una URL completa">
             <span class="report-note">Si lo dej&aacute;s vac&iacute;o abre el panel principal del SIG.</span>
         </div>
+        <div class="field">
+            <label class="checkbox-label">
+                <input type="checkbox" name="mostrar_portal" checked>
+                Mostrar tambi&eacute;n en el portal del jugador
+            </label>
+            <span class="report-note">Aparece arriba como comunicaci&oacute;n del d&iacute;a para los destinatarios seleccionados.</span>
+        </div>
+        <div class="field">
+            <label>Visible hasta</label>
+            <input type="date" name="visible_hasta" value="{{ now().strftime('%Y-%m-%d') }}">
+        </div>
     </div>
     <div class="actions-row">
         <button class="button" type="submit" {% if not push_configurado %}disabled{% endif %}>Enviar notificaci&oacute;n</button>
@@ -120,6 +131,7 @@
                         {{ envio['destino'] }}
                         {% if envio['categoria'] %}<span class="muted-line">{{ envio['categoria'] }}</span>{% endif %}
                         {% if envio['jugador_id'] %}<span class="muted-line">{{ envio['apellido'] }}, {{ envio['nombre'] }}</span>{% endif %}
+                        {% if envio['mostrar_portal'] %}<span class="badge badge-info">Portal hasta {{ envio['visible_hasta'] or '-' }}</span>{% endif %}
                     </td>
                     <td>{{ envio['enviados'] or 0 }}</td>
                     <td class="{% if envio['errores'] %}strong-danger{% endif %}">{{ envio['errores'] or 0 }}</td>
