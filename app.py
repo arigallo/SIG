@@ -1337,6 +1337,75 @@ def enviar_push_por_actor(actor_tipo, payload, usuario_id=None, jugador_id=None)
     return {"enviados": enviados, "errores": errores}
 
 
+def obtener_destinatarios_push_manual(conn, destino, categoria=None, jugador_id=None):
+    destino = (destino or "").strip()
+    params = []
+    filtros = ["s.enabled = 1"]
+    joins = []
+
+    if destino == "admins":
+        joins.append("JOIN usuarios u ON u.id = s.usuario_id")
+        filtros.append("s.actor_tipo = 'usuario'")
+        filtros.append("u.rol = 'admin'")
+    elif destino == "usuarios":
+        filtros.append("s.actor_tipo = 'usuario'")
+    elif destino == "portal_todos":
+        filtros.append("s.actor_tipo = 'portal'")
+    elif destino == "categoria":
+        joins.append("JOIN jugadores j ON j.id = s.jugador_id")
+        filtros.append("s.actor_tipo = 'portal'")
+        if categoria == "Sin categoria":
+            filtros.append("COALESCE(NULLIF(j.categoria, ''), 'Sin categoria') = 'Sin categoria'")
+        else:
+            filtros.append("COALESCE(j.categoria, '') = %s")
+            params.append(categoria or "")
+    elif destino == "jugador":
+        filtros.append("s.actor_tipo = 'portal'")
+        filtros.append("s.jugador_id = %s")
+        params.append(jugador_id)
+    else:
+        return []
+
+    join_sql = "\n".join(joins)
+    where_sql = " AND ".join(filtros)
+    return conn.execute(f"""
+        SELECT DISTINCT
+            s.endpoint,
+            s.subscription_json,
+            s.actor_tipo,
+            s.usuario_id,
+            s.jugador_id
+        FROM pwa_push_subscriptions s
+        {join_sql}
+        WHERE {where_sql}
+        ORDER BY s.actualizado_en DESC
+    """, params).fetchall()
+
+
+def resumen_suscripciones_push(conn):
+    return conn.execute("""
+        SELECT
+            COUNT(*) FILTER (WHERE enabled = 1) AS activas,
+            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'portal') AS portal,
+            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'usuario') AS usuarios,
+            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'usuario' AND usuario_id IN (
+                SELECT id FROM usuarios WHERE rol = 'admin'
+            )) AS admins
+        FROM pwa_push_subscriptions
+    """).fetchone()
+
+
+def normalizar_url_push(valor, fallback="/"):
+    valor = (valor or "").strip()
+    if not valor:
+        return fallback
+    if valor.startswith("/") and not valor.startswith("//"):
+        return valor
+    if valor.startswith("https://") or valor.startswith("http://"):
+        return valor
+    return fallback
+
+
 def usuario_activo_reciente(username, segundos=120):
     clave = presence_key(username)
     if not clave:
@@ -7439,6 +7508,28 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_pwa_push_subscriptions_actor
         ON pwa_push_subscriptions (actor_tipo, usuario_id, jugador_id, enabled)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pwa_push_envios (
+            id SERIAL PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            mensaje TEXT NOT NULL,
+            destino TEXT NOT NULL,
+            categoria TEXT,
+            jugador_id INTEGER,
+            url TEXT,
+            enviados INTEGER DEFAULT 0,
+            errores INTEGER DEFAULT 0,
+            detalle TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pwa_push_envios_fecha
+        ON pwa_push_envios (creado_en DESC)
     """)
 
     conn.execute("""
@@ -18669,6 +18760,127 @@ def enviar_whatsapp_comunicacion_morosos_lote():
     mensaje_resultado, nivel = resumir_envio_masivo_whatsapp(resultados, "WhatsApps de comunicacion")
     flash(mensaje_resultado, nivel)
     return redirect(url_for("ver_comunicaciones", mensaje=template))
+
+
+@app.route("/comunicaciones/app", methods=["GET", "POST"])
+def enviar_notificacion_app_manual():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+
+    conn = get_connection()
+    if request.method == "POST":
+        titulo = request.form.get("titulo", "").strip()
+        mensaje = request.form.get("mensaje", "").strip()
+        destino = request.form.get("destino", "portal_todos").strip()
+        categoria = request.form.get("categoria", "").strip()
+        jugador_id_raw = request.form.get("jugador_id", "").strip()
+        jugador_id = int(jugador_id_raw) if jugador_id_raw.isdigit() else None
+        url = normalizar_url_push(request.form.get("url"), fallback=url_for("index"))
+
+        if not titulo or not mensaje:
+            conn.close()
+            flash("Titulo y mensaje son obligatorios.", "error")
+            return redirect(url_for("enviar_notificacion_app_manual"))
+        if destino == "categoria" and not categoria:
+            conn.close()
+            flash("Elegí una categoria para enviar la notificacion.", "error")
+            return redirect(url_for("enviar_notificacion_app_manual"))
+        if destino == "jugador" and not jugador_id:
+            conn.close()
+            flash("Elegí un jugador para enviar la notificacion.", "error")
+            return redirect(url_for("enviar_notificacion_app_manual"))
+
+        destinatarios = obtener_destinatarios_push_manual(conn, destino, categoria=categoria, jugador_id=jugador_id)
+        payload = {
+            "title": titulo,
+            "body": mensaje,
+            "url": url,
+            "icon": pwa_icon_url("192"),
+        }
+        enviados = 0
+        errores = []
+        for destinatario in destinatarios:
+            try:
+                subscription = json.loads(destinatario["subscription_json"] or "{}")
+            except (TypeError, ValueError):
+                subscription = {}
+            ok, error = enviar_push_subscription(subscription, payload)
+            if ok:
+                enviados += 1
+            else:
+                errores.append(error or "Error desconocido")
+                if error and ("410" in error or "404" in error):
+                    desactivar_suscripcion_push(conn, destinatario["endpoint"])
+
+        envio = conn.execute("""
+            INSERT INTO pwa_push_envios (
+                titulo, mensaje, destino, categoria, jugador_id, url,
+                enviados, errores, detalle, creado_por
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            titulo,
+            mensaje,
+            destino,
+            categoria or None,
+            jugador_id,
+            url,
+            enviados,
+            len(errores),
+            json.dumps({"errores": errores[:20], "destinatarios": len(destinatarios)}, ensure_ascii=False),
+            session.get("username"),
+        )).fetchone()
+        conn.commit()
+        conn.close()
+
+        registrar_auditoria("enviar", "pwa_push_manual", str(envio["id"]), {
+            "destino": destino,
+            "categoria": categoria,
+            "jugador_id": jugador_id,
+            "destinatarios": len(destinatarios),
+            "enviados": enviados,
+            "errores": len(errores),
+        })
+        if not destinatarios:
+            flash("No hay dispositivos suscriptos para ese destino.", "warning")
+        elif errores:
+            flash(f"Notificacion enviada a {enviados} dispositivo(s), con {len(errores)} error(es).", "warning")
+        else:
+            flash(f"Notificacion enviada a {enviados} dispositivo(s).", "ok")
+        return redirect(url_for("enviar_notificacion_app_manual"))
+
+    categorias = conn.execute("""
+        SELECT DISTINCT COALESCE(NULLIF(categoria, ''), 'Sin categoria') AS categoria
+        FROM jugadores
+        ORDER BY categoria
+    """).fetchall()
+    jugadores = conn.execute("""
+        SELECT id, apellido, nombre, categoria
+        FROM jugadores
+        WHERE COALESCE(estado, 'Activo') <> 'Baja'
+        ORDER BY apellido, nombre
+        LIMIT 500
+    """).fetchall()
+    historial = conn.execute("""
+        SELECT e.*, j.apellido, j.nombre
+        FROM pwa_push_envios e
+        LEFT JOIN jugadores j ON j.id = e.jugador_id
+        ORDER BY e.creado_en DESC, e.id DESC
+        LIMIT 30
+    """).fetchall()
+    resumen_push = resumen_suscripciones_push(conn)
+    conn.close()
+
+    return render_template(
+        "notificaciones_app.html",
+        categorias=categorias,
+        jugadores=jugadores,
+        historial=historial,
+        resumen_push=resumen_push,
+        push_configurado=bool(PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY and webpush),
+    )
 
 
 @app.route("/notificaciones")

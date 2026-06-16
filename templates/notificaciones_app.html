@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Notificaciones app{% endblock %}
+
+{% block content %}
+<div class="admin-page communication-page">
+<div class="section-header">
+    <div>
+        <h2>Notificaciones app</h2>
+        <p class="page-intro">Env&iacute;o libre de notificaciones push a celulares con la app instalada y notificaciones activadas.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Comunicaci&oacute;n</a>
+        <a class="button secondary" href="{{ url_for('ver_notificaciones') }}">Notificaciones</a>
+    </div>
+</div>
+
+<div class="dashboard-cards report-cards spaced">
+    <div class="card stat-card">
+        <h3>Dispositivos activos</h3>
+        <p class="stat-number compact">{{ resumen_push['activas'] or 0 }}</p>
+        <span class="report-note">Total suscripto</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Portales</h3>
+        <p class="stat-number compact">{{ resumen_push['portal'] or 0 }}</p>
+        <span class="report-note">Jugadores/familias</span>
+    </div>
+    <div class="card stat-card">
+        <h3>Usuarios SIG</h3>
+        <p class="stat-number compact">{{ resumen_push['usuarios'] or 0 }}</p>
+        <span class="report-note">{{ resumen_push['admins'] or 0 }} admin(es)</span>
+    </div>
+    <div class="card stat-card {% if push_configurado %}alert-card-info{% else %}alert-card-warning{% endif %}">
+        <h3>Web Push</h3>
+        <p class="stat-number compact">{% if push_configurado %}OK{% else %}Revisar{% endif %}</p>
+        <span class="report-note">{% if push_configurado %}Claves VAPID configuradas{% else %}Faltan claves VAPID o pywebpush{% endif %}</span>
+    </div>
+</div>
+
+<form method="post" class="card spaced-small toolbar-card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+        <div class="field">
+            <label>T&iacute;tulo</label>
+            <input type="text" name="titulo" maxlength="80" required placeholder="Ej: Entrenamiento suspendido">
+        </div>
+        <div class="field">
+            <label>Destino</label>
+            <select name="destino" required>
+                <option value="portal_todos">Todos los portales suscriptos</option>
+                <option value="categoria">Portales por categor&iacute;a</option>
+                <option value="jugador">Jugador puntual</option>
+                <option value="usuarios">Usuarios internos SIG</option>
+                <option value="admins">Administradores</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Categor&iacute;a</label>
+            <select name="categoria">
+                <option value="">Seleccionar si aplica</option>
+                {% for fila in categorias %}
+                    <option value="{{ fila['categoria'] }}">{{ fila['categoria'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label>Jugador</label>
+            <select name="jugador_id">
+                <option value="">Seleccionar si aplica</option>
+                {% for jugador in jugadores %}
+                    <option value="{{ jugador['id'] }}">{{ jugador['apellido'] }}, {{ jugador['nombre'] }}{% if jugador['categoria'] %} - {{ jugador['categoria'] }}{% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field full">
+            <label>Mensaje</label>
+            <textarea name="mensaje" rows="4" maxlength="220" required placeholder="Mensaje corto que va a aparecer en el celular."></textarea>
+            <span class="report-note">Recomendado: menos de 140 caracteres para que se lea completo.</span>
+        </div>
+        <div class="field full">
+            <label>Link al tocar la notificaci&oacute;n</label>
+            <input type="text" name="url" placeholder="/portal, /calendario, /notificaciones o una URL completa">
+            <span class="report-note">Si lo dej&aacute;s vac&iacute;o abre el panel principal del SIG.</span>
+        </div>
+    </div>
+    <div class="actions-row">
+        <button class="button" type="submit" {% if not push_configurado %}disabled{% endif %}>Enviar notificaci&oacute;n</button>
+        {% if not push_configurado %}
+            <span class="report-note strong-danger">Configur&aacute; PWA_VAPID_PUBLIC_KEY y PWA_VAPID_PRIVATE_KEY antes de enviar.</span>
+        {% endif %}
+    </div>
+</form>
+
+<div class="page-section">
+    <div class="section-header">
+        <h3>Historial de env&iacute;os</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>T&iacute;tulo</th>
+                    <th>Destino</th>
+                    <th>Enviados</th>
+                    <th>Errores</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for envio in historial %}
+                <tr>
+                    <td>{{ envio['creado_en'] | fecha_hora }}</td>
+                    <td>
+                        <strong>{{ envio['titulo'] }}</strong>
+                        <span class="muted-line">{{ envio['mensaje'] }}</span>
+                    </td>
+                    <td>
+                        {{ envio['destino'] }}
+                        {% if envio['categoria'] %}<span class="muted-line">{{ envio['categoria'] }}</span>{% endif %}
+                        {% if envio['jugador_id'] %}<span class="muted-line">{{ envio['apellido'] }}, {{ envio['nombre'] }}</span>{% endif %}
+                    </td>
+                    <td>{{ envio['enviados'] or 0 }}</td>
+                    <td class="{% if envio['errores'] %}strong-danger{% endif %}">{{ envio['errores'] or 0 }}</td>
+                    <td>{{ envio['creado_por'] or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty">Todav&iacute;a no hay env&iacute;os manuales.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

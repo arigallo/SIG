@@ -611,6 +611,18 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("pushManager.subscribe", js)
         self.assertIn("showNotification", sw)
 
+    def test_manual_app_notifications_admin_screen_is_present(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
+        template = (Path(app.__file__).parent / "templates" / "notificaciones_app.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("def enviar_notificacion_app_manual", source)
+        self.assertIn("pwa_push_envios", source)
+        self.assertIn("obtener_destinatarios_push_manual", source)
+        self.assertIn("Notificaciones app", base)
+        self.assertIn("Todos los portales suscriptos", template)
+        self.assertIn("Historial de env", template)
+
 
 if __name__ == "__main__":
     unittest.main()
