@@ -3395,6 +3395,11 @@ tbody tr:hover {
     font-size: 0.85rem;
 }
 
+.portal-hero-actions .pwa-status {
+    color: var(--muted);
+    flex-basis: 100%;
+}
+
 @media (max-width: 640px) {
     .pwa-actions {
         left: 0.75rem;

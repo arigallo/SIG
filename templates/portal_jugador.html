@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow">
     <title>Portal del jugador</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SIG">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
-<body>
+<body data-endpoint="{{ request.endpoint or '' }}" data-username="" data-portal-token="{{ token }}">
     <main class="container portal-page">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -38,6 +45,9 @@
                 <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
                 <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
                 <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
+                <button class="button secondary" type="button" data-pwa-enable-push hidden>Activar notificaciones</button>
+                <button class="button secondary" type="button" data-pwa-test-push hidden>Probar aviso</button>
+                <span class="pwa-status portal-pwa-status" data-pwa-status></span>
             </div>
         </section>
 

@@ -428,6 +428,7 @@
     const pwaStatus = document.querySelector("[data-pwa-status]");
     const inlinePwaStatus = document.querySelector("[data-pwa-inline-status]");
     const portalToken = document.body?.dataset.portalToken || "";
+    const pwaStorageKey = `sig:pwa:test-ok:${portalToken || username || "default"}`;
     let deferredInstallPrompt = null;
     let pushConfig = null;
 
@@ -490,8 +491,12 @@
         }
         if (pushButton && "PushManager" in window && Notification.permission !== "denied") {
             const subscription = await currentPushSubscription();
+            const testDone = window.localStorage?.getItem(pwaStorageKey) === "1";
             pushButton.hidden = Boolean(subscription);
-            testPushButton.hidden = !subscription;
+            testPushButton.hidden = !subscription || testDone;
+            if (subscription && testDone && pwaActions) {
+                pwaActions.hidden = true;
+            }
         }
     };
 
@@ -569,6 +574,21 @@
         try {
             const data = await postPwaJson("/pwa/push/test", { portal_token: portalToken });
             setPwaStatus(data.enviados ? "Notificacion de prueba enviada." : "No hay dispositivos activos para probar.", !data.enviados);
+            if (data.enviados) {
+                window.localStorage?.setItem(pwaStorageKey, "1");
+                if (testPushButton) {
+                    testPushButton.hidden = true;
+                }
+                if (pushButton) {
+                    pushButton.hidden = true;
+                }
+                window.setTimeout(() => {
+                    if (pwaActions) {
+                        pwaActions.hidden = true;
+                    }
+                    setPwaStatus("");
+                }, 1600);
+            }
         } catch (error) {
             setPwaStatus(error.message || "No se pudo enviar la prueba.", true);
         }

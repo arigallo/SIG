@@ -609,6 +609,7 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("serviceWorker.register", js)
         self.assertIn("data-pwa-install-inline", js)
         self.assertIn("pushManager.subscribe", js)
+        self.assertIn("sig:pwa:test-ok", js)
         self.assertIn("showNotification", sw)
 
     def test_manual_app_notifications_admin_screen_is_present(self):
@@ -627,6 +628,8 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("mostrar_portal", template)
         self.assertIn("Historial de env", template)
         self.assertIn("Comunicaciones del d", portal)
+        self.assertIn("data-pwa-enable-push", portal)
+        self.assertIn("data-portal-token", portal)
 
 
 if __name__ == "__main__":
