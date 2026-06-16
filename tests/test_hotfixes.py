@@ -620,6 +620,7 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("def enviar_notificacion_app_manual", source)
         self.assertIn("pwa_push_envios", source)
         self.assertIn("obtener_destinatarios_push_manual", source)
+        self.assertIn("s.actualizado_en", source)
         self.assertIn("obtener_comunicaciones_portal_dia", source)
         self.assertIn("Notificaciones app", base)
         self.assertIn("Todos los portales suscriptos", template)

@@ -1374,7 +1374,8 @@ def obtener_destinatarios_push_manual(conn, destino, categoria=None, jugador_id=
             s.subscription_json,
             s.actor_tipo,
             s.usuario_id,
-            s.jugador_id
+            s.jugador_id,
+            s.actualizado_en
         FROM pwa_push_subscriptions s
         {join_sql}
         WHERE {where_sql}
