@@ -614,6 +614,23 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("savePwaSubscription", js)
         self.assertIn("showNotification", sw)
 
+    def test_push_actor_prefers_portal_token_over_admin_session(self):
+        class Result:
+            def fetchone(self):
+                return {"id": 42}
+
+        class Conn:
+            def execute(self, *_args, **_kwargs):
+                return Result()
+
+        with app.app.test_request_context("/portal/token-demo"):
+            app.session["user_id"] = 7
+            actor = app.actor_push_actual(Conn(), portal_token="token-demo")
+
+        self.assertEqual(actor["tipo"], "portal")
+        self.assertEqual(actor["jugador_id"], 42)
+        self.assertIsNone(actor["usuario_id"])
+
     def test_manual_app_notifications_admin_screen_is_present(self):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")

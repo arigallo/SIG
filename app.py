@@ -1217,14 +1217,6 @@ def hash_portal_token(token):
 
 
 def actor_push_actual(conn, portal_token=None):
-    if session.get("user_id"):
-        return {
-            "tipo": "usuario",
-            "usuario_id": session.get("user_id"),
-            "jugador_id": None,
-            "portal_token_hash": None,
-        }
-
     portal_token = (portal_token or "").strip()
     if portal_token:
         jugador = conn.execute("""
@@ -1240,6 +1232,14 @@ def actor_push_actual(conn, portal_token=None):
                 "jugador_id": jugador["id"],
                 "portal_token_hash": hash_portal_token(portal_token),
             }
+
+    if session.get("user_id"):
+        return {
+            "tipo": "usuario",
+            "usuario_id": session.get("user_id"),
+            "jugador_id": None,
+            "portal_token_hash": None,
+        }
 
     return None
 

@@ -429,7 +429,7 @@
     const inlinePwaStatus = document.querySelector("[data-pwa-inline-status]");
     const portalToken = document.body?.dataset.portalToken || "";
     const pwaStorageKey = `sig:pwa:test-ok:${portalToken || username || "default"}`;
-    const pwaSavedKey = `sig:pwa:saved:${portalToken || username || "default"}`;
+    const pwaSavedKey = `sig:pwa:saved:v2:${portalToken || username || "default"}`;
     let deferredInstallPrompt = null;
     let pushConfig = null;
 
@@ -505,7 +505,7 @@
             const subscription = await currentPushSubscription();
             const testDone = window.localStorage?.getItem(pwaStorageKey) === "1";
             const subscriptionSaved = window.localStorage?.getItem(pwaSavedKey) === "1";
-            if (subscription && !subscriptionSaved) {
+            if (subscription && !subscriptionSaved && portalToken) {
                 await savePwaSubscription(subscription).catch(() => {});
             }
             pushButton.hidden = Boolean(subscription);
