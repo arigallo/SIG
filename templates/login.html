@@ -33,7 +33,7 @@
             {% if avisos_login %}
                 <div class="entry-login-notices" aria-label="Avisos del d&iacute;a">
                     {% for aviso in avisos_login %}
-                        <article class="entry-login-notice">
+                        <article class="entry-login-notice {% if aviso.urgente %}entry-login-notice-urgent{% endif %}">
                             <strong>{{ aviso['titulo'] }}</strong>
                             <span>{{ aviso['mensaje'] }}</span>
                             {% if aviso['url'] and aviso['url'] != url_for('index') %}

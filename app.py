@@ -988,6 +988,7 @@ def normalizar_avisos_login(items):
             continue
         aviso = {
             "activo": bool(item.get("activo")),
+            "urgente": bool(item.get("urgente")),
             "titulo": titulo,
             "mensaje": mensaje,
             "url": normalizar_url_aviso_login(item.get("url")),
@@ -1022,6 +1023,7 @@ def obtener_avisos_login_publicos(limite=3):
             for aviso in obtener_config_avisos_login()
             if aviso.get("activo") and (not aviso.get("visible_hasta") or aviso["visible_hasta"] >= hoy)
         ]
+        avisos.sort(key=lambda aviso: (not aviso.get("urgente"), aviso.get("visible_hasta") or "9999-12-31"))
         return avisos[:limite]
     except Exception:
         app.logger.exception("No se pudieron obtener los avisos del login.")
@@ -19265,10 +19267,12 @@ def configurar_avisos_login():
             url = request.form.get(f"url_{index}", "").strip()
             visible_hasta = request.form.get(f"visible_hasta_{index}", "").strip()
             activo = request.form.get(f"activo_{index}") == "on"
+            urgente = request.form.get(f"urgente_{index}") == "on"
             if not titulo and not mensaje and not url:
                 continue
             avisos.append({
                 "activo": activo,
+                "urgente": urgente,
                 "titulo": titulo,
                 "mensaje": mensaje,
                 "url": url,
@@ -19293,6 +19297,7 @@ def configurar_avisos_login():
     while len(avisos) < LOGIN_AVISOS_MAX:
         avisos.append({
             "activo": False,
+            "urgente": False,
             "titulo": "",
             "mensaje": "",
             "url": "",

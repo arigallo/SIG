@@ -246,8 +246,11 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("url_for('sugerencias_recomendaciones')", template)
         self.assertIn("avisos_login", template)
         self.assertIn("entry-login-notice", template)
+        self.assertIn("entry-login-notice-urgent", template)
         self.assertIn("configurar_avisos_login", Path("app.py").read_text(encoding="utf-8-sig"))
-        self.assertIn("Avisos del login", Path("templates/avisos_login_admin.html").read_text(encoding="utf-8"))
+        admin_template = Path("templates/avisos_login_admin.html").read_text(encoding="utf-8")
+        self.assertIn("Avisos del login", admin_template)
+        self.assertIn("urgente_", admin_template)
 
     def test_sugerencias_use_configured_recipients(self):
         config = {
@@ -751,6 +754,7 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("obtener_comunicaciones_portal_dia", source)
         self.assertIn("obtener_avisos_login_publicos", source)
         self.assertIn("LOGIN_AVISOS_KEY", source)
+        self.assertIn("urgente", source)
         self.assertIn("Notificaciones app", base)
         self.assertIn("Todos los portales suscriptos", template)
         self.assertIn("mostrar_portal", template)

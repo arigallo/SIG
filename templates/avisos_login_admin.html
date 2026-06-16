@@ -26,6 +26,10 @@
                     <input type="checkbox" name="activo_{{ index }}" {% if aviso.activo %}checked{% endif %}>
                     <span>Mostrar en el login</span>
                 </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="urgente_{{ index }}" {% if aviso.urgente %}checked{% endif %}>
+                    <span>Urgente: se muestra en rojo y primero</span>
+                </label>
                 <div class="form-grid">
                     <div class="field">
                         <label>T&iacute;tulo</label>

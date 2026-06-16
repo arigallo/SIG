@@ -2069,6 +2069,17 @@ tbody tr:hover {
     font-size: 14px;
 }
 
+.entry-login-notice-urgent {
+    border-color: rgba(220, 38, 38, 0.24);
+    border-left-color: var(--danger);
+    background: rgba(254, 242, 242, 0.92);
+}
+
+.entry-login-notice-urgent strong,
+.entry-login-notice-urgent a {
+    color: var(--danger);
+}
+
 .entry-login-notice span {
     color: var(--secondary);
 }
