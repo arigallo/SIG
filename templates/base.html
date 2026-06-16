@@ -203,64 +203,6 @@
     <main class="container">
         {% set endpoint = request.endpoint or '' %}
 
-        {% if session.get('user_id') %}
-            {% set workspace_club = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'nuevo_evento_asistencia', 'editar_evento_asistencia', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_tests', 'graficos_tests', 'listar_circulares_urba'] %}
-            {% set workspace_finanzas = endpoint in ['generar_cuotas', 'ver_panel_cobranzas', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'ver_presupuesto', 'ver_reportes'] %}
-            {% set workspace_salud = endpoint in ['panel_salud', 'ver_documentos_vencidos', 'ver_alertas', 'cargar_fichas_medicas_batch', 'ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] %}
-            {% set workspace_comunicacion = endpoint in ['ver_comunicaciones', 'enviar_notificacion_app_manual', 'ver_whatsapp_inbox', 'responder_whatsapp_inbox', 'ver_notificaciones'] %}
-            {% set workspace_secretaria = endpoint in ['listar_documentos_secretaria', 'nuevo_documento_secretaria', 'ver_documento_secretaria', 'eliminar_documento_secretaria'] %}
-            {% set workspace_admin = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'configurar_mantenimiento', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
-
-            <nav class="workspace-bar" aria-label="Accesos por modulo">
-                <a class="{% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
-                {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
-                    <a class="{% if endpoint == 'ver_operacion_diaria' %}active{% endif %}" href="{{ url_for('ver_operacion_diaria') }}">Operaci&oacute;n</a>
-                {% endif %}
-                {% if puede('jugadores_ver', 'aspirantes_ver', 'asistencia_ver', 'tests_ver', 'calendario_ver') %}
-                    <a class="{% if workspace_club %}active{% endif %}" href="{{ url_for('listar_jugadores') if puede('jugadores_ver') else url_for('listar_eventos_asistencia') }}">Club</a>
-                {% endif %}
-                {% if puede('cuotas_ver', 'cuotas_gestionar', 'planes_pago_ver', 'caja_ver', 'facturas_recibidas_ver', 'presupuesto_ver', 'reportes_ver') %}
-                    {% if puede('cuotas_ver', 'cuotas_gestionar') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('ver_panel_cobranzas') }}">Finanzas</a>
-                    {% elif puede('caja_ver') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('ver_caja') }}">Finanzas</a>
-                    {% elif puede('planes_pago_ver') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('listar_planes_pago') }}">Finanzas</a>
-                    {% elif puede('facturas_recibidas_ver') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('listar_facturas_recibidas') }}">Finanzas</a>
-                    {% elif puede('presupuesto_ver') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('ver_presupuesto') }}">Finanzas</a>
-                    {% elif puede('reportes_ver') %}
-                        <a class="{% if workspace_finanzas %}active{% endif %}" href="{{ url_for('ver_reportes') }}">Finanzas</a>
-                    {% endif %}
-                {% endif %}
-                {% if puede('salud_ver', 'salud_gestionar', 'documentos_ver', 'alertas_finanzas', 'alertas_salud') %}
-                    <a class="{% if workspace_salud %}active{% endif %}" href="{{ url_for('panel_salud') if puede('salud_ver') else url_for('ver_documentos_vencidos') }}">Salud</a>
-                {% endif %}
-                {% if puede('comunicaciones_ver') %}
-                    <a class="{% if workspace_comunicacion %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicaci&oacute;n</a>
-                {% endif %}
-                {% if puede('secretaria_ver', 'secretaria_gestionar') %}
-                    <a class="{% if workspace_secretaria %}active{% endif %}" href="{{ url_for('listar_documentos_secretaria') }}">Secretar&iacute;a</a>
-                {% endif %}
-                {% if session.get('rol') == 'admin' or puede('auditoria_ver', 'seguridad_ver', 'backup_ver', 'sugerencias_ver', 'sugerencias_configurar') %}
-                    {% if session.get('rol') == 'admin' %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Admin</a>
-                    {% elif puede('sugerencias_ver') %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Admin</a>
-                    {% elif puede('sugerencias_configurar') %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('configurar_sugerencias_recomendaciones') }}">Admin</a>
-                    {% elif puede('auditoria_ver') %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Admin</a>
-                    {% elif puede('seguridad_ver') %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('ver_seguridad') }}">Admin</a>
-                    {% elif puede('backup_ver') %}
-                        <a class="{% if workspace_admin %}active{% endif %}" href="{{ url_for('backup_db') }}">Admin</a>
-                    {% endif %}
-                {% endif %}
-            </nav>
-        {% endif %}
-
         {% if session.get('rol') == 'admin' and mantenimiento and mantenimiento.activo %}
             <div class="maintenance-banner">
                 Modo mantenimiento activo. Solo admin puede usar el sistema.

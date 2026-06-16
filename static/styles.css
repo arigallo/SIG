@@ -267,46 +267,6 @@ main.container {
     padding-bottom: 56px;
 }
 
-.workspace-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin: -8px 0 24px;
-    padding: 10px;
-    border: 1px solid var(--border-soft);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: var(--shadow-soft);
-    backdrop-filter: blur(8px);
-}
-
-.workspace-bar a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 38px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    color: var(--secondary);
-    font-size: 13px;
-    font-weight: 850;
-    text-decoration: none;
-}
-
-.workspace-bar a:hover,
-.workspace-bar a:focus {
-    background: var(--surface-muted);
-    color: var(--primary-dark);
-    outline: none;
-}
-
-.workspace-bar a.active {
-    background: var(--primary);
-    color: #ffffff;
-    box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);
-}
-
 h2,
 h3 {
     color: var(--text);
@@ -3132,16 +3092,6 @@ tbody tr:hover {
 
     .module-switcher {
         border-radius: var(--radius-soft);
-    }
-
-    .workspace-bar {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        border-radius: var(--radius-soft);
-    }
-
-    .workspace-bar a {
-        width: 100%;
     }
 
     .module-switcher a,

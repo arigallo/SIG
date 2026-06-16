@@ -119,7 +119,8 @@ class HotfixTests(unittest.TestCase):
 
         self.assertIn("Crear varios entrenamientos del mes", template)
         self.assertIn("batch-event-panel", template)
-        self.assertIn("workspace-bar", base)
+        self.assertEqual(base.count('class="main-nav"'), 1)
+        self.assertNotIn("workspace-bar", base)
         self.assertIn("quick-module-grid", dashboard)
         self.assertIn("dashboard-hero", dashboard)
         self.assertIn("repeticion_mes", template)
@@ -129,7 +130,7 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("module-switcher", calendario)
         self.assertIn("module-switcher", asistencia)
         self.assertIn("module-callout", calendario)
-        self.assertIn(".workspace-bar", styles)
+        self.assertNotIn(".workspace-bar", styles)
         self.assertIn(".quick-module-card", styles)
         self.assertIn(".module-switcher", styles)
         self.assertIn(".module-callout", styles)
