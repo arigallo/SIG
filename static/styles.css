@@ -2044,6 +2044,53 @@ tbody tr:hover {
     text-align: left;
 }
 
+.entry-action-pwa {
+    padding: 0;
+}
+
+.entry-action-pwa summary {
+    display: grid;
+    gap: 5px;
+    min-height: 86px;
+    padding: 18px;
+    list-style: none;
+    cursor: pointer;
+}
+
+.entry-action-pwa summary::-webkit-details-marker {
+    display: none;
+}
+
+.entry-pwa-panel {
+    display: grid;
+    gap: 14px;
+    padding: 0 18px 18px;
+}
+
+.entry-pwa-instructions {
+    display: grid;
+    gap: 12px;
+}
+
+.entry-pwa-instructions strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+}
+
+.entry-pwa-instructions ol {
+    margin: 0;
+    padding-left: 19px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.entry-pwa-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
 .entry-messages {
     grid-column: 1 / -1;
 }

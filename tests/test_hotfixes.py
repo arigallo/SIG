@@ -595,6 +595,7 @@ class HotfixTests(unittest.TestCase):
     def test_pwa_install_and_push_infrastructure_is_present(self):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
+        login = (Path(app.__file__).parent / "templates" / "login.html").read_text(encoding="utf-8-sig")
         js = (Path(app.__file__).parent / "static" / "app.js").read_text(encoding="utf-8-sig")
         sw = (Path(app.__file__).parent / "static" / "service-worker.js").read_text(encoding="utf-8-sig")
 
@@ -602,7 +603,11 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("pwa_push_subscribe", source)
         self.assertIn("pwa_push_subscriptions", source)
         self.assertIn("rel=\"manifest\"", base)
+        self.assertIn("Instalar app", login)
+        self.assertIn("Android", login)
+        self.assertIn("iPhone", login)
         self.assertIn("serviceWorker.register", js)
+        self.assertIn("data-pwa-install-inline", js)
         self.assertIn("pushManager.subscribe", js)
         self.assertIn("showNotification", sw)
 

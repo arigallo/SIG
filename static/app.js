@@ -422,9 +422,11 @@
 
     const pwaActions = document.querySelector("[data-pwa-actions]");
     const installButton = document.querySelector("[data-pwa-install]");
+    const inlineInstallButton = document.querySelector("[data-pwa-install-inline]");
     const pushButton = document.querySelector("[data-pwa-enable-push]");
     const testPushButton = document.querySelector("[data-pwa-test-push]");
     const pwaStatus = document.querySelector("[data-pwa-status]");
+    const inlinePwaStatus = document.querySelector("[data-pwa-inline-status]");
     const portalToken = document.body?.dataset.portalToken || "";
     let deferredInstallPrompt = null;
     let pushConfig = null;
@@ -435,6 +437,10 @@
         }
         pwaStatus.textContent = message || "";
         pwaStatus.classList.toggle("text-danger", Boolean(isError));
+        if (inlinePwaStatus) {
+            inlinePwaStatus.textContent = message || inlinePwaStatus.textContent;
+            inlinePwaStatus.classList.toggle("text-danger", Boolean(isError));
+        }
     };
 
     const showPwaActions = () => {
@@ -479,7 +485,9 @@
         if (!("serviceWorker" in navigator)) {
             return;
         }
-        showPwaActions();
+        if (pushButton || testPushButton) {
+            showPwaActions();
+        }
         if (pushButton && "PushManager" in window && Notification.permission !== "denied") {
             const subscription = await currentPushSubscription();
             pushButton.hidden = Boolean(subscription);
@@ -503,13 +511,15 @@
     window.addEventListener("beforeinstallprompt", (event) => {
         event.preventDefault();
         deferredInstallPrompt = event;
-        showPwaActions();
-        if (installButton) {
+        if (inlineInstallButton) {
+            inlineInstallButton.hidden = false;
+        } else if (installButton) {
+            showPwaActions();
             installButton.hidden = false;
         }
     });
 
-    installButton?.addEventListener("click", async () => {
+    const handleInstallClick = async () => {
         if (!deferredInstallPrompt) {
             setPwaStatus("Usa el menu del navegador para instalar la app.");
             return;
@@ -517,8 +527,16 @@
         deferredInstallPrompt.prompt();
         await deferredInstallPrompt.userChoice.catch(() => {});
         deferredInstallPrompt = null;
-        installButton.hidden = true;
-    });
+        if (installButton) {
+            installButton.hidden = true;
+        }
+        if (inlineInstallButton) {
+            inlineInstallButton.hidden = true;
+        }
+    };
+
+    installButton?.addEventListener("click", handleInstallClick);
+    inlineInstallButton?.addEventListener("click", handleInstallClick);
 
     pushButton?.addEventListener("click", async () => {
         try {

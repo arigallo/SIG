@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIG - Ruda Macho Rugby Club</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SIG">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
-<body class="login-body entry-body">
+<body class="login-body entry-body" data-endpoint="{{ request.endpoint or '' }}" data-username="">
 
     <main class="entry-shell">
         <section class="entry-hero">
@@ -60,6 +67,36 @@
                 <span>Sugerencias / Recomendaciones</span>
                 <small>Con opci&oacute;n de env&iacute;o an&oacute;nimo</small>
             </a>
+
+            <details class="entry-action entry-action-pwa" data-entry-pwa>
+                <summary>
+                    <span>Instalar app</span>
+                    <small>Acceso r&aacute;pido desde Android o iPhone</small>
+                </summary>
+
+                <div class="entry-pwa-panel">
+                    <button class="button login-button" type="button" data-pwa-install-inline>Instalar app</button>
+                    <div class="entry-pwa-instructions">
+                        <div>
+                            <strong>Android</strong>
+                            <ol>
+                                <li>Toc&aacute; <strong>Instalar app</strong>.</li>
+                                <li>Si no aparece, abr&iacute; el men&uacute; de Chrome.</li>
+                                <li>Eleg&iacute; <strong>Instalar app</strong> o <strong>Agregar a pantalla principal</strong>.</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <strong>iPhone</strong>
+                            <ol>
+                                <li>Abr&iacute; SIG en Safari.</li>
+                                <li>Toc&aacute; <strong>Compartir</strong>.</li>
+                                <li>Eleg&iacute; <strong>Agregar a pantalla de inicio</strong>.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <p class="entry-pwa-note" data-pwa-inline-status>Las notificaciones se activan despu&eacute;s de entrar al portal o al SIG.</p>
+                </div>
+            </details>
         </section>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -75,5 +112,6 @@
         {% endwith %}
     </main>
 
+    <script src="{{ static_asset('app.js') }}" defer></script>
 </body>
 </html>
