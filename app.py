@@ -44,6 +44,59 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 
+from services.calendario import (
+    calendario_evento_es_deportivo,
+    calendario_evento_requiere_asistencia,
+    categoria_evento_aplica,
+    crear_eventos_calendario,
+    crear_evento_asistencia_desde_calendario,
+    fecha_hora_evento,
+    formato_fecha_hora_evento,
+    generar_fechas_recurrentes_mes,
+    normalizar_categoria_calendario,
+    normalizar_duracion_evento,
+    normalizar_hora_evento,
+)
+from services.notificaciones import (
+    actor_push_actual,
+    desactivar_suscripcion_push,
+    guardar_suscripcion_push,
+    hash_portal_token,
+    normalizar_url_push,
+    obtener_comunicaciones_portal_dia as obtener_comunicaciones_portal_dia_repo,
+    obtener_destinatarios_push_manual,
+    resumen_suscripciones_push,
+)
+from services.finanzas import (
+    adicional_plan_pago_para_periodo,
+    beca_vigente,
+    calcular_importe_con_beca,
+    calcular_importe_cuota_mensual,
+    indice_periodo,
+    obtener_cuenta_corriente_jugador,
+    obtener_cuotas_impagas_para_plan,
+    periodo_inicio_plan,
+    periodo_minimo,
+    porcentaje_beca,
+    recalcular_cuotas_planes_pago as recalcular_cuotas_planes_pago_base,
+)
+from services.portal import (
+    BIENESTAR_DOLOR_ZONAS,
+    BIENESTAR_HORAS_OPCIONES,
+    PORTAL_ASISTENCIA_ESTADOS,
+    asistencia_portal_badge_class,
+    asistencia_portal_label,
+    asistencia_portal_opciones,
+    es_evento_partido,
+    obtener_eventos_deportivos_portal as obtener_eventos_deportivos_portal_repo,
+    resumen_bienestar_confirmacion,
+)
+from services.asistencia import (
+    listar_eventos_asistencia as listar_eventos_asistencia_repo,
+    obtener_calendario_evento_por_asistencia,
+    obtener_evento_asistencia,
+)
+
 try:
     from google.auth import default as google_auth_default
     from googleapiclient.discovery import build as google_build
@@ -515,61 +568,9 @@ CLOUD_SQL_PITR_DAYS = os.environ.get("CLOUD_SQL_PITR_DAYS", "7")
 CLOUD_SQL_PROJECT = os.environ.get("CLOUD_SQL_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 CLOUD_SQL_INSTANCE = os.environ.get("CLOUD_SQL_INSTANCE", "")
 COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
-CALENDARIO_DEPORTIVO_TIPOS = {"Entrenamiento", "Partido", "Evento", "Otro"}
-CALENDARIO_ASISTENCIA_TIPOS = {"Entrenamiento", "Partido"}
 CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
-PORTAL_ASISTENCIA_ESTADOS = {"confirmado", "dudoso", "no_asiste"}
-PORTAL_ASISTENCIA_LABELS = {
-    "default": {
-        "confirmado": "Voy",
-        "dudoso": "Dudoso",
-        "no_asiste": "No voy",
-    },
-    "partido": {
-        "confirmado": "Voy y Juego",
-        "dudoso": "Voy y no juego",
-        "no_asiste": "No voy",
-    },
-}
-PORTAL_ASISTENCIA_BADGES = {
-    "confirmado": "badge-success",
-    "dudoso": "badge-warning",
-    "no_asiste": "badge-danger",
-}
 TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
 ESTADOS_JUGADOR = ["Activo", "Inactivo", "Suspendido", "Baja"]
-
-BIENESTAR_HORAS_OPCIONES = ["<5 h", "5-6 h", "6-7 h", "7-8 h", ">8 h"]
-BIENESTAR_HORAS_SCORE = {"<5 h": 1, "5-6 h": 2, "6-7 h": 3, "7-8 h": 4, ">8 h": 5}
-BIENESTAR_DOLOR_ZONAS = ["No", "Cuello", "Hombro", "Brazo", "Zona lumbar", "Cadera", "Muslo", "Rodilla", "Pantorrilla", "Tobillo", "Pie", "Otro"]
-
-
-def es_evento_partido(evento):
-    tipo = (evento.get("tipo") if evento else "") or ""
-    tipo = unicodedata.normalize("NFKD", str(tipo).strip().lower())
-    tipo = "".join(ch for ch in tipo if not unicodedata.combining(ch))
-    return tipo in {"partido", "partidos"}
-
-
-def asistencia_portal_labels(evento):
-    return PORTAL_ASISTENCIA_LABELS["partido" if es_evento_partido(evento) else "default"]
-
-
-def asistencia_portal_opciones(evento):
-    labels = asistencia_portal_labels(evento)
-    return [
-        {"valor": estado, "label": labels[estado]}
-        for estado in ("confirmado", "dudoso", "no_asiste")
-    ]
-
-
-def asistencia_portal_label(evento, estado):
-    return asistencia_portal_labels(evento).get(estado, PORTAL_ASISTENCIA_LABELS["default"]["confirmado"])
-
-
-def asistencia_portal_badge_class(estado):
-    return PORTAL_ASISTENCIA_BADGES.get(estado, "badge-muted")
-
 
 BITACORA_TIPOS = {
     "general": "General",
@@ -962,44 +963,6 @@ def obtener_app_settings(conn, claves):
     return {row["clave"]: row for row in rows}
 
 
-def obtener_cuenta_corriente_jugador(conn, jugador_id, limite=30):
-    return conn.execute("""
-        SELECT *
-        FROM (
-            SELECT
-                c.fecha_vencimiento AS fecha,
-                'cuota' AS origen,
-                c.id AS origen_id,
-                'Cuota ' || c.periodo AS concepto,
-                c.importe AS importe,
-                CASE
-                    WHEN COALESCE(c.anulada, 0) = 1 THEN 'anulado'
-                    WHEN c.pagado = 1 THEN 'pagado'
-                    ELSE 'pendiente'
-                END AS estado,
-                c.fecha_pago
-            FROM cuotas c
-            WHERE c.jugador_id = %s
-
-            UNION ALL
-
-            SELECT
-                COALESCE(g.fecha_vencimiento, g.fecha_evento, g.creado_en::text) AS fecha,
-                'gasto_compartido' AS origen,
-                i.id AS origen_id,
-                'Gasto compartido: ' || g.titulo AS concepto,
-                i.importe AS importe,
-                i.estado,
-                i.fecha_pago
-            FROM gasto_compartido_items i
-            JOIN gastos_compartidos g ON g.id = i.gasto_id
-            WHERE i.jugador_id = %s
-        ) cuenta
-        ORDER BY COALESCE(fecha_pago, fecha) DESC NULLS LAST, origen_id DESC
-        LIMIT %s
-    """, (jugador_id, jugador_id, limite)).fetchall()
-
-
 AUTOMATION_SETTING_KEYS = (
     "automation_reminders_enabled",
     "automation_reminders_days_before",
@@ -1211,79 +1174,6 @@ def registrar_presencia_usuario(username):
     return True
 
 
-def hash_portal_token(token):
-    token = (token or "").strip()
-    return hashlib.sha256(token.encode("utf-8")).hexdigest() if token else None
-
-
-def actor_push_actual(conn, portal_token=None):
-    portal_token = (portal_token or "").strip()
-    if portal_token:
-        jugador = conn.execute("""
-            SELECT id
-            FROM jugadores
-            WHERE portal_token = %s
-              AND COALESCE(portal_activo, 0) = 1
-        """, (portal_token,)).fetchone()
-        if jugador:
-            return {
-                "tipo": "portal",
-                "usuario_id": None,
-                "jugador_id": jugador["id"],
-                "portal_token_hash": hash_portal_token(portal_token),
-            }
-
-    if session.get("user_id"):
-        return {
-            "tipo": "usuario",
-            "usuario_id": session.get("user_id"),
-            "jugador_id": None,
-            "portal_token_hash": None,
-        }
-
-    return None
-
-
-def guardar_suscripcion_push(conn, subscription, actor, user_agent=None):
-    endpoint = (subscription or {}).get("endpoint")
-    if not endpoint:
-        raise ValueError("Suscripcion push sin endpoint.")
-    conn.execute("""
-        INSERT INTO pwa_push_subscriptions (
-            endpoint, actor_tipo, usuario_id, jugador_id, portal_token_hash,
-            subscription_json, user_agent, enabled, actualizado_en
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, 1, CURRENT_TIMESTAMP)
-        ON CONFLICT(endpoint) DO UPDATE SET
-            actor_tipo = EXCLUDED.actor_tipo,
-            usuario_id = EXCLUDED.usuario_id,
-            jugador_id = EXCLUDED.jugador_id,
-            portal_token_hash = EXCLUDED.portal_token_hash,
-            subscription_json = EXCLUDED.subscription_json,
-            user_agent = EXCLUDED.user_agent,
-            enabled = 1,
-            actualizado_en = CURRENT_TIMESTAMP
-    """, (
-        endpoint,
-        actor["tipo"],
-        actor.get("usuario_id"),
-        actor.get("jugador_id"),
-        actor.get("portal_token_hash"),
-        json.dumps(subscription),
-        truncate_audit_value(user_agent or "", 500),
-    ))
-
-
-def desactivar_suscripcion_push(conn, endpoint):
-    if not endpoint:
-        return
-    conn.execute("""
-        UPDATE pwa_push_subscriptions
-        SET enabled = 0, actualizado_en = CURRENT_TIMESTAMP
-        WHERE endpoint = %s
-    """, (endpoint,))
-
-
 def enviar_push_subscription(subscription, payload):
     if not webpush:
         return False, "Falta instalar pywebpush."
@@ -1337,96 +1227,9 @@ def enviar_push_por_actor(actor_tipo, payload, usuario_id=None, jugador_id=None)
     return {"enviados": enviados, "errores": errores}
 
 
-def obtener_destinatarios_push_manual(conn, destino, categoria=None, jugador_id=None):
-    destino = (destino or "").strip()
-    params = []
-    filtros = ["s.enabled = 1"]
-    joins = []
-
-    if destino == "admins":
-        joins.append("JOIN usuarios u ON u.id = s.usuario_id")
-        filtros.append("s.actor_tipo = 'usuario'")
-        filtros.append("u.rol = 'admin'")
-    elif destino == "usuarios":
-        filtros.append("s.actor_tipo = 'usuario'")
-    elif destino == "portal_todos":
-        filtros.append("s.actor_tipo = 'portal'")
-    elif destino == "categoria":
-        joins.append("JOIN jugadores j ON j.id = s.jugador_id")
-        filtros.append("s.actor_tipo = 'portal'")
-        if categoria == "Sin categoria":
-            filtros.append("COALESCE(NULLIF(j.categoria, ''), 'Sin categoria') = 'Sin categoria'")
-        else:
-            filtros.append("COALESCE(j.categoria, '') = %s")
-            params.append(categoria or "")
-    elif destino == "jugador":
-        filtros.append("s.actor_tipo = 'portal'")
-        filtros.append("s.jugador_id = %s")
-        params.append(jugador_id)
-    else:
-        return []
-
-    join_sql = "\n".join(joins)
-    where_sql = " AND ".join(filtros)
-    return conn.execute(f"""
-        SELECT DISTINCT
-            s.endpoint,
-            s.subscription_json,
-            s.actor_tipo,
-            s.usuario_id,
-            s.jugador_id,
-            s.actualizado_en
-        FROM pwa_push_subscriptions s
-        {join_sql}
-        WHERE {where_sql}
-        ORDER BY s.actualizado_en DESC
-    """, params).fetchall()
-
-
-def resumen_suscripciones_push(conn):
-    return conn.execute("""
-        SELECT
-            COUNT(*) FILTER (WHERE enabled = 1) AS activas,
-            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'portal') AS portal,
-            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'usuario') AS usuarios,
-            COUNT(*) FILTER (WHERE enabled = 1 AND actor_tipo = 'usuario' AND usuario_id IN (
-                SELECT id FROM usuarios WHERE rol = 'admin'
-            )) AS admins
-        FROM pwa_push_subscriptions
-    """).fetchone()
-
-
-def normalizar_url_push(valor, fallback="/"):
-    valor = (valor or "").strip()
-    if not valor:
-        return fallback
-    if valor.startswith("/") and not valor.startswith("//"):
-        return valor
-    if valor.startswith("https://") or valor.startswith("http://"):
-        return valor
-    return fallback
-
-
 def obtener_comunicaciones_portal_dia(conn, jugador, limite=5):
     hoy = ahora_sig().strftime("%Y-%m-%d")
-    categoria = jugador.get("categoria") or ""
-    return conn.execute("""
-        SELECT id, titulo, mensaje, destino, categoria, jugador_id, url, creado_en, visible_hasta
-        FROM pwa_push_envios
-        WHERE COALESCE(mostrar_portal, 0) = 1
-          AND (
-              visible_hasta IS NULL
-              OR visible_hasta = ''
-              OR visible_hasta >= %s
-          )
-          AND (
-              destino = 'portal_todos'
-              OR (destino = 'categoria' AND COALESCE(categoria, '') = %s)
-              OR (destino = 'jugador' AND jugador_id = %s)
-          )
-        ORDER BY creado_en DESC, id DESC
-        LIMIT %s
-    """, (hoy, categoria, jugador["id"], limite)).fetchall()
+    return obtener_comunicaciones_portal_dia_repo(conn, jugador, hoy, limite=limite)
 
 
 def usuario_activo_reciente(username, segundos=120):
@@ -3388,16 +3191,6 @@ def validar_mes_beca(valor):
     return valor
 
 
-def porcentaje_beca(valor):
-    try:
-        porcentaje = float(valor or 0)
-    except (TypeError, ValueError):
-        return None
-    if porcentaje < 0 or porcentaje > 100:
-        return None
-    return round(porcentaje, 2)
-
-
 def datos_beca_form():
     activa = 1 if request.form.get("beca_activa") == "on" else 0
 
@@ -3432,210 +3225,13 @@ def datos_beca_form():
     }, None
 
 
-def beca_vigente(jugador, periodo):
-    if not jugador or not jugador.get("beca_activa"):
-        return False
-
-    porcentaje = porcentaje_beca(jugador.get("beca_porcentaje"))
-    if not porcentaje or porcentaje <= 0:
-        return False
-
-    periodo = (periodo or "").strip()
-    try:
-        datetime.strptime(periodo, "%Y-%m")
-    except ValueError:
-        return False
-
-    desde = (jugador.get("beca_desde") or "").strip()
-    hasta = (jugador.get("beca_hasta") or "").strip()
-    if desde and periodo < desde:
-        return False
-    if hasta and periodo > hasta:
-        return False
-    return True
-
-
-def calcular_importe_con_beca(jugador, periodo, importe_base):
-    importe_original = round(float(importe_base or 0), 2)
-    if not beca_vigente(jugador, periodo):
-        return {
-            "importe_original": importe_original,
-            "importe": importe_original,
-            "descuento_beca": 0,
-            "beca_porcentaje": 0,
-            "beca_motivo": "",
-            "becada": 0,
-            "beca_total": 0,
-        }
-
-    porcentaje = porcentaje_beca(jugador.get("beca_porcentaje")) or 0
-    descuento = round(importe_original * porcentaje / 100, 2)
-    importe = max(0, round(importe_original - descuento, 2))
-    return {
-        "importe_original": importe_original,
-        "importe": importe,
-        "descuento_beca": descuento,
-        "beca_porcentaje": porcentaje,
-        "beca_motivo": jugador.get("beca_motivo") or "",
-        "becada": 1,
-        "beca_total": 1 if importe <= 0 else 0,
-    }
-
-
-def indice_periodo(periodo):
-    try:
-        fecha = datetime.strptime(str(periodo or "")[:7], "%Y-%m")
-    except ValueError:
-        return None
-    return fecha.year * 12 + fecha.month
-
-
-def periodo_inicio_plan(plan):
-    fecha = plan.get("fecha_inicio") or plan.get("creado_en") or ""
-    if isinstance(fecha, datetime):
-        return fecha.strftime("%Y-%m")
-    texto = str(fecha or "").strip()
-    return texto[:7] if re.match(r"^[0-9]{4}-[0-9]{2}", texto) else None
-
-
-def periodo_minimo(*periodos):
-    validos = [periodo for periodo in periodos if indice_periodo(periodo) is not None]
-    if not validos:
-        return None
-    return min(validos, key=lambda periodo: indice_periodo(periodo))
-
-
-def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
-    periodo_idx = indice_periodo(periodo)
-    if periodo_idx is None:
-        return {"monto": 0, "detalle": ""}
-
-    planes = conn.execute("""
-        SELECT id, fecha_inicio, monto_total, cantidad_cuotas, monto_cuota,
-               descripcion, creado_en
-        FROM planes_pago
-        WHERE jugador_id = %s
-          AND estado = 'Activo'
-          AND COALESCE(monto_total, 0) > 0
-          AND COALESCE(cantidad_cuotas, 0) > 0
-        ORDER BY fecha_inicio ASC, id ASC
-    """, (jugador_id,)).fetchall()
-
-    monto_total_periodo = 0
-    detalles = []
-    for plan in planes:
-        inicio = periodo_inicio_plan(plan)
-        inicio_idx = indice_periodo(inicio)
-        cantidad = int(plan["cantidad_cuotas"] or 0)
-        if inicio_idx is None or cantidad <= 0:
-            continue
-
-        numero_cuota = periodo_idx - inicio_idx + 1
-        if numero_cuota < 1 or numero_cuota > cantidad:
-            continue
-
-        monto_plan = round(float(plan["monto_cuota"] or 0), 2)
-        if numero_cuota == cantidad:
-            monto_total = round(float(plan["monto_total"] or 0), 2)
-            monto_plan = round(monto_total - (monto_plan * (cantidad - 1)), 2)
-        if monto_plan <= 0:
-            continue
-
-        monto_total_periodo = round(monto_total_periodo + monto_plan, 2)
-        etiqueta = f"Plan #{plan['id']} cuota {numero_cuota}/{cantidad}"
-        if plan.get("descripcion"):
-            etiqueta = f"{etiqueta} - {plan['descripcion']}"
-        detalles.append(etiqueta)
-
-    return {
-        "monto": monto_total_periodo,
-        "detalle": "; ".join(detalles),
-    }
-
-
-def calcular_importe_cuota_mensual(conn, jugador, periodo, importe_base):
-    cuota = calcular_importe_con_beca(jugador, periodo, importe_base)
-    adicional_plan = adicional_plan_pago_para_periodo(conn, jugador["id"], periodo)
-    monto_plan = round(float(adicional_plan["monto"] or 0), 2)
-    cuota["plan_pago_monto"] = monto_plan
-    cuota["plan_pago_detalle"] = adicional_plan["detalle"]
-    if monto_plan:
-        cuota["importe_original"] = round(cuota["importe_original"] + monto_plan, 2)
-        cuota["importe"] = round(cuota["importe"] + monto_plan, 2)
-        cuota["beca_total"] = 1 if cuota["importe"] <= 0 else 0
-    return cuota
-
-
 def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None):
-    jugador = conn.execute("SELECT * FROM jugadores WHERE id = %s", (jugador_id,)).fetchone()
-    if jugador is None:
-        return {"revisadas": 0, "actualizadas": 0}
-
-    condiciones = ["jugador_id = %s", "pagado = 0", "COALESCE(anulada, 0) = 0"]
-    parametros = [jugador_id]
-    if periodo_desde:
-        condiciones.append("periodo >= %s")
-        parametros.append(periodo_desde)
-
-    cuotas = conn.execute(f"""
-        SELECT *
-        FROM cuotas
-        WHERE {" AND ".join(condiciones)}
-        ORDER BY periodo ASC, id ASC
-    """, parametros).fetchall()
-
-    resultado = {"revisadas": len(cuotas), "actualizadas": 0}
-    hoy = ahora_sig().strftime("%Y-%m-%d")
-
-    for cuota in cuotas:
-        plan_pago_monto = round(float(cuota.get("plan_pago_monto") or 0), 2)
-        importe_base = cuota.get("importe_original")
-        if importe_base is None:
-            importe_base = cuota.get("importe") or 0
-        importe_base = max(0, round(float(importe_base or 0) - plan_pago_monto, 2))
-
-        cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, cuota["periodo"], importe_base)
-        pagado = 1 if cuota_calculada["beca_total"] else 0
-        fecha_pago = hoy if pagado else cuota.get("fecha_pago")
-        metodo_pago = "Beca" if pagado else cuota.get("metodo_pago")
-        referencia_pago = (
-            f"Beca total {cuota_calculada['beca_porcentaje']:g}%"
-            if pagado else cuota.get("referencia_pago")
-        )
-
-        conn.execute("""
-            UPDATE cuotas
-            SET importe = %s,
-                importe_original = %s,
-                descuento_beca = %s,
-                beca_porcentaje = %s,
-                beca_motivo = %s,
-                becada = %s,
-                pagado = %s,
-                fecha_pago = %s,
-                metodo_pago = %s,
-                referencia_pago = %s,
-                plan_pago_monto = %s,
-                plan_pago_detalle = %s
-            WHERE id = %s
-        """, (
-            cuota_calculada["importe"],
-            cuota_calculada["importe_original"],
-            cuota_calculada["descuento_beca"],
-            cuota_calculada["beca_porcentaje"],
-            cuota_calculada["beca_motivo"],
-            cuota_calculada["becada"],
-            pagado,
-            fecha_pago,
-            metodo_pago,
-            referencia_pago,
-            cuota_calculada["plan_pago_monto"],
-            cuota_calculada["plan_pago_detalle"] or None,
-            cuota["id"],
-        ))
-        resultado["actualizadas"] += 1
-
-    return resultado
+    return recalcular_cuotas_planes_pago_base(
+        conn,
+        jugador_id,
+        periodo_desde=periodo_desde,
+        hoy=ahora_sig().strftime("%Y-%m-%d"),
+    )
 
 
 def snapshot_beca(jugador):
@@ -4636,132 +4232,11 @@ def rango_mes(mes):
     return inicio.strftime("%Y-%m-%d"), siguiente.strftime("%Y-%m-%d")
 
 
-def normalizar_hora_evento(valor):
-    valor = (valor or "").strip()
-    if not valor:
-        return ""
-    for formato in ("%H:%M", "%H:%M:%S"):
-        try:
-            return datetime.strptime(valor, formato).strftime("%H:%M")
-        except ValueError:
-            continue
-    return ""
-
-
-def normalizar_duracion_evento(valor, default=90):
-    try:
-        duracion = int(valor or default)
-    except (TypeError, ValueError):
-        duracion = default
-    return min(max(duracion, 15), 24 * 60)
-
-
-def calendario_evento_es_deportivo(tipo):
-    return (tipo or "").strip() in CALENDARIO_DEPORTIVO_TIPOS
-
-
-def calendario_evento_requiere_asistencia(tipo):
-    return (tipo or "").strip() in CALENDARIO_ASISTENCIA_TIPOS
-
-
-def normalizar_categoria_calendario(categoria):
-    return (categoria or "").strip()
-
-
-def categoria_evento_aplica(categoria_evento, categoria_jugador):
-    categoria_evento = normalizar_categoria_calendario(categoria_evento).lower()
-    if not categoria_evento or categoria_evento in {"todo", "todos", "todo el club", "club", "general"}:
-        return True
-    categoria_jugador = normalizar_categoria_calendario(categoria_jugador).lower()
-    return bool(categoria_jugador and categoria_jugador in categoria_evento)
-
-
-def fecha_hora_evento(evento):
-    fecha = evento.get("fecha")
-    hora = normalizar_hora_evento(evento.get("hora_inicio") or evento.get("hora"))
-    if hora:
-        return f"{fecha} {hora}"
-    return fecha
-
-
-def formato_fecha_hora_evento(evento):
-    fecha = evento.get("fecha") or ""
-    hora = normalizar_hora_evento(evento.get("hora_inicio") or evento.get("hora"))
-    return f"{fecha} {hora}" if hora else fecha
-
-
-def crear_evento_asistencia_desde_calendario(conn, data):
-    descripcion = data.get("descripcion") or data.get("titulo") or ""
-    if data.get("ubicacion"):
-        descripcion = f"{descripcion}\nLugar: {data['ubicacion']}".strip()
-    if data.get("categoria"):
-        descripcion = f"{descripcion}\nCategoria: {data['categoria']}".strip()
-
-    fila = conn.execute("""
-        INSERT INTO eventos_asistencia (fecha, tipo, descripcion)
-        VALUES (%s, %s, %s)
-        RETURNING id
-    """, (data["fecha"], data["tipo"], descripcion)).fetchone()
-    return fila["id"]
-
-
 def obtener_eventos_deportivos_portal(jugador, limit=8):
     conn = get_connection()
-    eventos = conn.execute("""
-        SELECT *
-        FROM calendario_eventos
-        WHERE COALESCE(publicar_portal, 0) = 1
-          AND fecha >= CURRENT_DATE::text
-        ORDER BY fecha ASC, COALESCE(hora_inicio, '') ASC, id ASC
-        LIMIT 80
-    """).fetchall()
+    eventos = obtener_eventos_deportivos_portal_repo(conn, jugador, limit=limit)
     conn.close()
-
-    filtrados = []
-    for evento in eventos:
-        if categoria_evento_aplica(evento.get("categoria"), jugador.get("categoria")):
-            filtrados.append(evento)
-        if len(filtrados) >= limit:
-            break
-    return filtrados
-
-
-def horas_sueno_score(valor):
-    return BIENESTAR_HORAS_SCORE.get((valor or "").strip(), 0)
-
-
-def resumen_bienestar_confirmacion(confirmacion):
-    if not confirmacion or confirmacion.get("sueno_calidad") is None:
-        return None
-    valores = []
-    for clave in ("sueno_calidad", "doms", "fatiga", "estres", "animo", "motivacion", "recuperacion"):
-        try:
-            valores.append(int(confirmacion.get(clave) or 0))
-        except (TypeError, ValueError):
-            valores.append(0)
-    horas_score = horas_sueno_score(confirmacion.get("horas_sueno"))
-    if horas_score:
-        valores.append(horas_score)
-    promedio = round(sum(valores) / len([v for v in valores if v]), 1) if any(valores) else 0
-    zonas = confirmacion.get("dolor_zonas_lista") or []
-    zonas_alerta = [zona for zona in zonas if zona and zona not in {"No", "Otro"}]
-    if confirmacion.get("dolor_otro"):
-        zonas_alerta.append("Otro")
-    if promedio and promedio < 2.6 or len(zonas_alerta) >= 2:
-        nivel = "danger"
-        label = "Alerta roja"
-    elif promedio and promedio < 3.6 or len(zonas_alerta) == 1:
-        nivel = "warning"
-        label = "Alerta amarilla"
-    else:
-        nivel = "success"
-        label = "Bienestar ok"
-    return {
-        "promedio": promedio,
-        "nivel": nivel,
-        "label": label,
-        "dolores": zonas_alerta,
-    }
+    return eventos
 
 
 def guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado):
@@ -13225,18 +12700,6 @@ def datos_plan_pago_form(require_monto=True):
     }
 
 
-def obtener_cuotas_impagas_para_plan(conn, jugador_id):
-    return conn.execute("""
-        SELECT id, periodo, importe, importe_original, fecha_vencimiento
-        FROM cuotas
-        WHERE jugador_id = %s
-          AND pagado = 0
-          AND COALESCE(anulada, 0) = 0
-          AND COALESCE(importe, 0) > 0
-        ORDER BY periodo ASC, id ASC
-    """, (jugador_id,)).fetchall()
-
-
 def total_cuotas_plan(cuotas):
     total = 0
     for cuota in cuotas:
@@ -17625,75 +17088,80 @@ def nuevo_evento_calendario():
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
             "origen": origen,
+            "repeticion_mes": normalizar_mes(request.form.get("repeticion_mes"), ""),
+            "repeticion_dias": request.form.getlist("repeticion_dias"),
         }
+        fechas_recurrentes = generar_fechas_recurrentes_mes(data["repeticion_mes"], data["repeticion_dias"])
+        crear_recurrentes = bool(data["repeticion_mes"] and data["repeticion_dias"])
 
         if calendario_evento_requiere_asistencia(data["tipo"]):
             data["crear_asistencia"] = 1 if request.form.get("crear_asistencia", "on") == "on" else 0
         if origen == "asistencia":
             data["crear_asistencia"] = 1
 
-        if not data["fecha"] or not data["tipo"] or not data["titulo"]:
-            flash("Fecha, tipo y titulo son obligatorios.", "error")
+        if not data["tipo"] or not data["titulo"] or (not crear_recurrentes and not data["fecha"]):
+            flash("Fecha, tipo y titulo son obligatorios. Para crear por mes, elegi mes y dias.", "error")
             return render_template("calendario_evento_form.html", evento=data)
 
-        try:
-            datetime.strptime(data["fecha"], "%Y-%m-%d")
-        except ValueError:
-            flash("La fecha del evento no es valida.", "error")
-            return render_template("calendario_evento_form.html", evento=data)
+        if crear_recurrentes:
+            if not fechas_recurrentes:
+                flash("La repeticion mensual no tiene fechas validas. Elegi mes y al menos un dia.", "error")
+                return render_template("calendario_evento_form.html", evento=data)
+        else:
+            try:
+                datetime.strptime(data["fecha"], "%Y-%m-%d")
+            except ValueError:
+                flash("La fecha del evento no es valida.", "error")
+                return render_template("calendario_evento_form.html", evento=data)
 
         if request.form.get("hora_inicio") and not data["hora_inicio"]:
             flash("La hora debe tener formato HH:MM.", "error")
             return render_template("calendario_evento_form.html", evento=data)
 
         conn = get_connection()
-        asistencia_evento_id = None
-        if data["crear_asistencia"]:
-            asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
-
-        evento_id = conn.execute("""
-            INSERT INTO calendario_eventos (
-                fecha, tipo, titulo, descripcion, ubicacion, categoria,
-                hora_inicio, duracion_minutos, publicar_portal, asistencia_evento_id,
-                convocatoria_texto, convocatoria_cierre, minuta_post_evento
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
-            data["fecha"],
-            data["tipo"],
-            data["titulo"],
-            data["descripcion"],
-            data["ubicacion"],
-            data["categoria"],
-            data["hora_inicio"] or None,
-            data["duracion_minutos"],
-            data["publicar_portal"],
-            asistencia_evento_id,
-            data["convocatoria_texto"] or None,
-            data["convocatoria_cierre"] or None,
-            data["minuta_post_evento"] or None,
-        )).fetchone()["id"]
+        eventos_creados, eventos_omitidos = crear_eventos_calendario(
+            conn,
+            data,
+            fechas_recurrentes=fechas_recurrentes,
+            crear_recurrentes=crear_recurrentes,
+        )
         conn.commit()
         conn.close()
 
-        registrar_auditoria("crear", "calendario_evento", str(evento_id), {
+        registrar_auditoria("crear", "calendario_evento", ",".join(str(evento["id"]) for evento in eventos_creados), {
             "tipo": data["tipo"],
             "fecha": data["fecha"],
-            "asistencia_evento_id": asistencia_evento_id,
+            "cantidad": len(eventos_creados),
+            "repeticion_mes": data["repeticion_mes"],
+            "omitidos": eventos_omitidos,
         })
 
-        if asistencia_evento_id:
+        if crear_recurrentes:
+            mensaje = f"Se crearon {len(eventos_creados)} eventos del mes."
+            if eventos_omitidos:
+                mensaje += f" Se omitieron {len(eventos_omitidos)} duplicados."
+            flash(mensaje, "ok")
+        elif eventos_creados and eventos_creados[0]["asistencia_evento_id"]:
             flash("Evento agregado al calendario y listo para tomar asistencia.", "ok")
         else:
             flash("Evento agregado al calendario.", "ok")
         if origen == "asistencia":
             return redirect(url_for("listar_eventos_asistencia"))
-        return redirect(url_for("ver_calendario", mes=data["fecha"][:7]))
+        mes_retorno = data["repeticion_mes"] if crear_recurrentes else data["fecha"][:7]
+        return redirect(url_for("ver_calendario", mes=mes_retorno))
 
     return render_template(
         "calendario_evento_form.html",
-        evento={"publicar_portal": 1, "crear_asistencia": 1, "duracion_minutos": 90, "origen": origen},
+        evento={
+            "publicar_portal": 1,
+            "crear_asistencia": 1,
+            "duracion_minutos": 90,
+            "origen": origen,
+            "tipo": "Entrenamiento" if origen == "asistencia" or request.args.get("modo") == "entrenamientos_mes" else "",
+            "titulo": "Entrenamiento" if origen == "asistencia" or request.args.get("modo") == "entrenamientos_mes" else "",
+            "repeticion_mes": ahora_sig().strftime("%Y-%m"),
+            "repeticion_dias": ["1", "3"] if request.args.get("modo") == "entrenamientos_mes" else [],
+        },
     )
 
 
@@ -19176,7 +18644,7 @@ def pwa_push_subscribe():
     portal_token = data.get("portal_token") or ""
 
     conn = get_connection()
-    actor = actor_push_actual(conn, portal_token=portal_token)
+    actor = actor_push_actual(conn, portal_token=portal_token, usuario_id=session.get("user_id"))
     if not actor:
         conn.close()
         abort(403)
@@ -19208,7 +18676,7 @@ def pwa_push_test():
     data = request.get_json(silent=True) or {}
     portal_token = data.get("portal_token") or ""
     conn = get_connection()
-    actor = actor_push_actual(conn, portal_token=portal_token)
+    actor = actor_push_actual(conn, portal_token=portal_token, usuario_id=session.get("user_id"))
     conn.close()
     if not actor:
         abort(403)
@@ -22222,25 +21690,7 @@ def listar_eventos_asistencia():
 
     conn = get_connection()
 
-    eventos = conn.execute("""
-        SELECT
-            e.*,
-            ce.id AS calendario_evento_id
-        FROM eventos_asistencia e
-        LEFT JOIN calendario_eventos ce ON ce.asistencia_evento_id = e.id
-        ORDER BY
-            CASE
-                WHEN e.fecha >= CURRENT_DATE::text THEN 0
-                ELSE 1
-            END,
-            CASE
-                WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha
-            END ASC,
-            CASE
-                WHEN e.fecha < CURRENT_DATE::text THEN e.fecha
-            END DESC,
-            e.id DESC
-    """).fetchall()
+    eventos = listar_eventos_asistencia_repo(conn)
 
     conn.close()
 
@@ -22286,21 +21736,13 @@ def editar_evento_asistencia(evento_id):
         return check
 
     conn = get_connection()
-    evento = conn.execute("""
-        SELECT *
-        FROM eventos_asistencia
-        WHERE id = %s
-    """, (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
         return redirect(url_for("listar_eventos_asistencia"))
 
-    calendario_evento = conn.execute("""
-        SELECT id
-        FROM calendario_eventos
-        WHERE asistencia_evento_id = %s
-    """, (evento_id,)).fetchone()
+    calendario_evento = obtener_calendario_evento_por_asistencia(conn, evento_id)
     if calendario_evento is not None:
         conn.close()
         return redirect(url_for("editar_evento_calendario", evento_id=calendario_evento["id"], origen="asistencia"))
@@ -22345,7 +21787,7 @@ def cerrar_evento_asistencia(evento_id):
         return check
 
     conn = get_connection()
-    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
@@ -22375,7 +21817,7 @@ def reabrir_evento_asistencia(evento_id):
         return check
 
     conn = get_connection()
-    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
@@ -22401,7 +21843,7 @@ def eliminar_evento_asistencia(evento_id):
         return check
 
     conn = get_connection()
-    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
@@ -22424,7 +21866,7 @@ def exportar_evento_asistencia(evento_id):
         return check
 
     conn = get_connection()
-    evento = conn.execute("SELECT * FROM eventos_asistencia WHERE id = %s", (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
@@ -22609,11 +22051,7 @@ def tomar_asistencia(evento_id):
 
     conn = get_connection()
 
-    evento = conn.execute("""
-        SELECT *
-        FROM eventos_asistencia
-        WHERE id = %s
-    """, (evento_id,)).fetchone()
+    evento = obtener_evento_asistencia(conn, evento_id)
 
     if evento is None:
         conn.close()

@@ -4,18 +4,28 @@
 
 {% block content %}
 <div class="admin-page calendar-page">
-<div class="section-header">
+<section class="admin-hero module-hero">
     <div>
+        <span class="badge badge-info">Club / Operacion deportiva</span>
         <h2>Calendario del club</h2>
         <p class="page-intro">Vista operativa del mes con eventos, vencimientos y accesos r&aacute;pidos a asistencia y comunicaci&oacute;n.</p>
     </div>
-    <div class="actions">
+    <div class="admin-hero-actions actions">
         <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_anterior) }}">Anterior</a>
         <a class="button secondary" href="{{ url_for('ver_calendario', mes=mes_siguiente) }}">Siguiente</a>
         {% if puede('calendario_gestionar') %}
             <a class="button" href="{{ url_for('nuevo_evento_calendario') }}">+ Nuevo evento</a>
+            <a class="button secondary" href="{{ url_for('nuevo_evento_calendario', modo='entrenamientos_mes') }}">Entrenamientos del mes</a>
         {% endif %}
     </div>
+</section>
+
+<div class="module-switcher">
+    <a class="active" href="{{ url_for('ver_calendario', mes=mes) }}">Calendario</a>
+    <a href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
+    {% if puede('calendario_gestionar') %}
+        <a href="{{ url_for('nuevo_evento_calendario', modo='entrenamientos_mes') }}">Cargar mes</a>
+    {% endif %}
 </div>
 
 <form method="get" class="card form-card form-card-narrow spaced-small toolbar-card">
@@ -52,6 +62,17 @@
         <span class="report-note">Cuotas y fichas m&eacute;dicas</span>
     </div>
 </div>
+
+{% if puede('calendario_gestionar') %}
+<div class="card module-callout">
+    <div>
+        <span class="badge badge-info">Carga rapida</span>
+        <h3>Entrenamientos recurrentes</h3>
+        <p>Genera todos los entrenamientos del mes, por ejemplo martes y jueves, con asistencia creada automaticamente.</p>
+    </div>
+    <a class="button" href="{{ url_for('nuevo_evento_calendario', modo='entrenamientos_mes') }}">Crear entrenamientos del mes</a>
+</div>
+{% endif %}
 
 <div class="table-wrapper calendar-table">
     <p class="table-hint">En celular, cada evento se ordena como tarjeta para ver fecha, tipo, detalle y acciones sin desplazarte tanto.</p>

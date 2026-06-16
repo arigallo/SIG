@@ -267,6 +267,46 @@ main.container {
     padding-bottom: 56px;
 }
 
+.workspace-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: -8px 0 24px;
+    padding: 10px;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(8px);
+}
+
+.workspace-bar a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    color: var(--secondary);
+    font-size: 13px;
+    font-weight: 850;
+    text-decoration: none;
+}
+
+.workspace-bar a:hover,
+.workspace-bar a:focus {
+    background: var(--surface-muted);
+    color: var(--primary-dark);
+    outline: none;
+}
+
+.workspace-bar a.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);
+}
+
 h2,
 h3 {
     color: var(--text);
@@ -292,6 +332,10 @@ h3 {
     gap: 14px;
     margin-bottom: 18px;
     padding-bottom: 6px;
+}
+
+.section-header:not(.compact) {
+    border-bottom: 1px solid rgba(226, 232, 240, 0.72);
 }
 
 .section-header h2,
@@ -325,6 +369,11 @@ h3 {
 .table-wrapper {
     overflow-x: auto;
     transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.card:hover,
+.table-wrapper:hover {
+    border-color: rgba(15, 118, 110, 0.16);
 }
 
 .page-section {
@@ -695,6 +744,10 @@ button:disabled {
     flex-wrap: wrap;
 }
 
+.actions {
+    justify-content: flex-end;
+}
+
 .actions form {
     display: flex;
     align-items: center;
@@ -704,6 +757,11 @@ button:disabled {
 
 .actions input[type="text"] {
     min-width: 160px;
+}
+
+.actions .button,
+.actions-row .button {
+    white-space: nowrap;
 }
 
 .search-form {
@@ -835,6 +893,29 @@ button:disabled {
     grid-column: 1 / -1;
 }
 
+.form-subsection {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-soft);
+}
+
+.form-subsection h3 {
+    margin: 0 0 4px;
+}
+
+.batch-event-panel {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    border-radius: var(--radius-soft);
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(255, 255, 255, 0.96));
+}
+
+.batch-event-panel p {
+    margin-bottom: 0;
+}
+
 .inline-form {
     display: flex;
     align-items: end;
@@ -877,7 +958,7 @@ button:disabled {
 table {
     width: 100%;
     border-collapse: collapse;
-    background: transparent;
+    background: #ffffff;
 }
 
 th,
@@ -892,7 +973,7 @@ th {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: rgba(245, 248, 251, 0.96);
+    background: linear-gradient(180deg, rgba(245, 248, 251, 0.98) 0%, rgba(235, 242, 245, 0.98) 100%);
     backdrop-filter: blur(8px);
     color: #516173;
     font-size: 12px;
@@ -906,7 +987,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-    background: #f9fbfc;
+    background: rgba(15, 118, 110, 0.035);
 }
 
 .table-wrapper.flush {
@@ -918,6 +999,7 @@ tbody tr:hover {
     padding: 24px 12px;
     color: var(--muted);
     text-align: center;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.74), rgba(255, 255, 255, 0.95));
 }
 
 .flash {
@@ -1013,8 +1095,54 @@ tbody tr:hover {
     gap: 16px;
 }
 
+.dashboard-page {
+    gap: 24px;
+}
+
 .dashboard-title {
     align-items: flex-start;
+}
+
+.dashboard-hero {
+    margin-bottom: 0;
+}
+
+.quick-module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.quick-module-card {
+    display: grid;
+    gap: 4px;
+    padding: 16px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-soft);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+    box-shadow: var(--shadow-soft);
+    color: var(--text);
+    text-decoration: none;
+    transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.quick-module-card:hover,
+.quick-module-card:focus {
+    border-color: rgba(15, 118, 110, 0.28);
+    color: var(--text);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+    outline: none;
+}
+
+.quick-module-card strong {
+    color: var(--primary-dark);
+    font-size: 15px;
+}
+
+.quick-module-card span {
+    color: var(--muted);
+    font-size: 13px;
 }
 
 .dashboard-filter {
@@ -2528,6 +2656,57 @@ tbody tr:hover {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 0.96) 100%);
 }
 
+.module-hero {
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.75fr);
+}
+
+.module-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: var(--shadow-soft);
+}
+
+.module-switcher a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.module-switcher a:hover,
+.module-switcher a.active {
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+}
+
+.module-callout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    border-left: 4px solid var(--primary);
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(255, 255, 255, 0.98));
+}
+
+.module-callout h3 {
+    margin: 8px 0 4px;
+}
+
+.module-callout p {
+    margin: 0;
+    color: var(--muted);
+}
+
 .finance-summary-card,
 .attendance-summary-card {
     display: grid;
@@ -2841,6 +3020,10 @@ tbody tr:hover {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .module-callout {
+        grid-template-columns: 1fr;
+    }
+
     .portal-event-item {
         grid-template-columns: 1fr;
     }
@@ -2945,6 +3128,25 @@ tbody tr:hover {
     .public-form-header,
     .public-form-card {
         padding: 20px;
+    }
+
+    .module-switcher {
+        border-radius: var(--radius-soft);
+    }
+
+    .workspace-bar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-radius: var(--radius-soft);
+    }
+
+    .workspace-bar a {
+        width: 100%;
+    }
+
+    .module-switcher a,
+    .module-callout .button {
+        width: 100%;
     }
 
     .portal-hero h1,

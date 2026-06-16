@@ -3,14 +3,32 @@
 {% block title %}Asistencia{% endblock %}
 
 {% block content %}
-<div class="section-header">
-    <h2>Control de asistencia</h2>
+<div class="admin-page attendance-page">
+<section class="admin-hero module-hero">
+    <div>
+        <span class="badge badge-info">Club / Asistencia</span>
+        <h2>Control de asistencia</h2>
+        <p class="page-intro">Seguimiento de entrenamientos y partidos, con apertura, cierre y carga directa desde calendario.</p>
+    </div>
+    <div class="admin-hero-actions actions">
+        {% if puede('asistencia_gestionar') %}
+            <a class="button" href="{{ url_for('nuevo_evento_asistencia') }}">+ Nuevo evento</a>
+            <a class="button secondary" href="{{ url_for('nuevo_evento_calendario', origen='asistencia', modo='entrenamientos_mes') }}">Entrenamientos del mes</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('ver_calendario') }}">Ver calendario</a>
+    </div>
+</section>
+
+<div class="module-switcher">
+    <a href="{{ url_for('ver_calendario') }}">Calendario</a>
+    <a class="active" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
     {% if puede('asistencia_gestionar') %}
-        <a class="button" href="{{ url_for('nuevo_evento_asistencia') }}">+ Nuevo evento</a>
+        <a href="{{ url_for('nuevo_evento_calendario', origen='asistencia', modo='entrenamientos_mes') }}">Cargar mes</a>
     {% endif %}
 </div>
 
-<div class="table-wrapper">
+<div class="table-wrapper attendance-table">
+    <p class="table-hint">Los eventos abiertos se pueden cargar o cerrar. Los cerrados quedan bloqueados salvo reapertura de admin.</p>
     <table>
         <thead>
             <tr>
@@ -70,5 +88,6 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
 </div>
 {% endblock %}

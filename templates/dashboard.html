@@ -3,12 +3,14 @@
 {% block title %}Panel de control{% endblock %}
 
 {% block content %}
-<div class="section-header dashboard-title">
+<div class="admin-page dashboard-page">
+<section class="admin-hero dashboard-hero">
     <div>
+        <span class="badge badge-info">Resumen general</span>
         <h2>Panel de control</h2>
         <p class="page-intro">Vista r&aacute;pida del estado deportivo, financiero y m&eacute;dico del club.</p>
     </div>
-    <div class="actions">
+    <div class="admin-hero-actions actions">
         <a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisi&oacute;n diaria</a>
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
@@ -20,6 +22,33 @@
             <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
         {% endif %}
     </div>
+</section>
+
+<div class="quick-module-grid">
+    {% if puede_ver_jugadores %}
+        <a class="quick-module-card" href="{{ url_for('listar_jugadores') }}">
+            <strong>Club</strong>
+            <span>Jugadores, asistencia y calendario</span>
+        </a>
+    {% endif %}
+    {% if puede_ver_finanzas %}
+        <a class="quick-module-card" href="{{ url_for('ver_panel_cobranzas') }}">
+            <strong>Finanzas</strong>
+            <span>Cobranzas, cuotas y deuda</span>
+        </a>
+    {% endif %}
+    {% if puede_ver_salud %}
+        <a class="quick-module-card" href="{{ url_for('panel_salud') }}">
+            <strong>Salud</strong>
+            <span>Fichas, lesiones y vencimientos</span>
+        </a>
+    {% endif %}
+    {% if puede('comunicaciones_ver') %}
+        <a class="quick-module-card" href="{{ url_for('ver_comunicaciones') }}">
+            <strong>Comunicaci&oacute;n</strong>
+            <span>Mensajes, avisos y seguimiento</span>
+        </a>
+    {% endif %}
 </div>
 
 <div class="dashboard-cards">
@@ -386,4 +415,5 @@
     </div>
 </section>
 {% endif %}
+</div>
 {% endblock %}

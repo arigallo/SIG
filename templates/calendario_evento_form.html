@@ -3,7 +3,16 @@
 {% block title %}{% if evento and evento.get('id') %}Editar evento{% else %}Nuevo evento{% endif %}{% endblock %}
 
 {% block content %}
-<h2>{% if evento and evento.get('id') %}Editar evento de calendario{% else %}Nuevo evento de calendario{% endif %}</h2>
+<div class="admin-page calendar-form-page">
+<div class="section-header">
+    <div>
+        <h2>{% if evento and evento.get('id') %}Editar evento de calendario{% else %}Nuevo evento de calendario{% endif %}</h2>
+        <p class="page-intro">Carg&aacute; un evento puntual o gener&aacute; todos los entrenamientos de un mes con la misma configuraci&oacute;n.</p>
+    </div>
+    <div class="actions">
+        <a class="button secondary" href="{{ url_for('listar_eventos_asistencia') if evento and evento.get('origen') == 'asistencia' else url_for('ver_calendario') }}">Volver</a>
+    </div>
+</div>
 
 <form method="post" class="card form-card form-card-wide">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -12,8 +21,9 @@
     {% endif %}
     <div class="form-grid">
         <div>
-            <label>Fecha *</label>
-            <input type="date" name="fecha" value="{{ evento['fecha'] if evento else '' }}" required>
+            <label>Fecha</label>
+            <input type="date" name="fecha" value="{{ evento['fecha'] if evento else '' }}">
+            <span class="muted-line">Usala para un evento unico. Para crear varios, completa la repeticion mensual.</span>
         </div>
 
         <div>
@@ -82,6 +92,35 @@
             <input type="checkbox" name="crear_asistencia" {% if not evento or evento.get('crear_asistencia', 1) %}checked{% endif %}>
             <span>Crear evento de asistencia para administradores</span>
         </label>
+
+        {% if not evento or not evento.get('id') %}
+        <div class="full form-subsection batch-event-panel">
+            <div>
+                <span class="badge badge-info">Opcional</span>
+                <h3>Crear varios entrenamientos del mes</h3>
+                <p class="muted-line">Eleg&iacute; un mes y los d&iacute;as de semana. Por ejemplo, martes y jueves crea todos esos entrenamientos de una sola vez.</p>
+            </div>
+        </div>
+
+        <div>
+            <label>Mes a generar</label>
+            <input type="month" name="repeticion_mes" value="{{ evento.get('repeticion_mes', '') if evento else '' }}">
+        </div>
+
+        <div class="full">
+            <label>Dias de entrenamiento</label>
+            {% set dias_repeticion = evento.get('repeticion_dias', []) if evento else [] %}
+            <div class="checkbox-grid">
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="0" {% if '0' in dias_repeticion or 0 in dias_repeticion %}checked{% endif %}><span>Lunes</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="1" {% if '1' in dias_repeticion or 1 in dias_repeticion %}checked{% endif %}><span>Martes</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="2" {% if '2' in dias_repeticion or 2 in dias_repeticion %}checked{% endif %}><span>Miercoles</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="3" {% if '3' in dias_repeticion or 3 in dias_repeticion %}checked{% endif %}><span>Jueves</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="4" {% if '4' in dias_repeticion or 4 in dias_repeticion %}checked{% endif %}><span>Viernes</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="5" {% if '5' in dias_repeticion or 5 in dias_repeticion %}checked{% endif %}><span>Sabado</span></label>
+                <label class="checkbox-field"><input type="checkbox" name="repeticion_dias" value="6" {% if '6' in dias_repeticion or 6 in dias_repeticion %}checked{% endif %}><span>Domingo</span></label>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="actions-row stack-gap">
@@ -95,4 +134,5 @@
         {% endif %}
     </div>
 </form>
+</div>
 {% endblock %}

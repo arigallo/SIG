@@ -11,6 +11,9 @@ from flask import render_template
 from openpyxl import Workbook, load_workbook
 
 import app
+from services import calendario as calendario_service
+from services import notificaciones as notificaciones_service
+from services import portal as portal_service
 
 
 class HotfixTests(unittest.TestCase):
@@ -84,9 +87,67 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha", source)
         self.assertIn("WHEN e.fecha < CURRENT_DATE::text THEN e.fecha", source)
 
+    def test_calendario_generates_monthly_training_dates(self):
+        fechas = app.generar_fechas_recurrentes_mes("2026-06", ["1", "3"])
+
+        self.assertEqual(
+            fechas,
+            [
+                "2026-06-02",
+                "2026-06-04",
+                "2026-06-09",
+                "2026-06-11",
+                "2026-06-16",
+                "2026-06-18",
+                "2026-06-23",
+                "2026-06-25",
+                "2026-06-30",
+            ],
+        )
+        self.assertIs(app.generar_fechas_recurrentes_mes, calendario_service.generar_fechas_recurrentes_mes)
+
+    def test_calendario_form_exposes_monthly_training_batch(self):
+        base = Path("templates/base.html").read_text(encoding="utf-8")
+        dashboard = Path("templates/dashboard.html").read_text(encoding="utf-8")
+        template = Path("templates/calendario_evento_form.html").read_text(encoding="utf-8")
+        calendario = Path("templates/calendario.html").read_text(encoding="utf-8")
+        asistencia = Path("templates/asistencia_eventos.html").read_text(encoding="utf-8")
+        styles = Path("static/styles.css").read_text(encoding="utf-8")
+        source = Path("app.py").read_text(encoding="utf-8")
+        service = Path("services/calendario.py").read_text(encoding="utf-8")
+        repository = Path("repositories/calendario.py").read_text(encoding="utf-8")
+
+        self.assertIn("Crear varios entrenamientos del mes", template)
+        self.assertIn("batch-event-panel", template)
+        self.assertIn("workspace-bar", base)
+        self.assertIn("quick-module-grid", dashboard)
+        self.assertIn("dashboard-hero", dashboard)
+        self.assertIn("repeticion_mes", template)
+        self.assertIn("repeticion_dias", template)
+        self.assertIn("Entrenamientos del mes", calendario)
+        self.assertIn("Entrenamientos del mes", asistencia)
+        self.assertIn("module-switcher", calendario)
+        self.assertIn("module-switcher", asistencia)
+        self.assertIn("module-callout", calendario)
+        self.assertIn(".workspace-bar", styles)
+        self.assertIn(".quick-module-card", styles)
+        self.assertIn(".module-switcher", styles)
+        self.assertIn(".module-callout", styles)
+        self.assertIn("modo='entrenamientos_mes'", calendario)
+        self.assertIn("modo='entrenamientos_mes'", asistencia)
+        self.assertIn("generar_fechas_recurrentes_mes", source)
+        self.assertIn("from services.calendario import", source)
+        self.assertIn("crear_eventos_calendario", source)
+        self.assertIn("from repositories.calendario import", service)
+        self.assertIn("def crear_eventos_calendario", service)
+        self.assertIn("def existe_evento_calendario", repository)
+        self.assertIn("def crear_evento_calendario_desde_data", repository)
+
     def test_portal_asistencia_labels_change_for_partidos(self):
         partido = {"tipo": "Partido"}
         entrenamiento = {"tipo": "Entrenamiento"}
+        source = Path("app.py").read_text(encoding="utf-8")
+        service = Path("services/portal.py").read_text(encoding="utf-8")
 
         self.assertEqual(
             [opcion["label"] for opcion in app.asistencia_portal_opciones(partido)],
@@ -94,6 +155,9 @@ class HotfixTests(unittest.TestCase):
         )
         self.assertEqual(app.asistencia_portal_label(partido, "dudoso"), "Voy y no juego")
         self.assertTrue(app.es_evento_partido({"tipo": "Partidos"}))
+        self.assertIs(app.es_evento_partido, portal_service.es_evento_partido)
+        self.assertIn("from services.portal import", source)
+        self.assertIn("def resumen_bienestar_confirmacion", service)
         self.assertEqual(
             [opcion["label"] for opcion in app.asistencia_portal_opciones(entrenamiento)],
             ["Voy", "Dudoso", "No voy"],
@@ -584,8 +648,15 @@ class HotfixTests(unittest.TestCase):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
         sistema = (Path(app.__file__).parent / "templates" / "sistema_admin.html").read_text(encoding="utf-8-sig")
+        service = (Path(app.__file__).parent / "services" / "finanzas.py").read_text(encoding="utf-8-sig")
+        repository = (Path(app.__file__).parent / "repositories" / "finanzas.py").read_text(encoding="utf-8-sig")
 
-        self.assertIn("def obtener_cuenta_corriente_jugador", source)
+        self.assertIn("from services.finanzas import", source)
+        self.assertIn("def periodo_inicio_plan", service)
+        self.assertIn("def calcular_importe_cuota_mensual", service)
+        self.assertIn("def recalcular_cuotas_planes_pago", service)
+        self.assertIn("def obtener_cuenta_corriente_jugador", repository)
+        self.assertIn("def obtener_cuotas_impagas_para_plan", repository)
         self.assertIn("def ejecutar_automatizaciones", source)
         self.assertIn("def consumir_limite_publico", source)
         self.assertIn("/tasks/automatizaciones", source)
@@ -614,6 +685,33 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("savePwaSubscription", js)
         self.assertIn("showNotification", sw)
 
+    def test_pwa_notifications_are_split_into_service_and_repository(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        service = (Path(app.__file__).parent / "services" / "notificaciones.py").read_text(encoding="utf-8-sig")
+        repository = (Path(app.__file__).parent / "repositories" / "notificaciones.py").read_text(encoding="utf-8-sig")
+
+        self.assertIn("from services.notificaciones import", source)
+        self.assertIn("usuario_id=session.get(\"user_id\")", source)
+        self.assertIn("def actor_push_actual", service)
+        self.assertIn("def normalizar_url_push", service)
+        self.assertIn("def guardar_suscripcion_push", repository)
+        self.assertIn("def obtener_destinatarios_push_manual", repository)
+
+    def test_asistencia_and_portal_have_initial_services_and_repositories(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        asistencia_service = (Path(app.__file__).parent / "services" / "asistencia.py").read_text(encoding="utf-8-sig")
+        asistencia_repo = (Path(app.__file__).parent / "repositories" / "asistencia.py").read_text(encoding="utf-8-sig")
+        portal_service = (Path(app.__file__).parent / "services" / "portal.py").read_text(encoding="utf-8-sig")
+        portal_repo = (Path(app.__file__).parent / "repositories" / "portal.py").read_text(encoding="utf-8-sig")
+
+        self.assertIn("from services.asistencia import", source)
+        self.assertIn("obtener_evento_asistencia", source)
+        self.assertIn("def listar_eventos_asistencia", asistencia_repo)
+        self.assertIn("def obtener_evento_asistencia", asistencia_repo)
+        self.assertIn("obtener_evento_asistencia", asistencia_service)
+        self.assertIn("def obtener_eventos_deportivos_portal", portal_service)
+        self.assertIn("def listar_eventos_deportivos_portal", portal_repo)
+
     def test_push_actor_prefers_portal_token_over_admin_session(self):
         class Result:
             def fetchone(self):
@@ -623,9 +721,11 @@ class HotfixTests(unittest.TestCase):
             def execute(self, *_args, **_kwargs):
                 return Result()
 
-        with app.app.test_request_context("/portal/token-demo"):
-            app.session["user_id"] = 7
-            actor = app.actor_push_actual(Conn(), portal_token="token-demo")
+        actor = notificaciones_service.actor_push_actual(
+            Conn(),
+            portal_token="token-demo",
+            usuario_id=7,
+        )
 
         self.assertEqual(actor["tipo"], "portal")
         self.assertEqual(actor["jugador_id"], 42)
