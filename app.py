@@ -15131,6 +15131,15 @@ def detalle_jugador(jugador_id):
             cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
 
     cuenta_corriente = obtener_cuenta_corriente_jugador(conn, jugador_id, limite=20)
+    notificaciones_portal = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END), 0) AS activas,
+            MAX(CASE WHEN enabled = 1 THEN actualizado_en ELSE NULL END) AS ultima_activacion
+        FROM pwa_push_subscriptions
+        WHERE actor_tipo = 'portal'
+          AND jugador_id = %s
+    """, (jugador_id,)).fetchone()
 
     for item in bienestar_reciente:
         try:
@@ -15201,6 +15210,7 @@ def detalle_jugador(jugador_id):
         puede_ver_cambios_portal=puede_ver_cambios_portal,
         cambios_portal=cambios_portal,
         cuenta_corriente=cuenta_corriente,
+        notificaciones_portal=notificaciones_portal,
         )
 
 

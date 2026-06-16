@@ -610,6 +610,8 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("data-pwa-install-inline", js)
         self.assertIn("pushManager.subscribe", js)
         self.assertIn("sig:pwa:test-ok", js)
+        self.assertIn("sig:pwa:saved", js)
+        self.assertIn("savePwaSubscription", js)
         self.assertIn("showNotification", sw)
 
     def test_manual_app_notifications_admin_screen_is_present(self):
@@ -617,10 +619,12 @@ class HotfixTests(unittest.TestCase):
         base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
         template = (Path(app.__file__).parent / "templates" / "notificaciones_app.html").read_text(encoding="utf-8-sig")
         portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
+        jugador_detalle = (Path(app.__file__).parent / "templates" / "jugador_detalle.html").read_text(encoding="utf-8-sig")
 
         self.assertIn("def enviar_notificacion_app_manual", source)
         self.assertIn("pwa_push_envios", source)
         self.assertIn("obtener_destinatarios_push_manual", source)
+        self.assertIn("notificaciones_portal", source)
         self.assertIn("s.actualizado_en", source)
         self.assertIn("obtener_comunicaciones_portal_dia", source)
         self.assertIn("Notificaciones app", base)
@@ -630,6 +634,8 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Comunicaciones del d", portal)
         self.assertIn("data-pwa-enable-push", portal)
         self.assertIn("data-portal-token", portal)
+        self.assertIn("Notificaciones app", jugador_detalle)
+        self.assertIn("notificaciones_portal", jugador_detalle)
 
 
 if __name__ == "__main__":

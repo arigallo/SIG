@@ -429,6 +429,7 @@
     const inlinePwaStatus = document.querySelector("[data-pwa-inline-status]");
     const portalToken = document.body?.dataset.portalToken || "";
     const pwaStorageKey = `sig:pwa:test-ok:${portalToken || username || "default"}`;
+    const pwaSavedKey = `sig:pwa:saved:${portalToken || username || "default"}`;
     let deferredInstallPrompt = null;
     let pushConfig = null;
 
@@ -482,6 +483,17 @@
         return registration.pushManager.getSubscription();
     };
 
+    const savePwaSubscription = async (subscription) => {
+        if (!subscription) {
+            return;
+        }
+        await postPwaJson("/pwa/push/subscribe", {
+            subscription,
+            portal_token: portalToken,
+        });
+        window.localStorage?.setItem(pwaSavedKey, "1");
+    };
+
     const refreshPwaButtons = async () => {
         if (!("serviceWorker" in navigator)) {
             return;
@@ -492,6 +504,10 @@
         if (pushButton && "PushManager" in window && Notification.permission !== "denied") {
             const subscription = await currentPushSubscription();
             const testDone = window.localStorage?.getItem(pwaStorageKey) === "1";
+            const subscriptionSaved = window.localStorage?.getItem(pwaSavedKey) === "1";
+            if (subscription && !subscriptionSaved) {
+                await savePwaSubscription(subscription).catch(() => {});
+            }
             pushButton.hidden = Boolean(subscription);
             testPushButton.hidden = !subscription || testDone;
             if (subscription && testDone && pwaActions) {
@@ -555,14 +571,14 @@
                 return;
             }
             const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
-            });
-            await postPwaJson("/pwa/push/subscribe", {
-                subscription,
-                portal_token: portalToken,
-            });
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
+                });
+            }
+            await savePwaSubscription(subscription);
             setPwaStatus("Notificaciones activadas.");
             await refreshPwaButtons();
         } catch (error) {

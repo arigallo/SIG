@@ -361,12 +361,30 @@
         {% if portal_url %}
             <p><strong>Estado:</strong> habilitado</p>
             <p><a href="{{ portal_url }}" target="_blank" rel="noopener">{{ portal_url }}</a></p>
+            <p>
+                <strong>Notificaciones app:</strong>
+                {% if notificaciones_portal and notificaciones_portal['activas'] %}
+                    <span class="badge badge-success">Activadas</span>
+                {% else %}
+                    <span class="badge badge-muted">Sin activar</span>
+                {% endif %}
+            </p>
+            <p class="muted-line">
+                {{ (notificaciones_portal['activas'] if notificaciones_portal else 0) or 0 }} dispositivo(s) activo(s)
+                {% if notificaciones_portal and notificaciones_portal['ultima_activacion'] %}
+                    · Última activación: {{ notificaciones_portal['ultima_activacion'] }}
+                {% endif %}
+            </p>
             <form method="post" action="{{ url_for('desactivar_portal_jugador', jugador_id=jugador['id']) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button class="button danger" type="submit">Desactivar portal</button>
             </form>
         {% else %}
             <p>Portal externo desactivado.</p>
+            <p>
+                <strong>Notificaciones app:</strong>
+                <span class="badge badge-muted">Sin activar</span>
+            </p>
             <form method="post" action="{{ url_for('generar_portal_jugador', jugador_id=jugador['id']) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button class="button secondary" type="submit">Generar enlace</button>
