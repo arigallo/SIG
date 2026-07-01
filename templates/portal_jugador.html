@@ -136,7 +136,7 @@
                     <span class="muted-line">Tus cuotas y gastos compartidos recientes</span>
                 </div>
             </div>
-            <div class="table-wrapper flush">
+            <div class="table-wrapper flush portal-card-table portal-ledger-table">
                 <table>
                     <thead>
                         <tr><th>Fecha</th><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
@@ -273,7 +273,7 @@
                     <h3>Historial de asistencia</h3>
                 </div>
                 {% if historial_asistencia %}
-                    <div class="table-wrapper flush">
+                    <div class="table-wrapper flush portal-card-table portal-attendance-table">
                         <table>
                             <thead>
                                 <tr>
@@ -311,7 +311,7 @@
             <div class="section-header">
                 <h3>Planes de pago</h3>
             </div>
-            <div class="table-wrapper">
+            <div class="table-wrapper portal-card-table portal-plan-table">
                 <table>
                     <thead>
                         <tr>
@@ -355,7 +355,7 @@
             <div class="section-header">
                 <h3>Cuotas y comprobantes</h3>
             </div>
-            <div class="table-wrapper">
+            <div class="table-wrapper portal-card-table portal-fee-table">
                 <table>
                     <thead>
                         <tr>
@@ -456,7 +456,7 @@
             <div class="section-header">
                 <h3>Gastos compartidos / terceros tiempos</h3>
             </div>
-            <div class="table-wrapper">
+            <div class="table-wrapper portal-card-table portal-shared-expense-table">
                 <table>
                     <thead>
                         <tr>
@@ -569,7 +569,7 @@
                 </div>
             {% endif %}
             {% if tests_recientes %}
-                <div class="table-wrapper top-gap">
+                <div class="table-wrapper top-gap portal-card-table portal-test-table">
                     <table>
                         <thead>
                             <tr>

@@ -825,6 +825,18 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Notificaciones app", jugador_detalle)
         self.assertIn("notificaciones_portal", jugador_detalle)
 
+    def test_mobile_interface_uses_portal_cards_and_touch_nav(self):
+        portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
+        css = (Path(app.__file__).parent / "static" / "styles.css").read_text(encoding="utf-8-sig")
+
+        self.assertIn("portal-card-table portal-ledger-table", portal)
+        self.assertIn("portal-card-table portal-fee-table", portal)
+        self.assertIn("portal-card-table portal-shared-expense-table", portal)
+        self.assertIn(".portal-card-table tr", css)
+        self.assertIn(".portal-fee-table td:nth-child(6)::before", css)
+        self.assertIn("scroll-snap-type: x proximity", css)
+        self.assertIn("min-height: 44px", css)
+
 
 if __name__ == "__main__":
     unittest.main()

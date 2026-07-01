@@ -38,6 +38,7 @@
 
 html {
     min-height: 100%;
+    overflow-x: hidden;
 }
 
 body {
@@ -52,6 +53,7 @@ body {
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    overflow-x: hidden;
 }
 
 a {
@@ -3627,5 +3629,279 @@ tbody tr:hover {
         bottom: 0.75rem;
         border-radius: 1rem;
         justify-content: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .container {
+        width: min(100% - 24px, 1240px);
+    }
+
+    .topbar {
+        margin-bottom: 14px;
+    }
+
+    .topbar-content,
+    .topbar .container {
+        gap: 12px;
+        min-height: auto;
+        padding: 12px 0;
+    }
+
+    .brand {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .brand img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .main-nav {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 2px 0 8px;
+        scrollbar-width: thin;
+        scroll-snap-type: x proximity;
+    }
+
+    .main-nav > * {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+    }
+
+    .nav-link,
+    .nav-group summary {
+        min-height: 40px;
+        white-space: nowrap;
+    }
+
+    .nav-menu {
+        min-width: min(86vw, 280px);
+    }
+
+    main.container {
+        padding-bottom: 32px;
+    }
+
+    .page-section {
+        margin-top: 20px;
+    }
+
+    .section-header {
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .section-header .actions,
+    .section-header .actions-row {
+        width: 100%;
+    }
+
+    .card,
+    .table-wrapper,
+    .stat-card,
+    .embedded-preview-card {
+        border-radius: 10px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+    }
+
+    .actions input[type="text"],
+    .inline-filter input,
+    .inline-filter select,
+    .inline-form input,
+    .inline-form-stack,
+    .portal-payment-form {
+        min-width: 0;
+    }
+
+    .inline-form-stack {
+        grid-template-columns: 1fr;
+    }
+
+    .button,
+    button,
+    input,
+    select,
+    textarea {
+        min-height: 44px;
+    }
+
+    .button,
+    button {
+        justify-content: center;
+        white-space: normal;
+    }
+
+    .portal-page {
+        padding-top: 8px;
+        padding-bottom: 28px;
+    }
+
+    .portal-hero {
+        gap: 18px;
+        margin-bottom: 18px;
+        padding: 18px;
+        border-radius: 14px;
+    }
+
+    .portal-hero h1 {
+        margin-top: 10px;
+        font-size: 26px;
+        line-height: 1.12;
+    }
+
+    .portal-hero-text {
+        font-size: 14px;
+    }
+
+    .portal-hero-meta {
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .portal-hero-meta span {
+        width: 100%;
+        border-radius: 10px;
+    }
+
+    .portal-hero-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .portal-hero-actions .button:first-child,
+    .portal-hero-actions .button:nth-child(5) {
+        grid-column: 1 / -1;
+    }
+
+    .portal-summary-grid {
+        gap: 10px;
+    }
+
+    .portal-summary-card {
+        min-height: 0;
+        padding: 16px;
+    }
+
+    .portal-summary-value {
+        font-size: 23px;
+    }
+
+    .portal-event-item {
+        padding: 14px;
+    }
+
+    .portal-event-main h4 {
+        font-size: 16px;
+    }
+
+    .portal-chip-row span {
+        border-radius: 8px;
+    }
+
+    .portal-alert-grid,
+    .mini-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-card-table {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .portal-card-table table {
+        min-width: 0;
+        background: transparent;
+        font-size: 14px;
+    }
+
+    .portal-card-table thead {
+        display: none;
+    }
+
+    .portal-card-table tbody {
+        display: grid;
+        gap: 12px;
+    }
+
+    .portal-card-table tr {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        background: var(--surface);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .portal-card-table td {
+        display: grid;
+        gap: 5px;
+        padding: 0;
+        border: 0;
+        white-space: normal;
+    }
+
+    .portal-card-table td::before {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .portal-ledger-table td:nth-child(1)::before { content: "Fecha"; }
+    .portal-ledger-table td:nth-child(2)::before { content: "Concepto"; }
+    .portal-ledger-table td:nth-child(3)::before { content: "Importe"; }
+    .portal-ledger-table td:nth-child(4)::before { content: "Estado"; }
+
+    .portal-attendance-table td:nth-child(1)::before { content: "Fecha"; }
+    .portal-attendance-table td:nth-child(2)::before { content: "Evento"; }
+    .portal-attendance-table td:nth-child(3)::before { content: "Estado"; }
+
+    .portal-plan-table td:nth-child(1)::before { content: "Inicio"; }
+    .portal-plan-table td:nth-child(2)::before { content: "Monto"; }
+    .portal-plan-table td:nth-child(3)::before { content: "Cuotas"; }
+    .portal-plan-table td:nth-child(4)::before { content: "Estado"; }
+    .portal-plan-table td:nth-child(5)::before { content: "Detalle"; }
+
+    .portal-fee-table td:nth-child(1)::before { content: "Periodo"; }
+    .portal-fee-table td:nth-child(2)::before { content: "Importe"; }
+    .portal-fee-table td:nth-child(3)::before { content: "Estado"; }
+    .portal-fee-table td:nth-child(4)::before { content: "Vencimiento"; }
+    .portal-fee-table td:nth-child(5)::before { content: "Pago"; }
+    .portal-fee-table td:nth-child(6)::before { content: "Comprobante"; }
+
+    .portal-shared-expense-table td:nth-child(1)::before { content: "Concepto"; }
+    .portal-shared-expense-table td:nth-child(2)::before { content: "Importe"; }
+    .portal-shared-expense-table td:nth-child(3)::before { content: "Estado"; }
+    .portal-shared-expense-table td:nth-child(4)::before { content: "Vencimiento"; }
+    .portal-shared-expense-table td:nth-child(5)::before { content: "Comprobante"; }
+
+    .portal-test-table td:nth-child(1)::before { content: "Fecha"; }
+    .portal-test-table td:nth-child(2)::before { content: "Test"; }
+    .portal-test-table td:nth-child(3)::before { content: "Puntaje"; }
+    .portal-test-table td:nth-child(4)::before { content: "Observaciones"; }
+
+    .portal-card-table td[colspan]::before,
+    .portal-card-table td.empty::before {
+        content: "";
+        display: none;
+    }
+
+    .upload-dropzone,
+    .compact-upload {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .embedded-preview-frame,
+    .embedded-preview-image {
+        max-height: 360px;
     }
 }
