@@ -78,12 +78,12 @@
     <div class="card stat-card alert-card-info">
         <h3>Cobrado</h3>
         <p class="stat-number compact">{{ (resumen['total_cobrado'] or 0) | moneda }}</p>
-        <span class="muted-line">{{ resumen['pagados'] or 0 }} jugador(es)</span>
+        <span class="muted-line">{{ resumen['pagados'] or 0 }} participante(s)</span>
     </div>
     <div class="card stat-card alert-card-warning">
         <h3>Pendiente</h3>
         <p class="stat-number compact">{{ (resumen['total_pendiente'] or 0) | moneda }}</p>
-        <span class="muted-line">{{ resumen['pendientes'] or 0 }} jugador(es)</span>
+        <span class="muted-line">{{ resumen['pendientes'] or 0 }} participante(s)</span>
     </div>
     <div class="card stat-card">
         <h3>Exentos</h3>
@@ -102,7 +102,7 @@
     <table>
         <thead>
             <tr>
-                <th>Jugador</th>
+                <th>Participante</th>
                 <th>Importe</th>
                 <th>Estado</th>
                 <th>Comprobante</th>
@@ -114,7 +114,7 @@
             <tr>
                 <td>
                     <strong>{{ item['apellido'] }}, {{ item['nombre'] }}</strong>
-                    <span class="muted-line">{{ item['categoria'] or '-' }}</span>
+                    <span class="muted-line">{{ item['categoria'] or '-' }}{% if item['participante_tipo'] == 'aspirante' %} - Ahijadx{% elif item['participante_tipo'] == 'manual' %} - Invitado{% endif %}</span>
                 </td>
                 <td>{{ item['importe'] | moneda }}</td>
                 <td>
@@ -157,6 +157,11 @@
                 </td>
                 <td class="actions">
                     {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
+                        <form method="post" enctype="multipart/form-data" action="{{ url_for('subir_comprobante_gasto_compartido_admin', item_id=item['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="file" name="comprobante_pago" accept=".pdf,.jpg,.jpeg,.png" required>
+                            <button class="button secondary" type="submit">Cargar comprobante</button>
+                        </form>
                         {% if item['comprobante_drive_file_id'] and item['estado'] == 'pendiente' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -209,7 +214,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="empty">No hay jugadores asignados.</td>
+                <td colspan="5" class="empty">No hay participantes asignados.</td>
             </tr>
             {% endfor %}
         </tbody>

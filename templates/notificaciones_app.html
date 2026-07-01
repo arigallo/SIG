@@ -38,6 +38,20 @@
     </div>
 </div>
 
+<div class="card spaced-small">
+    <div class="section-header compact">
+        <div>
+            <h3>Este dispositivo</h3>
+            <span class="muted-line">Activaci&oacute;n y prueba para el navegador actual</span>
+        </div>
+        <div class="actions">
+            <button class="button secondary" type="button" data-pwa-enable-push>Activar en este dispositivo</button>
+            <button class="button secondary" type="button" data-pwa-test-push>Enviar prueba</button>
+        </div>
+    </div>
+    <span class="report-note" data-pwa-status>Si el permiso ya estaba concedido, SIG repara la suscripci&oacute;n autom&aacute;ticamente al abrir esta pantalla.</span>
+</div>
+
 <form method="post" class="card spaced-small toolbar-card">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">
@@ -96,9 +110,9 @@
         </div>
     </div>
     <div class="actions-row">
-        <button class="button" type="submit" {% if not push_configurado %}disabled{% endif %}>Enviar notificaci&oacute;n</button>
+        <button class="button" type="submit">Enviar notificaci&oacute;n</button>
         {% if not push_configurado %}
-            <span class="report-note strong-danger">Configur&aacute; PWA_VAPID_PUBLIC_KEY y PWA_VAPID_PRIVATE_KEY antes de enviar.</span>
+            <span class="report-note strong-danger">Sin claves VAPID el aviso se puede mostrar en portal, pero no sale como push al celular.</span>
         {% endif %}
     </div>
 </form>

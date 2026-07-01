@@ -432,13 +432,13 @@
     const pwaSavedKey = `sig:pwa:saved:v2:${portalToken || username || "default"}`;
     let deferredInstallPrompt = null;
     let pushConfig = null;
+    let pwaSyncInFlight = false;
 
     const setPwaStatus = (message, isError = false) => {
-        if (!pwaStatus) {
-            return;
+        if (pwaStatus) {
+            pwaStatus.textContent = message || "";
+            pwaStatus.classList.toggle("text-danger", Boolean(isError));
         }
-        pwaStatus.textContent = message || "";
-        pwaStatus.classList.toggle("text-danger", Boolean(isError));
         if (inlinePwaStatus) {
             inlinePwaStatus.textContent = message || inlinePwaStatus.textContent;
             inlinePwaStatus.classList.toggle("text-danger", Boolean(isError));
@@ -494,6 +494,44 @@
         window.localStorage?.setItem(pwaSavedKey, "1");
     };
 
+    const ensurePushSubscriptionSaved = async ({ requestPermission = false } = {}) => {
+        if (pwaSyncInFlight || !pushConfig?.pushEnabled || !pushConfig?.vapidPublicKey) {
+            return null;
+        }
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+            return null;
+        }
+        if (!portalToken && !username) {
+            return null;
+        }
+
+        pwaSyncInFlight = true;
+        try {
+            let permission = Notification.permission;
+            if (permission === "default" && requestPermission) {
+                permission = await Notification.requestPermission();
+            }
+            if (permission !== "granted") {
+                return null;
+            }
+
+            const registration = await navigator.serviceWorker.ready;
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription && requestPermission) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
+                });
+            }
+            if (subscription) {
+                await savePwaSubscription(subscription);
+            }
+            return subscription;
+        } finally {
+            pwaSyncInFlight = false;
+        }
+    };
+
     const refreshPwaButtons = async () => {
         if (!("serviceWorker" in navigator)) {
             return;
@@ -501,11 +539,10 @@
         if (pushButton || testPushButton) {
             showPwaActions();
         }
-        if (pushButton && "PushManager" in window && Notification.permission !== "denied") {
+        if (pushButton && "PushManager" in window && "Notification" in window && Notification.permission !== "denied") {
             const subscription = await currentPushSubscription();
             const testDone = window.localStorage?.getItem(pwaStorageKey) === "1";
-            const subscriptionSaved = window.localStorage?.getItem(pwaSavedKey) === "1";
-            if (subscription && !subscriptionSaved && portalToken) {
+            if (subscription) {
                 await savePwaSubscription(subscription).catch(() => {});
             }
             pushButton.hidden = Boolean(subscription);
@@ -523,6 +560,7 @@
                 credentials: "same-origin",
                 headers: { "Accept": "application/json" },
             }).then((response) => response.json()).catch(() => null);
+            await ensurePushSubscriptionSaved().catch(() => {});
             await refreshPwaButtons();
         }).catch(() => {
             setPwaStatus("No se pudo preparar la app instalable.", true);
@@ -561,24 +599,15 @@
 
     pushButton?.addEventListener("click", async () => {
         try {
-            if (!pushConfig?.vapidPublicKey) {
+            if (!pushConfig?.pushEnabled || !pushConfig?.vapidPublicKey) {
                 setPwaStatus("Falta configurar la clave publica de notificaciones.", true);
                 return;
             }
-            const permission = await Notification.requestPermission();
-            if (permission !== "granted") {
+            const subscription = await ensurePushSubscriptionSaved({ requestPermission: true });
+            if (!subscription) {
                 setPwaStatus("Permiso de notificaciones no concedido.", true);
                 return;
             }
-            const registration = await navigator.serviceWorker.ready;
-            let subscription = await registration.pushManager.getSubscription();
-            if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
-                });
-            }
-            await savePwaSubscription(subscription);
             setPwaStatus("Notificaciones activadas.");
             await refreshPwaButtons();
         } catch (error) {

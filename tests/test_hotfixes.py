@@ -81,7 +81,7 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("/calendario/nuevo?origen=asistencia", response.headers["Location"])
 
     def test_asistencia_listing_orders_upcoming_events_first(self):
-        source = Path("app.py").read_text(encoding="utf-8")
+        source = Path("repositories/asistencia.py").read_text(encoding="utf-8")
 
         self.assertIn("WHEN e.fecha >= CURRENT_DATE::text THEN 0", source)
         self.assertIn("WHEN e.fecha >= CURRENT_DATE::text THEN e.fecha", source)
@@ -663,6 +663,28 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("i.estado = 'pendiente'", source)
         self.assertIn("Registrar pago", template)
 
+    def test_shared_expenses_accept_aspirants_invites_and_admin_receipts(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        form = (Path(app.__file__).parent / "templates" / "gasto_compartido_form.html").read_text(encoding="utf-8-sig")
+        detail = (Path(app.__file__).parent / "templates" / "gasto_compartido_detalle.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("aspirante_id", source)
+        self.assertIn("participante_tipo", source)
+        self.assertIn("def normalizar_invitados_gasto", source)
+        self.assertIn("def subir_comprobante_gasto_compartido_admin", source)
+        self.assertIn("name=\"aspirantes_ids\"", form)
+        self.assertIn("name=\"invitados_manual\"", form)
+        self.assertIn("Cargar comprobante", detail)
+
+    def test_received_invoice_acceptance_creates_cash_expense(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        template = (Path(app.__file__).parent / "templates" / "facturas_recibidas.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("INSERT INTO movimientos", source)
+        self.assertIn("VALUES ('egreso'", source)
+        self.assertIn("movimiento_id = %s", source)
+        self.assertIn("Aceptar y crear egreso", template)
+
     def test_management_package_exposes_ledger_automation_and_rate_limit(self):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
@@ -699,6 +721,8 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("serviceWorker.register", js)
         self.assertIn("data-pwa-install-inline", js)
         self.assertIn("pushManager.subscribe", js)
+        self.assertIn("ensurePushSubscriptionSaved", js)
+        self.assertIn("requestPermission = false", js)
         self.assertIn("sig:pwa:test-ok", js)
         self.assertIn("sig:pwa:saved", js)
         self.assertIn("savePwaSubscription", js)
@@ -756,23 +780,31 @@ class HotfixTests(unittest.TestCase):
         template = (Path(app.__file__).parent / "templates" / "notificaciones_app.html").read_text(encoding="utf-8-sig")
         portal = (Path(app.__file__).parent / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
         jugador_detalle = (Path(app.__file__).parent / "templates" / "jugador_detalle.html").read_text(encoding="utf-8-sig")
+        repository = (Path(app.__file__).parent / "repositories" / "notificaciones.py").read_text(encoding="utf-8-sig")
 
         self.assertIn("def enviar_notificacion_app_manual", source)
         self.assertIn("pwa_push_envios", source)
         self.assertIn("obtener_destinatarios_push_manual", source)
         self.assertIn("notificaciones_portal", source)
-        self.assertIn("s.actualizado_en", source)
+        self.assertIn("s.actualizado_en", repository)
         self.assertIn("obtener_comunicaciones_portal_dia", source)
         self.assertIn("obtener_avisos_login_publicos", source)
         self.assertIn("LOGIN_AVISOS_KEY", source)
         self.assertIn("urgente", source)
         self.assertIn("Notificaciones app", base)
+        self.assertNotIn("data-pwa-actions", base)
+        self.assertIn("Notificaciones del portal", portal)
+        self.assertIn("data-pwa-enable-push", portal)
+        self.assertIn("data-pwa-test-push", portal)
         self.assertIn("Todos los portales suscriptos", template)
+        self.assertIn("Este dispositivo", template)
+        self.assertIn("data-pwa-enable-push", template)
+        self.assertIn("data-pwa-test-push", template)
         self.assertIn("mostrar_portal", template)
         self.assertNotIn("mostrar_login", template)
+        self.assertIn("Aviso guardado para el portal", source)
         self.assertIn("Historial de env", template)
         self.assertIn("Comunicaciones del d", portal)
-        self.assertIn("data-pwa-enable-push", portal)
         self.assertIn("data-portal-token", portal)
         self.assertIn("Notificaciones app", jugador_detalle)
         self.assertIn("notificaciones_portal", jugador_detalle)

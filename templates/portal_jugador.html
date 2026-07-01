@@ -45,10 +45,21 @@
                 <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
                 <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
                 <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
-                <button class="button secondary" type="button" data-pwa-enable-push hidden>Activar notificaciones</button>
-                <button class="button secondary" type="button" data-pwa-test-push hidden>Probar aviso</button>
-                <span class="pwa-status portal-pwa-status" data-pwa-status></span>
             </div>
+        </section>
+
+        <section class="card page-section">
+            <div class="section-header compact">
+                <div>
+                    <h3>Notificaciones del portal</h3>
+                    <span class="muted-line">Avisos importantes de administraci&oacute;n en este dispositivo</span>
+                </div>
+                <div class="actions">
+                    <button class="button secondary" type="button" data-pwa-enable-push>Activar notificaciones</button>
+                    <button class="button secondary" type="button" data-pwa-test-push>Enviar prueba</button>
+                </div>
+            </div>
+            <span class="report-note" data-pwa-status>Si ya estaban activadas, SIG mantiene este dispositivo asociado autom&aacute;ticamente.</span>
         </section>
 
         {% if comunicaciones_portal %}

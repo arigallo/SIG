@@ -1164,14 +1164,15 @@ def ejecutar_automatizaciones(usuario="sistema"):
                 g.concepto,
                 g.fecha_vencimiento,
                 g.estado AS gasto_estado,
-                j.nombre,
-                j.apellido,
-                j.email,
+                COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+                COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+                COALESCE(j.email, a.email, i.email_manual, '') AS email,
                 j.email_tutor,
                 j.portal_token
             FROM gasto_compartido_items i
             JOIN gastos_compartidos g ON g.id = i.gasto_id
-            JOIN jugadores j ON j.id = i.jugador_id
+            LEFT JOIN jugadores j ON j.id = i.jugador_id
+            LEFT JOIN aspirantes a ON a.id = i.aspirante_id
             WHERE i.estado = 'pendiente'
               AND COALESCE(i.importe, 0) > 0
               AND g.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
@@ -2034,9 +2035,9 @@ def subir_comprobante_gasto_compartido_a_drive(file_storage, item):
     filename, ext, content, mime_type = validado
     service = drive_service()
     folder_id = get_drive_gastos_compartidos_folder(service, item.get("fecha_vencimiento"))
-    jugador_slug = secure_filename(f"{item['apellido']}_{item['nombre']}") or f"jugador_{item['jugador_id']}"
+    participante_slug = secure_filename(f"{item.get('apellido') or ''}_{item.get('nombre') or ''}") or f"participante_{item['id']}"
     timestamp = ahora_sig().strftime("%Y%m%d_%H%M%S")
-    drive_name = f"gasto_{item['gasto_id']}_{item['id']}_{jugador_slug}_{timestamp}{ext}"
+    drive_name = f"gasto_{item['gasto_id']}_{item['id']}_{participante_slug}_{timestamp}{ext}"
     media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
     body = {"name": drive_name, "parents": [folder_id]}
 
@@ -7191,7 +7192,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS gasto_compartido_items (
             id SERIAL PRIMARY KEY,
             gasto_id INTEGER NOT NULL,
-            jugador_id INTEGER NOT NULL,
+            jugador_id INTEGER,
+            aspirante_id INTEGER,
+            participante_tipo TEXT NOT NULL DEFAULT 'jugador',
+            nombre_manual TEXT,
+            apellido_manual TEXT,
+            categoria_manual TEXT,
+            email_manual TEXT,
             importe REAL NOT NULL,
             estado TEXT NOT NULL DEFAULT 'pendiente',
             fecha_pago TEXT,
@@ -7211,8 +7218,29 @@ def init_db():
             actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (gasto_id) REFERENCES gastos_compartidos(id) ON DELETE CASCADE,
             FOREIGN KEY (jugador_id) REFERENCES jugadores(id),
+            FOREIGN KEY (aspirante_id) REFERENCES aspirantes(id),
             UNIQUE(gasto_id, jugador_id)
         )
+    """)
+
+    columnas_gasto_items = get_columns(conn, "gasto_compartido_items")
+    columnas_extra_gasto_items = {
+        "aspirante_id": "INTEGER",
+        "participante_tipo": "TEXT NOT NULL DEFAULT 'jugador'",
+        "nombre_manual": "TEXT",
+        "apellido_manual": "TEXT",
+        "categoria_manual": "TEXT",
+        "email_manual": "TEXT",
+    }
+    for columna, definicion in columnas_extra_gasto_items.items():
+        if columna not in columnas_gasto_items:
+            conn.execute(f"ALTER TABLE gasto_compartido_items ADD COLUMN {columna} {definicion}")
+    if "jugador_id" in columnas_gasto_items:
+        conn.execute("ALTER TABLE gasto_compartido_items ALTER COLUMN jugador_id DROP NOT NULL")
+    conn.execute("""
+        UPDATE gasto_compartido_items
+        SET participante_tipo = 'jugador'
+        WHERE participante_tipo IS NULL
     """)
 
     conn.execute("""
@@ -7223,6 +7251,11 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_gasto_compartido_items_jugador
         ON gasto_compartido_items (jugador_id, estado, fecha_pago)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_gasto_compartido_items_aspirante
+        ON gasto_compartido_items (aspirante_id, estado, fecha_pago)
     """)
 
     conn.execute("""
@@ -8855,7 +8888,7 @@ def registrar_factura_recibida_en_caja(factura_id):
         "monto": monto,
         "fecha": fecha,
     })
-    flash("Factura registrada como egreso de caja.", "ok")
+    flash(f"Factura aceptada y egreso #{movimiento['id']} agregado a caja.", "ok")
     return redirect(url_for("ver_caja", mes=fecha[:7]))
 
 
@@ -14963,17 +14996,127 @@ def opciones_eventos_gastos_compartidos(conn):
     return opciones
 
 
-def jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids):
+def participante_gasto_key(item):
+    tipo = (item.get("participante_tipo") or "jugador").strip() or "jugador"
+    if tipo == "aspirante":
+        return f"aspirante:{item.get('aspirante_id')}"
+    if tipo == "manual":
+        base = "|".join([
+            item.get("apellido_manual") or item.get("apellido") or "",
+            item.get("nombre_manual") or item.get("nombre") or "",
+            item.get("email_manual") or item.get("email") or "",
+        ]).strip().lower()
+        return f"manual:{hashlib.sha1(base.encode('utf-8')).hexdigest()[:12]}"
+    return f"jugador:{item.get('jugador_id') or item.get('id')}"
+
+
+def normalizar_invitados_gasto(texto):
+    invitados = []
+    vistos = set()
+    for linea in (texto or "").splitlines():
+        partes = [parte.strip() for parte in re.split(r"[|;]", linea) if parte.strip()]
+        if not partes:
+            continue
+        nombre_base = partes[0]
+        email = normalizar_email(partes[1]) if len(partes) > 1 else ""
+        categoria = partes[2] if len(partes) > 2 else "Invitado"
+        if "," in nombre_base:
+            apellido, nombre = [parte.strip() for parte in nombre_base.split(",", 1)]
+        else:
+            tokens = nombre_base.split()
+            nombre = " ".join(tokens[:-1]) if len(tokens) > 1 else nombre_base
+            apellido = tokens[-1] if len(tokens) > 1 else ""
+        if not nombre and not apellido:
+            continue
+        item = {
+            "participante_tipo": "manual",
+            "jugador_id": None,
+            "aspirante_id": None,
+            "nombre": nombre,
+            "apellido": apellido,
+            "categoria": categoria or "Invitado",
+            "email": email,
+            "email_tutor": "",
+            "nombre_manual": nombre,
+            "apellido_manual": apellido,
+            "categoria_manual": categoria or "Invitado",
+            "email_manual": email,
+        }
+        clave = participante_gasto_key(item)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        invitados.append(item)
+    return invitados
+
+
+def listar_participantes_manual_gasto(conn):
+    jugadores = conn.execute("""
+        SELECT id, apellido, nombre, categoria
+        FROM jugadores
+        WHERE estado = 'Activo'
+        ORDER BY categoria NULLS LAST, apellido, nombre
+    """).fetchall()
+    aspirantes = conn.execute("""
+        SELECT id, apellido, nombre, categoria, email
+        FROM aspirantes
+        WHERE COALESCE(estado, 'Aspirante') <> 'Baja'
+        ORDER BY categoria NULLS LAST, apellido, nombre
+    """).fetchall()
+    return jugadores, aspirantes
+
+
+def participantes_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids, aspirantes_ids=None, invitados_texto=""):
     if fuente == "manual":
-        ids = [int(valor) for valor in jugadores_ids if str(valor).isdigit()]
-        if not ids:
-            return []
-        return conn.execute("""
+        seleccionados = []
+        jugador_ids = [int(valor) for valor in jugadores_ids if str(valor).isdigit()]
+        if jugador_ids:
+            jugadores = conn.execute("""
             SELECT id, apellido, nombre, categoria
             FROM jugadores
             WHERE id = ANY(%s)
             ORDER BY apellido, nombre
-        """, (ids,)).fetchall()
+            """, (jugador_ids,)).fetchall()
+            for jugador in jugadores:
+                seleccionados.append({
+                    "participante_tipo": "jugador",
+                    "jugador_id": jugador["id"],
+                    "aspirante_id": None,
+                    "nombre": jugador.get("nombre") or "",
+                    "apellido": jugador.get("apellido") or "",
+                    "categoria": jugador.get("categoria") or "",
+                    "email": jugador.get("email") or "",
+                    "email_tutor": jugador.get("email_tutor") or "",
+                    "nombre_manual": None,
+                    "apellido_manual": None,
+                    "categoria_manual": None,
+                    "email_manual": None,
+                })
+        aspirante_ids = [int(valor) for valor in (aspirantes_ids or []) if str(valor).isdigit()]
+        if aspirante_ids:
+            aspirantes = conn.execute("""
+                SELECT id, apellido, nombre, categoria, email
+                FROM aspirantes
+                WHERE id = ANY(%s)
+                ORDER BY apellido, nombre
+            """, (aspirante_ids,)).fetchall()
+            for aspirante in aspirantes:
+                seleccionados.append({
+                    "participante_tipo": "aspirante",
+                    "jugador_id": None,
+                    "aspirante_id": aspirante["id"],
+                    "nombre": aspirante.get("nombre") or "",
+                    "apellido": aspirante.get("apellido") or "",
+                    "categoria": aspirante.get("categoria") or "",
+                    "email": aspirante.get("email") or "",
+                    "email_tutor": "",
+                    "nombre_manual": None,
+                    "apellido_manual": None,
+                    "categoria_manual": None,
+                    "email_manual": None,
+                })
+        seleccionados.extend(normalizar_invitados_gasto(invitados_texto))
+        return seleccionados
 
     if not calendario_evento_id:
         return []
@@ -14987,24 +15130,56 @@ def jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_i
         return []
 
     if fuente == "presentes_evento":
-        return conn.execute("""
+        return [
+            {
+                "participante_tipo": "jugador",
+                "jugador_id": jugador["id"],
+                "aspirante_id": None,
+                "nombre": jugador.get("nombre") or "",
+                "apellido": jugador.get("apellido") or "",
+                "categoria": jugador.get("categoria") or "",
+                "email": jugador.get("email") or "",
+                "email_tutor": jugador.get("email_tutor") or "",
+                "nombre_manual": None,
+                "apellido_manual": None,
+                "categoria_manual": None,
+                "email_manual": None,
+            }
+            for jugador in conn.execute("""
             SELECT j.id, j.apellido, j.nombre, j.categoria
             FROM asistencias a
             JOIN jugadores j ON j.id = a.jugador_id
             WHERE a.evento_id = %s
               AND a.presente = 1
             ORDER BY j.apellido, j.nombre
-        """, (evento["asistencia_evento_id"],)).fetchall()
+            """, (evento["asistencia_evento_id"],)).fetchall()
+        ]
 
     if fuente == "confirmados_portal":
-        return conn.execute("""
+        return [
+            {
+                "participante_tipo": "jugador",
+                "jugador_id": jugador["id"],
+                "aspirante_id": None,
+                "nombre": jugador.get("nombre") or "",
+                "apellido": jugador.get("apellido") or "",
+                "categoria": jugador.get("categoria") or "",
+                "email": jugador.get("email") or "",
+                "email_tutor": jugador.get("email_tutor") or "",
+                "nombre_manual": None,
+                "apellido_manual": None,
+                "categoria_manual": None,
+                "email_manual": None,
+            }
+            for jugador in conn.execute("""
             SELECT j.id, j.apellido, j.nombre, j.categoria
             FROM portal_asistencia_confirmaciones p
             JOIN jugadores j ON j.id = p.jugador_id
             WHERE p.evento_id = %s
               AND p.estado = 'confirmado'
             ORDER BY j.apellido, j.nombre
-        """, (evento["asistencia_evento_id"],)).fetchall()
+            """, (evento["asistencia_evento_id"],)).fetchall()
+        ]
 
     return []
 
@@ -15235,7 +15410,7 @@ def listar_gastos_compartidos():
             COUNT(*) FILTER (WHERE i.estado = 'pagado') AS pagados,
             COUNT(*) FILTER (WHERE i.estado = 'exento') AS exentos,
             COUNT(*) FILTER (WHERE i.estado = 'pendiente') AS pendientes,
-            STRING_AGG(DISTINCT COALESCE(NULLIF(j.categoria, ''), 'Sin categoria'), ', ') AS categorias,
+            STRING_AGG(DISTINCT COALESCE(NULLIF(COALESCE(j.categoria, a.categoria, i.categoria_manual), ''), 'Sin categoria'), ', ') AS categorias,
             COUNT(*) FILTER (
                 WHERE COALESCE(NULLIF(i.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'rechazado')
                   AND i.estado = 'pendiente'
@@ -15243,6 +15418,7 @@ def listar_gastos_compartidos():
         FROM gastos_compartidos g
         LEFT JOIN gasto_compartido_items i ON i.gasto_id = g.id
         LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         GROUP BY g.id
         ORDER BY COALESCE(g.fecha_evento::timestamp, g.fecha_vencimiento::timestamp, g.creado_en) DESC, g.id DESC
     """).fetchall()
@@ -15301,14 +15477,13 @@ def nuevo_gasto_compartido():
         return check
 
     conn = get_connection()
-    jugadores_activos = conn.execute("""
-        SELECT id, apellido, nombre, categoria
-        FROM jugadores
-        WHERE estado = 'Activo'
-        ORDER BY categoria NULLS LAST, apellido, nombre
-    """).fetchall()
+    jugadores_activos, aspirantes_activos = listar_participantes_manual_gasto(conn)
     eventos = opciones_eventos_gastos_compartidos(conn)
-    categorias_jugadores = sorted({(jugador["categoria"] or "").strip() for jugador in jugadores_activos if (jugador["categoria"] or "").strip()})
+    categorias_jugadores = sorted({
+        (participante["categoria"] or "").strip()
+        for participante in [*jugadores_activos, *aspirantes_activos]
+        if (participante["categoria"] or "").strip()
+    })
     form_defaults = {
         "fuente_jugadores": request.args.get("fuente_jugadores", "manual").strip() or "manual",
         "modo_importe": request.args.get("modo_importe", "por_jugador").strip() or "por_jugador",
@@ -15327,6 +15502,8 @@ def nuevo_gasto_compartido():
         calendario_evento_id = int(calendario_evento_id_raw) if calendario_evento_id_raw.isdigit() else None
         fuente = request.form.get("fuente_jugadores", "manual").strip()
         jugadores_ids = request.form.getlist("jugadores_ids")
+        aspirantes_ids = request.form.getlist("aspirantes_ids")
+        invitados_texto = request.form.get("invitados_manual", "").strip()
         fecha_vencimiento = request.form.get("fecha_vencimiento", "").strip()
         modo_importe = request.form.get("modo_importe", "por_jugador").strip()
         monto_raw = request.form.get("monto", "").strip()
@@ -15338,10 +15515,12 @@ def nuevo_gasto_compartido():
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
             )
 
         try:
@@ -15352,23 +15531,34 @@ def nuevo_gasto_compartido():
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
             )
 
-        seleccionados = jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids)
+        seleccionados = participantes_gasto_desde_fuente(
+            conn,
+            fuente,
+            calendario_evento_id,
+            jugadores_ids,
+            aspirantes_ids,
+            invitados_texto,
+        )
         if not seleccionados:
             conn.close()
-            flash("Tenes que definir al menos un jugador que deba pagar.", "error")
+            flash("Tenes que definir al menos un participante que deba pagar.", "error")
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
             )
 
         if modo_importe not in {"por_jugador", "total"}:
@@ -15411,11 +15601,25 @@ def nuevo_gasto_compartido():
             session.get("username"),
         )).fetchone()
 
-        for jugador_item, importe_item in zip(seleccionados, importes):
+        for participante, importe_item in zip(seleccionados, importes):
             conn.execute("""
-                INSERT INTO gasto_compartido_items (gasto_id, jugador_id, importe, estado)
-                VALUES (%s, %s, %s, 'pendiente')
-            """, (gasto["id"], jugador_item["id"], importe_item))
+                INSERT INTO gasto_compartido_items (
+                    gasto_id, jugador_id, aspirante_id, participante_tipo,
+                    nombre_manual, apellido_manual, categoria_manual, email_manual,
+                    importe, estado
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente')
+            """, (
+                gasto["id"],
+                participante.get("jugador_id"),
+                participante.get("aspirante_id"),
+                participante.get("participante_tipo") or "jugador",
+                participante.get("nombre_manual"),
+                participante.get("apellido_manual"),
+                participante.get("categoria_manual"),
+                participante.get("email_manual"),
+                importe_item,
+            ))
 
         conn.commit()
         conn.close()
@@ -15426,10 +15630,12 @@ def nuevo_gasto_compartido():
     return render_template(
         "gasto_compartido_form.html",
         jugadores=jugadores_activos,
+        aspirantes=aspirantes_activos,
         eventos=eventos,
         categorias_jugadores=categorias_jugadores,
         form=form_defaults,
         seleccion_jugadores=form_defaults.get("jugadores_ids", []),
+        seleccion_aspirantes=form_defaults.get("aspirantes_ids", []),
         modo_formulario="nuevo",
         gasto=None,
     )
@@ -15456,14 +15662,13 @@ def editar_gasto_compartido(gasto_id):
         flash("Ese gasto compartido ya esta cerrado y no se puede editar.", "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=gasto_id))
 
-    jugadores_activos = conn.execute("""
-        SELECT id, apellido, nombre, categoria
-        FROM jugadores
-        WHERE estado = 'Activo'
-        ORDER BY categoria NULLS LAST, apellido, nombre
-    """).fetchall()
+    jugadores_activos, aspirantes_activos = listar_participantes_manual_gasto(conn)
     eventos = opciones_eventos_gastos_compartidos(conn)
-    categorias_jugadores = sorted({(jugador["categoria"] or "").strip() for jugador in jugadores_activos if (jugador["categoria"] or "").strip()})
+    categorias_jugadores = sorted({
+        (participante["categoria"] or "").strip()
+        for participante in [*jugadores_activos, *aspirantes_activos]
+        if (participante["categoria"] or "").strip()
+    })
     items_existentes = conn.execute("""
         SELECT *
         FROM gasto_compartido_items
@@ -15471,7 +15676,27 @@ def editar_gasto_compartido(gasto_id):
         ORDER BY id
     """, (gasto_id,)).fetchall()
 
-    seleccion_existente = [str(item["jugador_id"]) for item in items_existentes]
+    seleccion_existente = [str(item["jugador_id"]) for item in items_existentes if item.get("jugador_id")]
+    seleccion_aspirantes_existente = [str(item["aspirante_id"]) for item in items_existentes if item.get("aspirante_id")]
+    invitados_existentes = "\n".join(
+        " | ".join(
+            parte for parte in [
+                ", ".join(
+                    parte
+                    for parte in [
+                        item.get("apellido_manual") or "",
+                        item.get("nombre_manual") or "",
+                    ]
+                    if parte
+                ),
+                item.get("email_manual") or "",
+                item.get("categoria_manual") or "",
+            ]
+            if parte
+        )
+        for item in items_existentes
+        if (item.get("participante_tipo") or "") == "manual"
+    )
     form_defaults = {
         "titulo": gasto.get("titulo") or "",
         "concepto": gasto.get("concepto") or "",
@@ -15481,6 +15706,7 @@ def editar_gasto_compartido(gasto_id):
         "modo_importe": gasto.get("modo_importe") or "por_jugador",
         "monto": str(gasto.get("monto_total") if (gasto.get("modo_importe") or "por_jugador") == "total" else gasto.get("monto_por_jugador") or ""),
         "observaciones": gasto.get("observaciones") or "",
+        "invitados_manual": invitados_existentes,
     }
 
     if request.method == "POST":
@@ -15490,6 +15716,8 @@ def editar_gasto_compartido(gasto_id):
         calendario_evento_id = int(calendario_evento_id_raw) if calendario_evento_id_raw.isdigit() else None
         fuente = request.form.get("fuente_jugadores", "manual").strip()
         jugadores_ids = request.form.getlist("jugadores_ids")
+        aspirantes_ids = request.form.getlist("aspirantes_ids")
+        invitados_texto = request.form.get("invitados_manual", "").strip()
         fecha_vencimiento = request.form.get("fecha_vencimiento", "").strip()
         modo_importe = request.form.get("modo_importe", "por_jugador").strip()
         monto_raw = request.form.get("monto", "").strip()
@@ -15501,10 +15729,12 @@ def editar_gasto_compartido(gasto_id):
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
                 modo_formulario="editar",
                 gasto=gasto,
             )
@@ -15517,25 +15747,36 @@ def editar_gasto_compartido(gasto_id):
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
                 modo_formulario="editar",
                 gasto=gasto,
             )
 
-        seleccionados = jugadores_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugadores_ids)
+        seleccionados = participantes_gasto_desde_fuente(
+            conn,
+            fuente,
+            calendario_evento_id,
+            jugadores_ids,
+            aspirantes_ids,
+            invitados_texto,
+        )
         if not seleccionados:
             conn.close()
-            flash("Tenes que definir al menos un jugador que deba pagar.", "error")
+            flash("Tenes que definir al menos un participante que deba pagar.", "error")
             return render_template(
                 "gasto_compartido_form.html",
                 jugadores=jugadores_activos,
+                aspirantes=aspirantes_activos,
                 eventos=eventos,
                 categorias_jugadores=categorias_jugadores,
                 form=request.form,
                 seleccion_jugadores=request.form.getlist("jugadores_ids"),
+                seleccion_aspirantes=request.form.getlist("aspirantes_ids"),
                 modo_formulario="editar",
                 gasto=gasto,
             )
@@ -15588,20 +15829,35 @@ def editar_gasto_compartido(gasto_id):
             gasto_id,
         ))
 
-        seleccion_map = {jugador["id"]: importe for jugador, importe in zip(seleccionados, importes)}
-        existentes_map = {item["jugador_id"]: item for item in items_existentes}
+        seleccion_map = {
+            participante_gasto_key(participante): (participante, importe)
+            for participante, importe in zip(seleccionados, importes)
+        }
+        existentes_map = {participante_gasto_key(item): item for item in items_existentes}
         protegidos = 0
 
-        for jugador_id, item in existentes_map.items():
-            if jugador_id in seleccion_map:
+        for participante_key, item in existentes_map.items():
+            if participante_key in seleccion_map:
                 if item.get("estado") != "pagado":
+                    participante, importe = seleccion_map[participante_key]
                     conn.execute("""
                         UPDATE gasto_compartido_items
                         SET importe = %s,
+                            nombre_manual = %s,
+                            apellido_manual = %s,
+                            categoria_manual = %s,
+                            email_manual = %s,
                             actualizado_en = CURRENT_TIMESTAMP
                         WHERE id = %s
-                    """, (seleccion_map[jugador_id], item["id"]))
-                del seleccion_map[jugador_id]
+                    """, (
+                        importe,
+                        participante.get("nombre_manual"),
+                        participante.get("apellido_manual"),
+                        participante.get("categoria_manual"),
+                        participante.get("email_manual"),
+                        item["id"],
+                    ))
+                del seleccion_map[participante_key]
                 continue
 
             if item.get("estado") == "pagado" or item.get("comprobante_drive_file_id"):
@@ -15610,11 +15866,25 @@ def editar_gasto_compartido(gasto_id):
 
             conn.execute("DELETE FROM gasto_compartido_items WHERE id = %s", (item["id"],))
 
-        for jugador_id, importe_item in seleccion_map.items():
+        for participante, importe_item in seleccion_map.values():
             conn.execute("""
-                INSERT INTO gasto_compartido_items (gasto_id, jugador_id, importe, estado)
-                VALUES (%s, %s, %s, 'pendiente')
-            """, (gasto_id, jugador_id, importe_item))
+                INSERT INTO gasto_compartido_items (
+                    gasto_id, jugador_id, aspirante_id, participante_tipo,
+                    nombre_manual, apellido_manual, categoria_manual, email_manual,
+                    importe, estado
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente')
+            """, (
+                gasto_id,
+                participante.get("jugador_id"),
+                participante.get("aspirante_id"),
+                participante.get("participante_tipo") or "jugador",
+                participante.get("nombre_manual"),
+                participante.get("apellido_manual"),
+                participante.get("categoria_manual"),
+                participante.get("email_manual"),
+                importe_item,
+            ))
 
         conn.commit()
         conn.close()
@@ -15628,10 +15898,12 @@ def editar_gasto_compartido(gasto_id):
     return render_template(
         "gasto_compartido_form.html",
         jugadores=jugadores_activos,
+        aspirantes=aspirantes_activos,
         eventos=eventos,
         categorias_jugadores=categorias_jugadores,
         form=form_defaults,
         seleccion_jugadores=seleccion_existente,
+        seleccion_aspirantes=seleccion_aspirantes_existente,
         modo_formulario="editar",
         gasto=gasto,
     )
@@ -15658,13 +15930,14 @@ def ver_gasto_compartido(gasto_id):
     items = conn.execute("""
         SELECT
             i.*,
-            j.apellido,
-            j.nombre,
-            j.categoria,
-            j.email,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.categoria, a.categoria, i.categoria_manual, '') AS categoria,
+            COALESCE(j.email, a.email, i.email_manual, '') AS email,
             j.email_tutor
         FROM gasto_compartido_items i
-        JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         WHERE i.gasto_id = %s
         ORDER BY
             CASE i.estado
@@ -15673,8 +15946,8 @@ def ver_gasto_compartido(gasto_id):
                 WHEN 'exento' THEN 2
                 ELSE 3
             END,
-            j.apellido,
-            j.nombre
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, ''),
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '')
     """, (gasto_id,)).fetchall()
     resumen = conn.execute("""
         SELECT
@@ -15706,15 +15979,16 @@ def exportar_gasto_compartido(gasto_id):
     items = conn.execute("""
         SELECT
             i.*,
-            j.apellido,
-            j.nombre,
-            j.categoria,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.categoria, a.categoria, i.categoria_manual, '') AS categoria,
             j.telefono,
-            j.email
+            COALESCE(j.email, a.email, i.email_manual, '') AS email
         FROM gasto_compartido_items i
-        JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         WHERE i.gasto_id = %s
-        ORDER BY j.apellido, j.nombre
+        ORDER BY COALESCE(j.apellido, a.apellido, i.apellido_manual, ''), COALESCE(j.nombre, a.nombre, i.nombre_manual, '')
     """, (gasto_id,)).fetchall()
     conn.close()
 
@@ -15754,13 +16028,14 @@ def enviar_recordatorio_gasto_compartido(item_id):
             g.fecha_vencimiento,
             g.id AS gasto_id,
             g.estado AS gasto_estado,
-            j.nombre,
-            j.apellido,
-            j.email,
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+            COALESCE(j.email, a.email, i.email_manual, '') AS email,
             j.email_tutor
         FROM gasto_compartido_items i
         JOIN gastos_compartidos g ON g.id = i.gasto_id
-        JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         WHERE i.id = %s
     """, (item_id,)).fetchone()
     conn.close()
@@ -15791,13 +16066,14 @@ def enviar_recordatorios_gasto_compartido_lote(gasto_id):
             g.fecha_vencimiento,
             g.id AS gasto_id,
             g.estado AS gasto_estado,
-            j.nombre,
-            j.apellido,
-            j.email,
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+            COALESCE(j.email, a.email, i.email_manual, '') AS email,
             j.email_tutor
         FROM gasto_compartido_items i
         JOIN gastos_compartidos g ON g.id = i.gasto_id
-        JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         WHERE i.gasto_id = %s
           AND i.estado = 'pendiente'
     """, (gasto_id,)).fetchall()
@@ -15906,11 +16182,12 @@ def registrar_pago_posterior_gasto_compartido(item_id):
             g.id AS gasto_id,
             g.titulo,
             g.estado AS gasto_estado,
-            j.nombre,
-            j.apellido
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido
         FROM gasto_compartido_items i
         JOIN gastos_compartidos g ON g.id = i.gasto_id
-        JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
         WHERE i.id = %s
     """, (item_id,)).fetchone()
 
@@ -16021,6 +16298,98 @@ def eliminar_gasto_compartido(gasto_id):
     conn.close()
     flash("Gasto compartido eliminado.", "ok")
     return redirect(url_for("listar_gastos_compartidos"))
+
+
+@app.route("/gastos-compartidos/items/<int:item_id>/comprobante/admin", methods=["POST"])
+def subir_comprobante_gasto_compartido_admin(item_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    conn = get_connection()
+    item = conn.execute("""
+        SELECT
+            i.*,
+            g.id AS gasto_id,
+            g.titulo,
+            g.fecha_vencimiento,
+            g.estado AS gasto_estado,
+            COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+            COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
+        WHERE i.id = %s
+    """, (item_id,)).fetchone()
+    if item is None:
+        conn.close()
+        flash("Pago compartido no encontrado.", "error")
+        return redirect(url_for("listar_gastos_compartidos"))
+    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+        conn.close()
+        flash("El gasto compartido esta cerrado y no admite nuevos comprobantes.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+    comprobante_pago = request.files.get("comprobante_pago")
+    try:
+        comprobante_info = subir_comprobante_gasto_compartido_a_drive(comprobante_pago, item)
+    except (RuntimeError, ValueError) as error:
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    except Exception as error:
+        conn.close()
+        app.logger.exception("No se pudo subir comprobante admin de gasto compartido %s.", item_id)
+        flash(mensaje_error_drive(error, accion="subir el comprobante"), "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+    if not comprobante_info:
+        conn.close()
+        flash("Selecciona un comprobante para cargar.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+
+    comprobante_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("""
+        UPDATE gasto_compartido_items
+        SET estado = 'pagado',
+            fecha_pago = CURRENT_DATE,
+            comprobante_drive_file_id = %s,
+            comprobante_nombre = %s,
+            comprobante_mime_type = %s,
+            comprobante_tamano = %s,
+            comprobante_fecha = %s,
+            comprobante_usuario = %s,
+            comprobante_web_url = %s,
+            comprobante_estado = 'aceptado',
+            comprobante_revisado_en = %s,
+            comprobante_revisado_por = %s,
+            comprobante_observaciones = NULL,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (
+        comprobante_info["file_id"],
+        comprobante_info["nombre"],
+        comprobante_info["mime_type"],
+        comprobante_info["tamano"],
+        comprobante_fecha,
+        session.get("username"),
+        comprobante_info["web_url"],
+        comprobante_fecha,
+        session.get("username"),
+        item_id,
+    ))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("subir_comprobante_admin", "gasto_compartido_item", str(item_id), {
+        "gasto_id": item["gasto_id"],
+        "participante_tipo": item.get("participante_tipo") or "jugador",
+        "jugador_id": item.get("jugador_id"),
+        "aspirante_id": item.get("aspirante_id"),
+        "archivo": comprobante_info["nombre"],
+    })
+    flash("Comprobante cargado y pago marcado como cobrado.", "ok")
+    return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
 
 @app.route("/gastos-compartidos/items/<int:item_id>/comprobante")
@@ -18471,6 +18840,7 @@ def enviar_notificacion_app_manual():
         url = normalizar_url_push(request.form.get("url"), fallback=url_for("index"))
         mostrar_portal = 1 if request.form.get("mostrar_portal") == "on" else 0
         visible_hasta = validar_fecha_movimiento(request.form.get("visible_hasta", "").strip()) or ahora_sig().strftime("%Y-%m-%d")
+        push_configurado = bool(PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY and webpush)
 
         if not titulo or not mensaje:
             conn.close()
@@ -18484,6 +18854,10 @@ def enviar_notificacion_app_manual():
             conn.close()
             flash("Elegí un jugador para enviar la notificacion.", "error")
             return redirect(url_for("enviar_notificacion_app_manual"))
+        if not push_configurado and not mostrar_portal:
+            conn.close()
+            flash("Web Push no esta configurado. Marcá mostrar en portal o configurá las claves VAPID.", "error")
+            return redirect(url_for("enviar_notificacion_app_manual"))
 
         destinatarios = obtener_destinatarios_push_manual(conn, destino, categoria=categoria, jugador_id=jugador_id)
         payload = {
@@ -18494,18 +18868,19 @@ def enviar_notificacion_app_manual():
         }
         enviados = 0
         errores = []
-        for destinatario in destinatarios:
-            try:
-                subscription = json.loads(destinatario["subscription_json"] or "{}")
-            except (TypeError, ValueError):
-                subscription = {}
-            ok, error = enviar_push_subscription(subscription, payload)
-            if ok:
-                enviados += 1
-            else:
-                errores.append(error or "Error desconocido")
-                if error and ("410" in error or "404" in error):
-                    desactivar_suscripcion_push(conn, destinatario["endpoint"])
+        if push_configurado:
+            for destinatario in destinatarios:
+                try:
+                    subscription = json.loads(destinatario["subscription_json"] or "{}")
+                except (TypeError, ValueError):
+                    subscription = {}
+                ok, error = enviar_push_subscription(subscription, payload)
+                if ok:
+                    enviados += 1
+                else:
+                    errores.append(error or "Error desconocido")
+                    if error and ("410" in error or "404" in error):
+                        desactivar_suscripcion_push(conn, destinatario["endpoint"])
 
         envio = conn.execute("""
             INSERT INTO pwa_push_envios (
@@ -18523,7 +18898,12 @@ def enviar_notificacion_app_manual():
             url,
             enviados,
             len(errores),
-            json.dumps({"errores": errores[:20], "destinatarios": len(destinatarios)}, ensure_ascii=False),
+            json.dumps({
+                "errores": errores[:20],
+                "destinatarios": len(destinatarios),
+                "push_configurado": push_configurado,
+                "portal_visible": bool(mostrar_portal),
+            }, ensure_ascii=False),
             session.get("username"),
             mostrar_portal,
             visible_hasta,
@@ -18541,7 +18921,9 @@ def enviar_notificacion_app_manual():
             "mostrar_portal": bool(mostrar_portal),
             "visible_hasta": visible_hasta,
         })
-        if not destinatarios:
+        if not push_configurado and mostrar_portal:
+            flash("Aviso guardado para el portal. Web Push esta pendiente de configuracion.", "warning")
+        elif not destinatarios:
             flash("No hay dispositivos suscriptos para ese destino.", "warning")
         elif errores:
             flash(f"Notificacion enviada a {enviados} dispositivo(s), con {len(errores)} error(es).", "warning")

@@ -173,7 +173,7 @@
                             <input type="text" name="concepto" value="{{ factura['proveedor'] }} - {{ factura['asunto'] or 'Factura' }}" required>
                             <input type="number" step="0.01" name="monto" placeholder="Monto" value="{{ factura['monto_detectado'] or '' }}" required>
                             <input type="text" name="referencia" value="Factura {{ factura['proveedor'] }}" placeholder="Referencia">
-                            <button class="button" type="submit">Crear egreso</button>
+                            <button class="button" type="submit">Aceptar y crear egreso</button>
                         </form>
                         {% else %}
                             -

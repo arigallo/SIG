@@ -39,7 +39,7 @@
             <input type="date" name="fecha_vencimiento" value="{{ form.get('fecha_vencimiento', '') }}">
         </div>
         <div>
-            <label>Fuente de jugadores</label>
+            <label>Fuente de participantes</label>
             <select name="fuente_jugadores">
                 <option value="manual" {% if form.get('fuente_jugadores', 'manual') == 'manual' %}selected{% endif %}>Selecci&oacute;n manual</option>
                 <option value="presentes_evento" {% if form.get('fuente_jugadores') == 'presentes_evento' %}selected{% endif %}>Presentes en asistencia del evento</option>
@@ -65,9 +65,9 @@
 
     <div class="page-section">
         <div class="section-header compact">
-            <h3>Jugadores incluidos</h3>
+            <h3>Participantes incluidos</h3>
         </div>
-        <p class="report-note">Si eleg&iacute;s una fuente autom&aacute;tica, se usar&aacute;n los jugadores detectados desde el evento seleccionado. Si dej&aacute;s manual, marc&aacute; ac&aacute; qui&eacute;nes deben pagar.</p>
+        <p class="report-note">Si eleg&iacute;s una fuente autom&aacute;tica, se usar&aacute;n los jugadores detectados desde el evento seleccionado. Si dej&aacute;s manual, marc&aacute; jugadores, ahijadxs o agreg&aacute; invitados.</p>
         <div class="inline-filter">
             <div>
                 <label>Filtrar categor&iacute;a</label>
@@ -79,6 +79,7 @@
                 </select>
             </div>
         </div>
+        <h4>Jugadores</h4>
         <div class="permission-grid">
             {% for jugador in jugadores %}
                 <label class="permission-option" data-player-category="{{ jugador['categoria'] or 'Sin categoría' }}">
@@ -89,6 +90,25 @@
                     </span>
                 </label>
             {% endfor %}
+        </div>
+        <h4>Ahijadxs</h4>
+        <div class="permission-grid">
+            {% for aspirante in aspirantes %}
+                <label class="permission-option" data-player-category="{{ aspirante['categoria'] or 'Sin categoria' }}">
+                    <input type="checkbox" name="aspirantes_ids" value="{{ aspirante['id'] }}" {% if aspirante['id']|string in seleccion_aspirantes %}checked{% endif %}>
+                    <span>
+                        <strong>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</strong>
+                        <small>{{ aspirante['categoria'] or 'Sin categor&iacute;a' }} &middot; Ahijadx</small>
+                    </span>
+                </label>
+            {% else %}
+                <p class="empty">No hay ahijadxs disponibles.</p>
+            {% endfor %}
+        </div>
+        <div class="field full top-gap">
+            <label>Invitados agregados manualmente</label>
+            <textarea name="invitados_manual" rows="4" placeholder="Un invitado por linea: Apellido, Nombre | email opcional | categoria opcional">{{ form.get('invitados_manual', '') }}</textarea>
+            <span class="report-note">Ejemplo: Perez, Juan | juan@email.com | Invitado</span>
         </div>
     </div>
 
