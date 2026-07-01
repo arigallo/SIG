@@ -427,6 +427,9 @@
     const testPushButton = document.querySelector("[data-pwa-test-push]");
     const pwaStatus = document.querySelector("[data-pwa-status]");
     const inlinePwaStatus = document.querySelector("[data-pwa-inline-status]");
+    const pwaPermissionStatus = document.querySelector("[data-pwa-permission-status]");
+    const pwaSubscriptionStatus = document.querySelector("[data-pwa-subscription-status]");
+    const pwaWorkerStatus = document.querySelector("[data-pwa-worker-status]");
     const portalToken = document.body?.dataset.portalToken || "";
     const pwaStorageKey = `sig:pwa:test-ok:${portalToken || username || "default"}`;
     const pwaSavedKey = `sig:pwa:saved:v2:${portalToken || username || "default"}`;
@@ -481,6 +484,23 @@
         }
         const registration = await navigator.serviceWorker.ready;
         return registration.pushManager.getSubscription();
+    };
+
+    const updatePwaDiagnostics = async () => {
+        if (pwaPermissionStatus) {
+            pwaPermissionStatus.textContent = ("Notification" in window) ? Notification.permission : "no soportado";
+        }
+        if (pwaWorkerStatus) {
+            pwaWorkerStatus.textContent = ("serviceWorker" in navigator) ? "disponible" : "no soportado";
+        }
+        if (pwaSubscriptionStatus) {
+            try {
+                const subscription = await currentPushSubscription();
+                pwaSubscriptionStatus.textContent = subscription ? "suscripto en este navegador" : "sin suscripcion local";
+            } catch (error) {
+                pwaSubscriptionStatus.textContent = "no disponible";
+            }
+        }
     };
 
     const savePwaSubscription = async (subscription) => {
@@ -562,9 +582,13 @@
             }).then((response) => response.json()).catch(() => null);
             await ensurePushSubscriptionSaved().catch(() => {});
             await refreshPwaButtons();
+            await updatePwaDiagnostics();
         }).catch(() => {
             setPwaStatus("No se pudo preparar la app instalable.", true);
+            updatePwaDiagnostics();
         });
+    } else {
+        updatePwaDiagnostics();
     }
 
     window.addEventListener("beforeinstallprompt", (event) => {
@@ -610,8 +634,10 @@
             }
             setPwaStatus("Notificaciones activadas.");
             await refreshPwaButtons();
+            await updatePwaDiagnostics();
         } catch (error) {
             setPwaStatus(error.message || "No se pudieron activar las notificaciones.", true);
+            await updatePwaDiagnostics();
         }
     });
 
@@ -637,5 +663,6 @@
         } catch (error) {
             setPwaStatus(error.message || "No se pudo enviar la prueba.", true);
         }
+        await updatePwaDiagnostics();
     });
 })();

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -48,20 +48,6 @@
             </div>
         </section>
 
-        <section class="card page-section">
-            <div class="section-header compact">
-                <div>
-                    <h3>Notificaciones del portal</h3>
-                    <span class="muted-line">Avisos importantes de administraci&oacute;n en este dispositivo</span>
-                </div>
-                <div class="actions">
-                    <button class="button secondary" type="button" data-pwa-enable-push>Activar notificaciones</button>
-                    <button class="button secondary" type="button" data-pwa-test-push>Enviar prueba</button>
-                </div>
-            </div>
-            <span class="report-note" data-pwa-status>Si ya estaban activadas, SIG mantiene este dispositivo asociado autom&aacute;ticamente.</span>
-        </section>
-
         {% if comunicaciones_portal %}
         <section class="portal-daily-communications page-section">
             <div class="section-header compact">
@@ -108,17 +94,25 @@
                 <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todav&iacute;a no hay eventos publicados.{% endif %}</span>
             </article>
             <article class="card portal-summary-card">
-                <span class="portal-summary-label">Tests registrados</span>
-                <strong class="portal-summary-value">{{ tests_recientes | length }}</strong>
-                <span class="muted-line">{% if resumen_tests %}Tu evoluci&oacute;n deportiva ya est&aacute; disponible.{% else %}Todav&iacute;a no hay mediciones cargadas.{% endif %}</span>
-            </article>
-            <article class="card portal-summary-card">
                 <span class="portal-summary-label">Gastos compartidos</span>
                 <strong class="portal-summary-value {% if gasto_pendiente_total > 0 %}text-danger{% endif %}">{{ gasto_pendiente_total | moneda }}</strong>
                 <span class="muted-line">{{ gastos_pendientes | length }} pendiente(s) · {{ gastos_pagados | length }} pago(s) registrados</span>
             </article>
         </section>
 
+        <section class="card page-section">
+            <div class="section-header compact">
+                <div>
+                    <h3>Notificaciones del portal</h3>
+                    <span class="muted-line">Avisos importantes de administraci&oacute;n en este dispositivo</span>
+                </div>
+                <div class="actions">
+                    <button class="button secondary" type="button" data-pwa-enable-push>Activar notificaciones</button>
+                    <button class="button secondary" type="button" data-pwa-test-push>Enviar prueba</button>
+                </div>
+            </div>
+            <span class="report-note" data-pwa-status>Si ya estaban activadas, SIG mantiene este dispositivo asociado autom&aacute;ticamente.</span>
+        </section>
         {% if portal_alertas %}
         <section class="page-section">
             <div class="section-header">
@@ -475,6 +469,7 @@
                     </thead>
                     <tbody>
                         {% for item in gastos_compartidos %}
+                        {% set estado_visual = estado_visual_gasto_compartido_item(item) %}
                         <tr>
                             <td>
                                 <strong>{{ item['titulo'] }}</strong>
@@ -490,13 +485,7 @@
                             </td>
                             <td>{{ item['importe'] | moneda }}</td>
                             <td>
-                                {% if item['estado'] == 'pagado' %}
-                                    <span class="status-paid">Pagado</span>
-                                {% elif item['estado'] == 'exento' %}
-                                    <span class="badge badge-muted">Exento</span>
-                                {% else %}
-                                    <span class="status-pending">Pendiente</span>
-                                {% endif %}
+                                <span class="badge {{ estado_visual['badge'] }}">{{ estado_visual['label'] }}</span>
                             </td>
                             <td>{{ item['fecha_vencimiento'] or '-' }}</td>
                             <td>
@@ -533,22 +522,21 @@
                                         </details>
                                     {% endif %}
                                     {% if item['gasto_estado']|lower == 'cerrado' %}
-                                        <span class="muted-line">Este saldo sigue pendiente. Contact&aacute; a administraci&oacute;n para regularizarlo.</span>
-                                    {% else %}
-                                        <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">
-                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                            <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
-                                                <input class="upload-input"
-                                                       type="file"
-                                                       name="comprobante_pago"
-                                                       accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                                       required>
-                                                <span class="upload-title">Arrastra o pega el comprobante</span>
-                                                <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
-                                            </label>
-                                            <button class="button secondary" type="submit">{% if item['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
-                                        </form>
+                                        <span class="muted-line">Este gasto ya fue cerrado, pero pod&eacute;s enviar el comprobante para regularizar la deuda.</span>
                                     {% endif %}
+                                    <form method="post" enctype="multipart/form-data" class="portal-payment-form" action="{{ url_for('portal_subir_comprobante_gasto_compartido', token=token, item_id=item['id']) }}">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        <label class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
+                                            <input class="upload-input"
+                                                   type="file"
+                                                   name="comprobante_pago"
+                                                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                   required>
+                                            <span class="upload-title">Arrastra o pega el comprobante</span>
+                                            <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
+                                        </label>
+                                        <button class="button secondary" type="submit">{% if item['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>
+                                    </form>
                                 {% endif %}
                             </td>
                         </tr>

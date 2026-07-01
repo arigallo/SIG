@@ -52,6 +52,48 @@
     <span class="report-note" data-pwa-status>Si el permiso ya estaba concedido, SIG repara la suscripci&oacute;n autom&aacute;ticamente al abrir esta pantalla.</span>
 </div>
 
+<div class="card spaced-small">
+    <div class="section-header compact">
+        <div>
+            <h3>Diagn&oacute;stico</h3>
+            <span class="muted-line">Estado real del canal push y del navegador actual</span>
+        </div>
+    </div>
+    <div class="mini-stat-grid">
+        <div class="mini-stat">
+            <strong>Permiso navegador</strong>
+            <span data-pwa-permission-status>revisando</span>
+        </div>
+        <div class="mini-stat">
+            <strong>Service worker</strong>
+            <span data-pwa-worker-status>revisando</span>
+        </div>
+        <div class="mini-stat">
+            <strong>Suscripci&oacute;n local</strong>
+            <span data-pwa-subscription-status>revisando</span>
+        </div>
+        <div class="mini-stat">
+            <strong>Servidor push</strong>
+            <span>{% if push_configurado %}listo{% else %}incompleto{% endif %}</span>
+            <span class="muted-line">P&uacute;blica: {{ 'OK' if diagnostico_push['vapid_publica'] else 'falta' }} &middot; Privada: {{ 'OK' if diagnostico_push['vapid_privada'] else 'falta' }} &middot; pywebpush: {{ 'OK' if diagnostico_push['pywebpush'] else 'falta' }}</span>
+        </div>
+        <div class="mini-stat">
+            <strong>Inactivas</strong>
+            <span>{{ diagnostico_push['inactivas'] or 0 }}</span>
+            <span class="muted-line">Se desactivan cuando el navegador rechaza el endpoint</span>
+        </div>
+        <div class="mini-stat">
+            <strong>&Uacute;ltimo env&iacute;o</strong>
+            {% if diagnostico_push['ultimo_envio'] %}
+                <span>{{ diagnostico_push['ultimo_envio']['enviados'] or 0 }} ok / {{ diagnostico_push['ultimo_envio']['errores'] or 0 }} error(es)</span>
+                <span class="muted-line">{{ diagnostico_push['ultimo_envio']['creado_en'] | fecha_hora }} - {{ diagnostico_push['ultimo_envio']['destino'] }}</span>
+            {% else %}
+                <span>sin env&iacute;os</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <form method="post" class="card spaced-small toolbar-card">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">

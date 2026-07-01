@@ -208,6 +208,7 @@ def inject_now():
         "asistencia_portal_label": asistencia_portal_label,
         "asistencia_portal_badge_class": asistencia_portal_badge_class,
         "es_evento_partido": es_evento_partido,
+        "estado_visual_gasto_compartido_item": estado_visual_gasto_compartido_item,
         "current_month": lambda: ahora_sig().strftime("%Y-%m"),
     }
 
@@ -7202,6 +7203,7 @@ def init_db():
             importe REAL NOT NULL,
             estado TEXT NOT NULL DEFAULT 'pendiente',
             fecha_pago TEXT,
+            movimiento_id INTEGER,
             observaciones TEXT,
             comprobante_drive_file_id TEXT,
             comprobante_nombre TEXT,
@@ -7231,6 +7233,7 @@ def init_db():
         "apellido_manual": "TEXT",
         "categoria_manual": "TEXT",
         "email_manual": "TEXT",
+        "movimiento_id": "INTEGER",
     }
     for columna, definicion in columnas_extra_gasto_items.items():
         if columna not in columnas_gasto_items:
@@ -15202,6 +15205,38 @@ def gasto_compartido_esta_cerrado(gasto):
     return (gasto.get("estado") or "").strip().lower() == "cerrado"
 
 
+def estado_visual_gasto_compartido_item(item):
+    estado = (item.get("estado") or "pendiente").strip().lower()
+    comprobante_estado = (item.get("comprobante_estado") or "").strip().lower()
+    tiene_comprobante = bool(item.get("comprobante_drive_file_id"))
+    if estado == "pagado":
+        return {"label": "Pagado", "badge": "badge-success"}
+    if estado == "exento":
+        return {"label": "Exento", "badge": "badge-muted"}
+    if tiene_comprobante and comprobante_estado == "rechazado":
+        return {"label": "Comprobante rechazado", "badge": "badge-danger"}
+    if tiene_comprobante and comprobante_estado in {"pendiente", "sin_comprobante", ""}:
+        return {"label": "Comprobante en revision", "badge": "badge-warning"}
+    if tiene_comprobante:
+        return {"label": "Comprobante recibido", "badge": "badge-warning"}
+    return {"label": "Pendiente de pago", "badge": "badge-warning"}
+
+
+def registrar_movimiento_pago_posterior_gasto(conn, item, fecha_pago):
+    titulo_gasto = item.get("titulo") or f"#{item['gasto_id']}"
+    return conn.execute("""
+        INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+    """, (
+        "ingreso",
+        f"Pago posterior gasto compartido: {titulo_gasto}",
+        round(float(item.get("importe") or 0), 2),
+        fecha_pago,
+        f"Gasto compartido #{item['gasto_id']} item #{item['id']}",
+    )).fetchone()
+
+
 class UrbaCircularesParser(HTMLParser):
     def __init__(self, base_url):
         super().__init__()
@@ -16136,6 +16171,14 @@ def cerrar_gasto_compartido(gasto_id):
             f"Gasto compartido #{gasto_id}",
         )).fetchone()
         movimiento_id = movimiento["id"]
+        conn.execute("""
+            UPDATE gasto_compartido_items
+            SET movimiento_id = %s,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE gasto_id = %s
+              AND estado = 'pagado'
+              AND movimiento_id IS NULL
+        """, (movimiento_id, gasto_id))
 
     conn.execute("""
         UPDATE gastos_compartidos
@@ -16210,28 +16253,19 @@ def registrar_pago_posterior_gasto_compartido(item_id):
         flash("No se puede registrar el pago en un mes de caja cerrado.", "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
-    titulo_gasto = item.get("titulo") or f"#{item['gasto_id']}"
-    movimiento = conn.execute("""
-        INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING id
-    """, (
-        "ingreso",
-        f"Pago posterior gasto compartido: {titulo_gasto}",
-        round(float(item.get("importe") or 0), 2),
-        fecha_pago,
-        f"Gasto compartido #{item['gasto_id']} item #{item_id}",
-    )).fetchone()
+    movimiento = registrar_movimiento_pago_posterior_gasto(conn, item, fecha_pago)
     conn.execute("""
         UPDATE gasto_compartido_items
         SET estado = 'pagado',
             fecha_pago = %s,
+            movimiento_id = %s,
             comprobante_estado = CASE
                 WHEN comprobante_drive_file_id IS NOT NULL THEN 'aceptado'
                 ELSE comprobante_estado
-            END
+            END,
+            actualizado_en = CURRENT_TIMESTAMP
         WHERE id = %s
-    """, (fecha_pago, item_id))
+    """, (fecha_pago, movimiento["id"], item_id))
     conn.commit()
     conn.close()
 
@@ -16326,9 +16360,14 @@ def subir_comprobante_gasto_compartido_admin(item_id):
         conn.close()
         flash("Pago compartido no encontrado.", "error")
         return redirect(url_for("listar_gastos_compartidos"))
-    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+    gasto_cerrado = gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")})
+    if gasto_cerrado and item.get("estado") != "pendiente":
         conn.close()
-        flash("El gasto compartido esta cerrado y no admite nuevos comprobantes.", "error")
+        flash("Ese saldo ya no esta pendiente.", "warning")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    if gasto_cerrado and not tiene_permiso("caja_gestionar"):
+        conn.close()
+        flash("Necesitas permiso de caja para registrar el pago posterior.", "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
     comprobante_pago = request.files.get("comprobante_pago")
@@ -16350,10 +16389,19 @@ def subir_comprobante_gasto_compartido_admin(item_id):
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
     comprobante_fecha = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
+    fecha_pago = validar_fecha_movimiento(request.form.get("fecha_pago")) or ahora_sig().strftime("%Y-%m-%d")
+    movimiento = None
+    if gasto_cerrado:
+        if mes_esta_cerrado(fecha_pago[:7]):
+            conn.close()
+            flash("No se puede registrar el pago en un mes de caja cerrado.", "error")
+            return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+        movimiento = registrar_movimiento_pago_posterior_gasto(conn, item, fecha_pago)
     conn.execute("""
         UPDATE gasto_compartido_items
         SET estado = 'pagado',
-            fecha_pago = CURRENT_DATE,
+            fecha_pago = %s,
+            movimiento_id = COALESCE(%s, movimiento_id),
             comprobante_drive_file_id = %s,
             comprobante_nombre = %s,
             comprobante_mime_type = %s,
@@ -16368,6 +16416,8 @@ def subir_comprobante_gasto_compartido_admin(item_id):
             actualizado_en = CURRENT_TIMESTAMP
         WHERE id = %s
     """, (
+        fecha_pago,
+        movimiento["id"] if movimiento else None,
         comprobante_info["file_id"],
         comprobante_info["nombre"],
         comprobante_info["mime_type"],
@@ -16387,8 +16437,12 @@ def subir_comprobante_gasto_compartido_admin(item_id):
         "jugador_id": item.get("jugador_id"),
         "aspirante_id": item.get("aspirante_id"),
         "archivo": comprobante_info["nombre"],
+        "movimiento_id": movimiento["id"] if movimiento else None,
     })
-    flash("Comprobante cargado y pago marcado como cobrado.", "ok")
+    if movimiento:
+        flash("Comprobante cargado, ingreso posterior registrado en caja y deuda cancelada.", "ok")
+    else:
+        flash("Comprobante cargado y pago marcado como cobrado.", "ok")
     return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
 
@@ -16444,25 +16498,57 @@ def actualizar_item_gasto_compartido(item_id):
         conn.close()
         flash("Pago compartido no encontrado.", "error")
         return redirect(url_for("listar_gastos_compartidos"))
-    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+    gasto_cerrado = gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")})
+    if gasto_cerrado and accion not in {"aprobar", "rechazar"}:
         conn.close()
-        flash("El gasto compartido esta cerrado y ya no admite cambios.", "error")
+        flash("El gasto compartido esta cerrado y solo admite revisar comprobantes posteriores.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    if gasto_cerrado and item.get("estado") != "pendiente":
+        conn.close()
+        flash("Ese saldo ya no esta pendiente.", "warning")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    if gasto_cerrado and accion == "aprobar" and not item.get("comprobante_drive_file_id"):
+        conn.close()
+        flash("Para aprobar un pago posterior primero debe haber un comprobante cargado.", "error")
+        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    if gasto_cerrado and accion == "aprobar" and not tiene_permiso("caja_gestionar"):
+        conn.close()
+        flash("Necesitas permiso de caja para registrar el pago posterior.", "error")
         return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
     ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     if accion == "aprobar":
+        fecha_pago = validar_fecha_movimiento(request.form.get("fecha_pago")) or ahora_sig().strftime("%Y-%m-%d")
+        movimiento = None
+        if gasto_cerrado:
+            if mes_esta_cerrado(fecha_pago[:7]):
+                conn.close()
+                flash("No se puede registrar el pago en un mes de caja cerrado.", "error")
+                return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+            movimiento = registrar_movimiento_pago_posterior_gasto(conn, item, fecha_pago)
         conn.execute("""
-            UPDATE gasto_compartido_items
-            SET estado = 'pagado',
-                fecha_pago = CURRENT_DATE,
-                comprobante_estado = 'aceptado',
-                comprobante_revisado_en = %s,
+        UPDATE gasto_compartido_items
+        SET estado = 'pagado',
+            fecha_pago = %s,
+            movimiento_id = COALESCE(%s, movimiento_id),
+            comprobante_estado = 'aceptado',
+            comprobante_revisado_en = %s,
                 comprobante_revisado_por = %s,
                 comprobante_observaciones = %s,
-                actualizado_en = CURRENT_TIMESTAMP
-            WHERE id = %s
-        """, (ahora, session.get("username"), observaciones or None, item_id))
-        flash("Comprobante aceptado.", "ok")
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """, (fecha_pago, movimiento["id"] if movimiento else None, ahora, session.get("username"), observaciones or None, item_id))
+        if movimiento:
+            registrar_auditoria("registrar_pago_posterior_comprobante", "gasto_compartido_item", str(item_id), {
+                "gasto_id": item["gasto_id"],
+                "jugador_id": item.get("jugador_id"),
+                "importe": item.get("importe"),
+                "movimiento_id": movimiento["id"],
+                "fecha_pago": fecha_pago,
+            })
+            flash("Comprobante aceptado, ingreso posterior registrado en caja y deuda cancelada.", "ok")
+        else:
+            flash("Comprobante aceptado.", "ok")
     elif accion == "rechazar":
         conn.execute("""
             UPDATE gasto_compartido_items
@@ -16544,9 +16630,9 @@ def portal_subir_comprobante_gasto_compartido(token, item_id):
         conn.close()
         flash("No encontramos ese gasto en tu portal.", "error")
         return redirect(url_for("portal_jugador", token=token))
-    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}):
+    if gasto_compartido_esta_cerrado({"estado": item.get("gasto_estado")}) and item.get("estado") != "pendiente":
         conn.close()
-        flash("Ese gasto compartido ya esta cerrado y no admite nuevos comprobantes.", "error")
+        flash("Ese saldo ya no esta pendiente.", "warning")
         return redirect(url_for("portal_jugador", token=token))
 
     comprobante_pago = request.files.get("comprobante_pago")
@@ -18951,6 +19037,24 @@ def enviar_notificacion_app_manual():
         LIMIT 30
     """).fetchall()
     resumen_push = resumen_suscripciones_push(conn)
+    suscripciones_inactivas = conn.execute("""
+        SELECT COUNT(*) AS total
+        FROM pwa_push_subscriptions
+        WHERE COALESCE(enabled, 0) = 0
+    """).fetchone()
+    ultimo_envio_push = conn.execute("""
+        SELECT creado_en, titulo, destino, enviados, errores, detalle
+        FROM pwa_push_envios
+        ORDER BY creado_en DESC, id DESC
+        LIMIT 1
+    """).fetchone()
+    diagnostico_push = {
+        "vapid_publica": bool(PWA_VAPID_PUBLIC_KEY),
+        "vapid_privada": bool(PWA_VAPID_PRIVATE_KEY),
+        "pywebpush": bool(webpush),
+        "inactivas": (suscripciones_inactivas or {}).get("total") or 0,
+        "ultimo_envio": ultimo_envio_push,
+    }
     conn.close()
 
     return render_template(
@@ -18959,6 +19063,7 @@ def enviar_notificacion_app_manual():
         jugadores=jugadores,
         historial=historial,
         resumen_push=resumen_push,
+        diagnostico_push=diagnostico_push,
         push_configurado=bool(PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY and webpush),
     )
 

@@ -111,6 +111,7 @@
         </thead>
         <tbody>
             {% for item in items %}
+            {% set estado_visual = estado_visual_gasto_compartido_item(item) %}
             <tr>
                 <td>
                     <strong>{{ item['apellido'] }}, {{ item['nombre'] }}</strong>
@@ -118,13 +119,16 @@
                 </td>
                 <td>{{ item['importe'] | moneda }}</td>
                 <td>
+                    <span class="badge {{ estado_visual['badge'] }}">{{ estado_visual['label'] }}</span>
                     {% if item['estado'] == 'pagado' %}
-                        <span class="badge badge-success">Pagado</span>
                         <span class="muted-line">{{ item['fecha_pago'] or '-' }}</span>
-                    {% elif item['estado'] == 'exento' %}
-                        <span class="badge badge-muted">Exento</span>
-                    {% else %}
-                        <span class="badge badge-warning">Pendiente</span>
+                    {% endif %}
+                    {% if item['movimiento_id'] %}
+                        {% if puede('caja_gestionar') %}
+                            <a class="muted-line" href="{{ url_for('editar_movimiento', movimiento_id=item['movimiento_id']) }}">Mov. caja #{{ item['movimiento_id'] }}</a>
+                        {% else %}
+                            <span class="muted-line">Mov. caja #{{ item['movimiento_id'] }}</span>
+                        {% endif %}
                     {% endif %}
                 </td>
                 <td>
@@ -201,12 +205,39 @@
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <button class="button secondary" type="submit" {% if not (item['email'] or item['email_tutor']) %}disabled{% endif %}>Email</button>
                         </form>
-                    {% elif gasto['estado'] == 'Cerrado' and item['estado'] == 'pendiente' and puede('cuotas_gestionar') and puede('caja_gestionar') %}
-                        <form method="post" action="{{ url_for('registrar_pago_posterior_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Registrar este pago en caja y cancelar la deuda?');">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
-                            <button class="button" type="submit">Registrar pago</button>
-                        </form>
+                    {% elif gasto['estado'] == 'Cerrado' and item['estado'] == 'pendiente' and puede('cuotas_gestionar') %}
+                        {% if puede('caja_gestionar') %}
+                            <form method="post" enctype="multipart/form-data" action="{{ url_for('subir_comprobante_gasto_compartido_admin', item_id=item['id']) }}" onsubmit="return confirm('Cargar comprobante, registrar ingreso en caja y cancelar la deuda?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
+                                <input type="file" name="comprobante_pago" accept=".pdf,.jpg,.jpeg,.png" required>
+                                <button class="button secondary" type="submit">Cargar comprobante posterior</button>
+                            </form>
+                        {% endif %}
+                        {% if item['comprobante_drive_file_id'] %}
+                            {% if puede('caja_gestionar') %}
+                                <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Aceptar este comprobante, registrar ingreso en caja y cancelar la deuda?');">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="accion" value="aprobar">
+                                    <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
+                                    <input type="text" name="observaciones" placeholder="Obs. opcional">
+                                    <button class="button" type="submit">Aceptar posterior</button>
+                                </form>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="rechazar">
+                                <input type="text" name="observaciones" placeholder="Motivo de rechazo">
+                                <button class="button danger" type="submit">Rechazar</button>
+                            </form>
+                        {% endif %}
+                        {% if puede('caja_gestionar') %}
+                            <form method="post" action="{{ url_for('registrar_pago_posterior_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Registrar este pago en caja y cancelar la deuda?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
+                                <button class="button secondary" type="submit">Registrar pago sin comprobante</button>
+                            </form>
+                        {% endif %}
                     {% elif gasto['estado'] == 'Cerrado' %}
                         <span class="muted-line">Solo consulta</span>
                     {% endif %}
