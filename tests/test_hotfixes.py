@@ -146,6 +146,10 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Android", response)
         self.assertIn("iPhone", response)
 
+        styles = Path("static/styles.css").read_text(encoding="utf-8")
+        self.assertIn(".entry-shell.portal-push-gate", styles)
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", styles)
+
     def test_portal_manifest_keeps_player_start_url(self):
         actor = {"tipo": "portal", "jugador_id": 9}
 

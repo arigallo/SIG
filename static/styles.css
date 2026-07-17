@@ -3905,14 +3905,19 @@ tbody tr:hover {
         max-height: 360px;
     }
 }
-.portal-push-gate {
-    width: min(100%, 720px);
-    margin: 0 auto;
+.entry-shell.portal-push-gate {
+    width: min(720px, 100%);
+    min-height: calc(100vh - 56px);
+    margin: auto;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    justify-content: center;
 }
 
 .portal-push-gate-card {
     display: grid;
     gap: 1rem;
+    padding: clamp(24px, 4vw, 42px);
     text-align: center;
 }
 
@@ -3928,4 +3933,25 @@ tbody tr:hover {
     border-radius: 14px;
     background: #f8fafc;
     text-align: left;
+}
+
+.portal-push-gate-card [data-pwa-actions] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .75rem;
+}
+
+@media (max-width: 640px) {
+    .entry-shell.portal-push-gate {
+        min-height: calc(100vh - 32px);
+    }
+
+    .portal-push-gate-card {
+        padding: 22px 18px;
+    }
+
+    .portal-push-gate-card [data-pwa-actions] .button {
+        width: 100%;
+    }
 }
