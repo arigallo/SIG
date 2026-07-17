@@ -1,4 +1,4 @@
-const SIG_CACHE = "sig-pwa-v1";
+const SIG_CACHE = "sig-pwa-v2";
 const APP_SHELL = [
     "/",
     "/portal",
@@ -30,26 +30,31 @@ self.addEventListener("fetch", (event) => {
     }
 
     const url = new URL(event.request.url);
-    const cacheable = (
-        url.origin === self.location.origin
-        && (
-            url.pathname.startsWith("/static/")
-            || url.pathname === "/manifest.webmanifest"
-            || url.pathname === "/portal"
-        )
-    );
+    if (url.origin !== self.location.origin) {
+        return;
+    }
 
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                if (cacheable && response.ok) {
-                    const copy = response.clone();
-                    caches.open(SIG_CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
-                }
-                return response;
+    const isStatic = url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest";
+    if (isStatic) {
+        event.respondWith(
+            caches.match(event.request, {ignoreSearch: true}).then((cached) => {
+                const network = fetch(event.request).then((response) => {
+                    if (response.ok) {
+                        caches.open(SIG_CACHE).then((cache) => cache.put(event.request, response.clone())).catch(() => {});
+                    }
+                    return response;
+                });
+                return cached || network;
             })
-            .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/portal")))
-    );
+        );
+        return;
+    }
+
+    if (event.request.mode === "navigate") {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match("/portal"))
+        );
+    }
 });
 
 self.addEventListener("push", (event) => {

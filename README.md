@@ -13,6 +13,23 @@ Secret Manager, email y WhatsApp.
 ## Requisitos
 - Python 3.10 o superior
 
+## Configuracion obligatoria
+
+SIG no inicia sin una clave de sesion. En produccion, carga estos valores desde
+Secret Manager en lugar de escribirlos directamente en Cloud Run:
+
+```text
+SECRET_KEY=<valor aleatorio largo>
+ADMIN_PASSWORD=<solo para crear o recuperar el administrador inicial>
+```
+
+Si WhatsApp esta habilitado, tambien debe configurarse el secreto de la app de
+Meta. Sin este valor el webhook responde `503` y no procesa eventos:
+
+```text
+WHATSAPP_APP_SECRET=<secreto de la app de Meta>
+```
+
 ## Instalacion
 Abri una terminal dentro de esta carpeta y ejecuta:
 

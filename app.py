@@ -30,6 +30,7 @@ from urllib.parse import urljoin
 from urllib.request import Request as UrlRequest, urlopen
 from urllib.error import HTTPError, URLError
 from html.parser import HTMLParser
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -117,7 +118,12 @@ except ImportError:
     webpush = None
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "cambiar-esto-por-una-clave-segura")
+SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    raise RuntimeError(
+        "Falta SECRET_KEY. Configurala con un secreto aleatorio antes de iniciar SIG."
+    )
+app.secret_key = SECRET_KEY
 
 app.config["SESSION_PERMANENT"] = False
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = timedelta(hours=6)
@@ -198,8 +204,10 @@ def inject_now():
         "csrf_token": csrf_token,
         "puede": tiene_permiso,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
-        "notificaciones_count": obtener_contador_notificaciones() if has_request_context() else 0,
-        "whatsapp_inbox_count": obtener_contador_whatsapp_inbox() if has_request_context() else 0,
+        # Los contadores se actualizan asincronicamente desde app.js. Estas
+        # consultas no deben bloquear el primer HTML util de cada pantalla.
+        "notificaciones_count": 0,
+        "whatsapp_inbox_count": 0,
         "whatsapp_api_activa": whatsapp_api_disponible(),
         "static_asset": static_asset,
         "pwa_public_key": PWA_VAPID_PUBLIC_KEY,
@@ -5272,6 +5280,9 @@ def listar_whatsapp_webhook_eventos(limit=15):
 
 
 def parse_meta_signed_request(signed_request):
+    if not WHATSAPP_APP_SECRET:
+        return None
+
     partes = str(signed_request or "").split(".", 1)
     if len(partes) != 2:
         return None
@@ -5281,18 +5292,17 @@ def parse_meta_signed_request(signed_request):
     except Exception:
         return None
 
-    if WHATSAPP_APP_SECRET:
-        try:
-            firma = base64url_decode(firma_codificada)
-            esperado = hmac.new(
-                WHATSAPP_APP_SECRET.encode("utf-8"),
-                payload_codificado.encode("utf-8"),
-                hashlib.sha256,
-            ).digest()
-            if not hmac.compare_digest(firma, esperado):
-                return None
-        except Exception:
+    try:
+        firma = base64url_decode(firma_codificada)
+        esperado = hmac.new(
+            WHATSAPP_APP_SECRET.encode("utf-8"),
+            payload_codificado.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(firma, esperado):
             return None
+    except Exception:
+        return None
     return payload
 
 
@@ -5895,9 +5905,22 @@ def obtener_notificaciones_operativas():
     }
 
 
+NOTIFICACIONES_COUNT_CACHE_SECONDS = 15
+_NOTIFICACIONES_COUNT_CACHE = {}
+
+
 def obtener_contador_notificaciones():
     if "user_id" not in session or not tiene_permiso("comunicaciones_ver"):
         return 0
+
+    cache_key = (
+        session.get("user_id"),
+        tuple(sorted(session.get("permisos") or [])),
+    )
+    ahora = monotonic()
+    cacheado = _NOTIFICACIONES_COUNT_CACHE.get(cache_key)
+    if cacheado and ahora - cacheado[0] < NOTIFICACIONES_COUNT_CACHE_SECONDS:
+        return cacheado[1]
 
     try:
         resumen = obtener_notificaciones_operativas()
@@ -5905,7 +5928,7 @@ def obtener_contador_notificaciones():
         app.logger.exception("No se pudo calcular el contador de notificaciones.")
         return 0
 
-    return sum(
+    total = sum(
         len(resumen[campo])
         for campo in (
             "cuotas_vencidas",
@@ -5919,6 +5942,11 @@ def obtener_contador_notificaciones():
             "cambios_portal",
         )
     )
+    _NOTIFICACIONES_COUNT_CACHE[cache_key] = (ahora, total)
+    if len(_NOTIFICACIONES_COUNT_CACHE) > 100:
+        _NOTIFICACIONES_COUNT_CACHE.clear()
+        _NOTIFICACIONES_COUNT_CACHE[cache_key] = (ahora, total)
+    return total
 
 
 def listar_tareas_sig(estado="pendiente", limite=80):
@@ -7814,11 +7842,14 @@ def init_db():
     """).fetchone()
 
     if not usuario_admin:
-        admin_password = ADMIN_PASSWORD or "admin123"
+        if not ADMIN_PASSWORD:
+            raise RuntimeError(
+                "Falta ADMIN_PASSWORD para crear el usuario administrador inicial."
+            )
         conn.execute("""
     INSERT INTO usuarios (username, password, rol, debe_cambiar_password, onboarding_visto)
     VALUES (%s, %s, %s, %s, %s)
-""", ("admin", generate_password_hash(admin_password), "admin", 1, 0))
+""", ("admin", generate_password_hash(ADMIN_PASSWORD), "admin", 1, 0))
     elif ADMIN_PASSWORD and (
         FORCE_ADMIN_PASSWORD_UPDATE
         or check_password_hash(usuario_admin["password"], "admin123")
@@ -9017,16 +9048,19 @@ def whatsapp_webhook_verify():
 def whatsapp_webhook_receive():
     payload = request.get_json(silent=True) or {}
 
-    if WHATSAPP_APP_SECRET:
-        firma = request.headers.get("X-Hub-Signature-256", "")
-        esperado = "sha256=" + hmac.new(
-            WHATSAPP_APP_SECRET.encode("utf-8"),
-            request.get_data(),
-            hashlib.sha256,
-        ).hexdigest()
-        if not firma or not secrets.compare_digest(firma, esperado):
-            registrar_whatsapp_webhook("signature_error", payload, procesado=False)
-            return Response("invalid signature", status=403, mimetype="text/plain")
+    if not WHATSAPP_APP_SECRET:
+        app.logger.error("Webhook de WhatsApp deshabilitado: falta WHATSAPP_APP_SECRET.")
+        return Response("webhook not configured", status=503, mimetype="text/plain")
+
+    firma = request.headers.get("X-Hub-Signature-256", "")
+    esperado = "sha256=" + hmac.new(
+        WHATSAPP_APP_SECRET.encode("utf-8"),
+        request.get_data(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not firma or not secrets.compare_digest(firma, esperado):
+        registrar_whatsapp_webhook("signature_error", payload, procesado=False)
+        return Response("invalid signature", status=403, mimetype="text/plain")
 
     procesado = False
     try:
@@ -17094,7 +17128,8 @@ def portal_confirmar_asistencia(token, evento_id):
         conn.close()
         abort(404)
 
-    if es_evento_partido(evento):
+    requiere_bienestar = not es_evento_partido(evento) and estado != "no_asiste"
+    if not requiere_bienestar:
         confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
         guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
         conn.commit()
@@ -17166,7 +17201,8 @@ def portal_bienestar_asistencia(token, evento_id):
     if estado not in PORTAL_ASISTENCIA_ESTADOS:
         estado = "confirmado"
 
-    if es_evento_partido(evento):
+    requiere_bienestar = not es_evento_partido(evento) and estado != "no_asiste"
+    if not requiere_bienestar:
         if request.method == "POST" or request.args.get("estado"):
             confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
             guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
@@ -17189,7 +17225,7 @@ def portal_bienestar_asistencia(token, evento_id):
                 rol="portal",
             )
             flash("Confirmacion guardada.", "ok")
-        else:
+        elif es_evento_partido(evento):
             flash("Los partidos no requieren cuestionario de bienestar.", "ok")
         conn.close()
         return redirect(url_for("portal_jugador", token=token))
@@ -19066,6 +19102,14 @@ def enviar_notificacion_app_manual():
         diagnostico_push=diagnostico_push,
         push_configurado=bool(PWA_VAPID_PUBLIC_KEY and PWA_VAPID_PRIVATE_KEY and webpush),
     )
+
+
+@app.route("/notificaciones/contador")
+def contador_notificaciones():
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+    return jsonify({"total": obtener_contador_notificaciones()})
 
 
 @app.route("/notificaciones")
@@ -23021,4 +23065,5 @@ if os.environ.get("INIT_DB", "true").lower() in {"1", "true", "yes", "on"}:
     init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() in {"1", "true", "yes", "on"}
+    app.run(debug=debug)

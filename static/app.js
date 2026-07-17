@@ -83,14 +83,32 @@
         whatsappBadge.hidden = normalized <= 0;
     };
 
-    const setNotificationsBadgeFromWhatsapp = (whatsappCount) => {
+    const setNotificationsBadge = (count) => {
         if (!notificationsBadge) {
             return;
         }
-        const baseCount = Number(notificationsBadge.dataset.baseCount) || 0;
-        const normalized = baseCount + (Number(whatsappCount) || 0);
+        const normalized = Number(count) || 0;
         notificationsBadge.textContent = String(normalized);
         notificationsBadge.hidden = normalized <= 0;
+    };
+
+    const pollNotifications = async () => {
+        if (!notificationsBadge) {
+            return;
+        }
+        try {
+            const response = await fetch("/notificaciones/contador", {
+                credentials: "same-origin",
+                headers: {"Accept": "application/json"},
+            });
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            setNotificationsBadge(data.total);
+        } catch (error) {
+            // Best effort: the next poll will try again.
+        }
     };
 
     const pollWhatsappInbox = async () => {
@@ -110,7 +128,6 @@
             const previousId = lastWhatsappInboxId;
             lastWhatsappInboxId = latestId;
             setWhatsappBadge(data.sin_leer);
-            setNotificationsBadgeFromWhatsapp(data.sin_leer);
 
             if (
                 previousId !== null
@@ -137,6 +154,11 @@
     if (whatsappBadge) {
         pollWhatsappInbox();
         window.setInterval(pollWhatsappInbox, 10000);
+    }
+
+    if (notificationsBadge) {
+        pollNotifications();
+        window.setInterval(pollNotifications, 30000);
     }
 
     const prioritySelectAll = document.querySelector("[data-priority-select-all]");

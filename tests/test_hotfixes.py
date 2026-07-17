@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 os.environ["INIT_DB"] = "false"
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key")
 
 from flask import render_template
 from openpyxl import Workbook, load_workbook
@@ -17,6 +18,119 @@ from services import portal as portal_service
 
 
 class HotfixTests(unittest.TestCase):
+    def test_training_no_asiste_is_saved_without_wellbeing(self):
+        class Result:
+            def __init__(self, row=None):
+                self.row = row
+
+            def fetchone(self):
+                return self.row
+
+        class Connection:
+            def __init__(self):
+                self.statements = []
+                self.committed = False
+                self.closed = False
+
+            def execute(self, sql, params=None):
+                self.statements.append((sql, params))
+                if "FROM jugadores" in sql:
+                    return Result({"id": 7, "portal_token": "portal-token", "portal_activo": 1, "categoria": "Plantel"})
+                if "FROM calendario_eventos" in sql:
+                    return Result({
+                        "id": 11,
+                        "tipo": "Entrenamiento",
+                        "titulo": "Entrenamiento martes",
+                        "categoria": "Plantel",
+                        "asistencia_evento_id": 22,
+                        "publicar_portal": 1,
+                    })
+                return Result()
+
+            def commit(self):
+                self.committed = True
+
+            def close(self):
+                self.closed = True
+
+        conn = Connection()
+        with app.app.test_request_context(
+            "/portal/portal-token/eventos/11/confirmar",
+            method="POST",
+            data={"estado": "no_asiste"},
+        ):
+            with patch.object(app, "get_connection", return_value=conn):
+                with patch.object(app, "registrar_auditoria"):
+                    response = app.portal_confirmar_asistencia("portal-token", 11)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/portal/portal-token", response.location)
+        self.assertTrue(conn.committed)
+        insert = next(sql for sql, _params in conn.statements if "INSERT INTO portal_asistencia_confirmaciones" in sql)
+        self.assertIn("sueno_calidad", insert)
+        insert_params = next(params for sql, params in conn.statements if "INSERT INTO portal_asistencia_confirmaciones" in sql)
+        self.assertEqual(insert_params, (22, 7, "no_asiste"))
+
+    def test_portal_training_posts_confirmation_before_wellbeing(self):
+        template = Path("templates/portal_jugador.html").read_text(encoding="utf-8")
+
+        self.assertIn("url_for('portal_confirmar_asistencia'", template)
+        self.assertIn("confirmacion['estado'] == 'no_asiste'", template)
+        self.assertIn("No requiere bienestar", template)
+
+    def test_service_worker_never_uses_portal_html_for_static_fallback(self):
+        source = Path("static/service-worker.js").read_text(encoding="utf-8")
+
+        self.assertIn('const SIG_CACHE = "sig-pwa-v2"', source)
+        self.assertIn('caches.match(event.request, {ignoreSearch: true})', source)
+        self.assertNotIn('cached || caches.match("/portal")', source)
+
+    def test_navigation_counters_do_not_block_template_render(self):
+        with app.app.test_request_context("/"):
+            with patch.object(app, "obtener_contador_notificaciones") as notificaciones:
+                with patch.object(app, "obtener_contador_whatsapp_inbox") as whatsapp:
+                    contexto = app.inject_now()
+
+        self.assertEqual(contexto["notificaciones_count"], 0)
+        self.assertEqual(contexto["whatsapp_inbox_count"], 0)
+        notificaciones.assert_not_called()
+        whatsapp.assert_not_called()
+
+    def test_notification_counter_endpoint_returns_cached_total(self):
+        with patch.object(app, "obtener_config_mantenimiento", return_value={"activo": False}):
+            with patch.object(app, "obtener_contador_notificaciones", return_value=7):
+                client = app.app.test_client()
+                with client.session_transaction() as session:
+                    session["user_id"] = 1
+                    session["username"] = "admin"
+                    session["rol"] = "admin"
+                    session["permisos"] = ["comunicaciones_ver"]
+
+                response = client.get("/notificaciones/contador")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"total": 7})
+
+    def test_whatsapp_webhook_fails_closed_without_app_secret(self):
+        client = app.app.test_client()
+
+        with patch.object(app, "WHATSAPP_APP_SECRET", ""):
+            response = client.post("/webhooks/whatsapp", json={"entry": []})
+
+        self.assertEqual(response.status_code, 503)
+
+    def test_whatsapp_webhook_rejects_invalid_signature(self):
+        client = app.app.test_client()
+
+        with patch.object(app, "WHATSAPP_APP_SECRET", "meta-app-secret"):
+            response = client.post(
+                "/webhooks/whatsapp",
+                json={"entry": []},
+                headers={"X-Hub-Signature-256": "sha256=invalid"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_timezone_aware_datetime_is_serialized_before_saving(self):
         wb = Workbook()
         ws = wb.active
