@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Activar notificaciones - SIG</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SIG">
+    <link rel="manifest" href="{{ url_for('pwa_manifest', portal_token=token) }}">
+    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="login-body entry-body" data-endpoint="portal_activar_notificaciones" data-username="" data-portal-token="{{ token }}" data-pwa-required="1">
+    <main class="entry-shell portal-push-gate">
+        <section class="card portal-push-gate-card">
+            <div class="login-logo entry-logo compact-logo">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
+            </div>
+            <span class="badge badge-info">Portal del jugador</span>
+            <h1>Hola, {{ jugador['nombre'] }}</h1>
+            <h2>Activ&aacute; las notificaciones para continuar</h2>
+            <p>Usamos este canal para avisarte sobre entrenamientos, pagos, documentaci&oacute;n y comunicaciones importantes del club.</p>
+
+            <div class="portal-push-steps">
+                <span><strong>1.</strong> Toc&aacute; el bot&oacute;n de activaci&oacute;n.</span>
+                <span><strong>2.</strong> Eleg&iacute; &ldquo;Permitir&rdquo; cuando lo pregunte el dispositivo.</span>
+                <span><strong>3.</strong> SIG abrir&aacute; autom&aacute;ticamente tu portal.</span>
+            </div>
+            <p class="muted-line"><strong>Android:</strong> pod&eacute;s activarlas directamente desde Chrome o Edge, sin instalar la app.</p>
+
+            <div data-pwa-actions>
+                <button class="button" type="button" data-pwa-enable-push>Activar notificaciones</button>
+                <button class="button secondary" type="button" data-pwa-install hidden>Instalar SIG</button>
+            </div>
+            <p class="report-note" data-pwa-status>Preparando el servicio de notificaciones...</p>
+
+            <div class="flash warning" data-pwa-ios-install-help hidden>
+                <strong>En iPhone o iPad primero ten&eacute;s que instalar SIG.</strong><br>
+                Abr&iacute; esta p&aacute;gina en Safari, toc&aacute; Compartir, eleg&iacute; &ldquo;Agregar a inicio&rdquo; y luego abr&iacute; SIG desde el nuevo &iacute;cono. Desde all&iacute; podr&aacute;s activar las notificaciones.
+            </div>
+            <div class="flash error" data-pwa-permission-help hidden>
+                Las notificaciones est&aacute;n bloqueadas. Habilitalas desde la configuraci&oacute;n del navegador o del tel&eacute;fono y volv&eacute; a abrir esta pantalla.
+            </div>
+            <div class="flash error" data-pwa-unsupported-help hidden>
+                Este navegador no admite notificaciones web. Prob&aacute; con Chrome o Edge actualizado; en iPhone, instal&aacute; SIG desde Safari.
+            </div>
+            <p class="muted-line">Si no pod&eacute;s completar la activaci&oacute;n, comunicate con administraci&oacute;n.</p>
+        </section>
+    </main>
+    <script src="{{ static_asset('app.js') }}" defer></script>
+</body>
+</html>

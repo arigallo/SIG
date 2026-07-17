@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SIG">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    <link rel="manifest" href="{{ url_for('pwa_manifest', portal_token=token) }}">
     <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>

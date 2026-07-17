@@ -46,6 +46,20 @@ def desactivar_suscripcion_push(conn, endpoint):
     """, (endpoint,))
 
 
+def jugador_tiene_suscripcion_push_activa(conn, jugador_id):
+    if not jugador_id:
+        return False
+    row = conn.execute("""
+        SELECT 1 AS activa
+        FROM pwa_push_subscriptions
+        WHERE actor_tipo = 'portal'
+          AND jugador_id = %s
+          AND enabled = 1
+        LIMIT 1
+    """, (jugador_id,)).fetchone()
+    return bool(row)
+
+
 def obtener_destinatarios_push_manual(conn, destino, categoria=None, jugador_id=None):
     destino = (destino or "").strip()
     params = []

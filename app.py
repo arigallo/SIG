@@ -64,6 +64,7 @@ from services.notificaciones import (
     desactivar_suscripcion_push,
     guardar_suscripcion_push,
     hash_portal_token,
+    jugador_tiene_suscripcion_push_activa,
     normalizar_url_push,
     obtener_comunicaciones_portal_dia as obtener_comunicaciones_portal_dia_repo,
     obtener_destinatarios_push_manual,
@@ -4355,6 +4356,22 @@ def guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado):
             comentarios = NULL,
             actualizado_en = CURRENT_TIMESTAMP
     """, (evento["asistencia_evento_id"], jugador["id"], estado))
+
+
+def portal_tiene_notificaciones_activas(token):
+    token = (token or "").strip()
+    if not token:
+        return False
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT id
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    activo = bool(jugador) and jugador_tiene_suscripcion_push_activa(conn, jugador["id"])
+    conn.close()
+    return activo
 
 
 def obtener_confirmaciones_portal(conn, evento_ids, jugador_id=None):
@@ -9004,6 +9021,16 @@ def proteger_rutas():
 
     if request.path in {"/meta/data-deletion", "/meta/data-deletion-callback"}:
         return
+
+    portal_token = (request.view_args or {}).get("token")
+    if (
+        request.endpoint in rutas_publicas
+        and request.endpoint != "portal_jugador"
+        and request.endpoint.startswith("portal_")
+        and portal_token
+        and not portal_tiene_notificaciones_activas(portal_token)
+    ):
+        return redirect(url_for("portal_jugador", token=portal_token))
 
     if request.endpoint in rutas_publicas:
         return
@@ -16811,6 +16838,14 @@ def portal_jugador(token):
         conn.close()
         abort(404)
 
+    if not jugador_tiene_suscripcion_push_activa(conn, jugador["id"]):
+        conn.close()
+        return render_template(
+            "portal_activar_notificaciones.html",
+            jugador=jugador,
+            token=token,
+        )
+
     cuotas = conn.execute("""
         SELECT id, periodo, importe, pagado, fecha_vencimiento, fecha_pago,
                metodo_pago, becada, beca_porcentaje, descuento_beca,
@@ -19295,11 +19330,20 @@ def estado_whatsapp_inbox():
 
 @app.route("/manifest.webmanifest")
 def pwa_manifest():
+    portal_token = request.args.get("portal_token", "").strip()
+    portal_start_url = None
+    if portal_token:
+        conn = get_connection()
+        actor = actor_push_actual(conn, portal_token=portal_token)
+        conn.close()
+        if actor and actor["tipo"] == "portal":
+            portal_start_url = url_for("portal_jugador", token=portal_token)
+
     manifest = {
         "name": "SIG - Sistema Integral de Gestion",
         "short_name": "SIG",
         "description": "Portal y administracion del club.",
-        "start_url": url_for("index"),
+        "start_url": portal_start_url or url_for("index"),
         "scope": "/",
         "display": "standalone",
         "background_color": "#0f172a",

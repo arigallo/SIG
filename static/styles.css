@@ -3905,3 +3905,27 @@ tbody tr:hover {
         max-height: 360px;
     }
 }
+.portal-push-gate {
+    width: min(100%, 720px);
+    margin: 0 auto;
+}
+
+.portal-push-gate-card {
+    display: grid;
+    gap: 1rem;
+    text-align: center;
+}
+
+.portal-push-gate-card .compact-logo img {
+    max-height: 88px;
+    width: auto;
+}
+
+.portal-push-steps {
+    display: grid;
+    gap: .65rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: #f8fafc;
+    text-align: left;
+}

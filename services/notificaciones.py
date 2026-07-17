@@ -3,6 +3,7 @@ import hashlib
 from repositories.notificaciones import (
     desactivar_suscripcion_push,
     guardar_suscripcion_push,
+    jugador_tiene_suscripcion_push_activa,
     obtener_comunicaciones_portal_dia,
     obtener_destinatarios_push_manual,
     resumen_suscripciones_push,

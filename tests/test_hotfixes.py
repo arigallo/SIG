@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -110,6 +111,66 @@ class HotfixTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"total": 7})
+
+    def test_portal_without_push_subscription_renders_activation_gate(self):
+        class Result:
+            def __init__(self, row=None):
+                self.row = row
+
+            def fetchone(self):
+                return self.row
+
+        class Connection:
+            def execute(self, sql, _params=None):
+                if "FROM jugadores" in sql:
+                    return Result({
+                        "id": 9,
+                        "nombre": "Alex",
+                        "apellido": "Prueba",
+                        "portal_token": "portal-token",
+                        "portal_activo": 1,
+                    })
+                if "FROM pwa_push_subscriptions" in sql:
+                    return Result(None)
+                raise AssertionError(sql)
+
+            def close(self):
+                pass
+
+        with app.app.test_request_context("/portal/portal-token"):
+            with patch.object(app, "get_connection", return_value=Connection()):
+                response = app.portal_jugador("portal-token")
+
+        self.assertIn("Activ", response)
+        self.assertIn("data-pwa-required=\"1\"", response)
+        self.assertIn("Android", response)
+        self.assertIn("iPhone", response)
+
+    def test_portal_manifest_keeps_player_start_url(self):
+        actor = {"tipo": "portal", "jugador_id": 9}
+
+        class Connection:
+            def close(self):
+                pass
+
+        with app.app.test_request_context("/manifest.webmanifest?portal_token=portal-token"):
+            with patch.object(app, "get_connection", return_value=Connection()):
+                with patch.object(app, "actor_push_actual", return_value=actor):
+                    response = app.pwa_manifest()
+
+        manifest = json.loads(response.get_data(as_text=True))
+        self.assertEqual(manifest["start_url"], "/portal/portal-token")
+
+    def test_direct_portal_route_redirects_to_activation_without_push(self):
+        with app.app.test_request_context(
+            "/portal/portal-token/eventos/11/bienestar",
+            method="GET",
+        ):
+            with patch.object(app, "portal_tiene_notificaciones_activas", return_value=False):
+                response = app.proteger_rutas()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, "/portal/portal-token")
 
     def test_whatsapp_webhook_fails_closed_without_app_secret(self):
         client = app.app.test_client()

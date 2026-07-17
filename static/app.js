@@ -453,11 +453,52 @@
     const pwaSubscriptionStatus = document.querySelector("[data-pwa-subscription-status]");
     const pwaWorkerStatus = document.querySelector("[data-pwa-worker-status]");
     const portalToken = document.body?.dataset.portalToken || "";
+    const pushRequired = document.body?.dataset.pwaRequired === "1";
+    const pwaIosInstallHelp = document.querySelector("[data-pwa-ios-install-help]");
+    const pwaPermissionHelp = document.querySelector("[data-pwa-permission-help]");
+    const pwaUnsupportedHelp = document.querySelector("[data-pwa-unsupported-help]");
     const pwaStorageKey = `sig:pwa:test-ok:${portalToken || username || "default"}`;
     const pwaSavedKey = `sig:pwa:saved:v2:${portalToken || username || "default"}`;
     let deferredInstallPrompt = null;
     let pushConfig = null;
     let pwaSyncInFlight = false;
+
+    const isIosDevice = () => (
+        /iphone|ipad|ipod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+
+    const isStandalonePwa = () => (
+        window.matchMedia?.("(display-mode: standalone)").matches
+        || window.navigator.standalone === true
+    );
+
+    const pushSupported = () => (
+        "serviceWorker" in navigator
+        && "PushManager" in window
+        && "Notification" in window
+    );
+
+    const updateRequiredPushHelp = () => {
+        if (!pushRequired) {
+            return;
+        }
+        const iosNeedsInstall = isIosDevice() && !isStandalonePwa();
+        const unsupported = !pushSupported();
+        const denied = "Notification" in window && Notification.permission === "denied";
+        if (pwaIosInstallHelp) {
+            pwaIosInstallHelp.hidden = !iosNeedsInstall;
+        }
+        if (pwaUnsupportedHelp) {
+            pwaUnsupportedHelp.hidden = !unsupported || iosNeedsInstall;
+        }
+        if (pwaPermissionHelp) {
+            pwaPermissionHelp.hidden = !denied;
+        }
+        if (pushButton) {
+            pushButton.hidden = iosNeedsInstall || unsupported || denied;
+        }
+    };
 
     const setPwaStatus = (message, isError = false) => {
         if (pwaStatus) {
@@ -602,15 +643,21 @@
                 credentials: "same-origin",
                 headers: { "Accept": "application/json" },
             }).then((response) => response.json()).catch(() => null);
-            await ensurePushSubscriptionSaved().catch(() => {});
+            const syncedSubscription = await ensurePushSubscriptionSaved().catch(() => null);
+            if (pushRequired && syncedSubscription) {
+                window.location.reload();
+                return;
+            }
             await refreshPwaButtons();
             await updatePwaDiagnostics();
+            updateRequiredPushHelp();
         }).catch(() => {
             setPwaStatus("No se pudo preparar la app instalable.", true);
             updatePwaDiagnostics();
         });
     } else {
         updatePwaDiagnostics();
+        updateRequiredPushHelp();
     }
 
     window.addEventListener("beforeinstallprompt", (event) => {
@@ -655,6 +702,10 @@
                 return;
             }
             setPwaStatus("Notificaciones activadas.");
+            if (pushRequired) {
+                window.setTimeout(() => window.location.reload(), 500);
+                return;
+            }
             await refreshPwaButtons();
             await updatePwaDiagnostics();
         } catch (error) {
