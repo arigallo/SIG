@@ -479,11 +479,17 @@
         && "Notification" in window
     );
 
+    const iosNeedsHomeScreenInstall = () => isIosDevice() && !isStandalonePwa();
+
+    const canUsePushInCurrentContext = () => (
+        pushSupported() && !iosNeedsHomeScreenInstall()
+    );
+
     const updateRequiredPushHelp = () => {
         if (!pushRequired) {
             return;
         }
-        const iosNeedsInstall = isIosDevice() && !isStandalonePwa();
+        const iosNeedsInstall = iosNeedsHomeScreenInstall();
         const unsupported = !pushSupported();
         const denied = "Notification" in window && Notification.permission === "denied";
         if (pwaIosInstallHelp) {
@@ -557,6 +563,10 @@
             pwaWorkerStatus.textContent = ("serviceWorker" in navigator) ? "disponible" : "no soportado";
         }
         if (pwaSubscriptionStatus) {
+            if (iosNeedsHomeScreenInstall()) {
+                pwaSubscriptionStatus.textContent = "disponible al abrir SIG desde Inicio";
+                return;
+            }
             try {
                 const subscription = await currentPushSubscription();
                 pwaSubscriptionStatus.textContent = subscription ? "suscripto en este navegador" : "sin suscripcion local";
@@ -581,7 +591,7 @@
         if (pwaSyncInFlight || !pushConfig?.pushEnabled || !pushConfig?.vapidPublicKey) {
             return null;
         }
-        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        if (!canUsePushInCurrentContext()) {
             return null;
         }
         if (!portalToken && !username) {
@@ -622,7 +632,11 @@
         if (pushButton || testPushButton) {
             showPwaActions();
         }
-        if (pushButton && "PushManager" in window && "Notification" in window && Notification.permission !== "denied") {
+        if (!canUsePushInCurrentContext()) {
+            updateRequiredPushHelp();
+            return;
+        }
+        if (pushButton && Notification.permission !== "denied") {
             const subscription = await currentPushSubscription();
             const testDone = window.localStorage?.getItem(pwaStorageKey) === "1";
             if (subscription) {
@@ -636,13 +650,40 @@
         }
     };
 
-    if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/service-worker.js").then(async () => {
+    const initializePwa = async () => {
+        updateRequiredPushHelp();
+        if (!("serviceWorker" in navigator)) {
+            await updatePwaDiagnostics();
+            return;
+        }
+
+        try {
+            await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
+        } catch (error) {
+            console.error("No se pudo registrar el service worker de SIG.", error);
+            const message = isIosDevice()
+                ? "Safari no pudo preparar SIG. Recargá la página; si usás navegación privada, abrila en una pestaña normal."
+                : "No se pudo preparar la app instalable.";
+            setPwaStatus(message, true);
+            await updatePwaDiagnostics();
+            updateRequiredPushHelp();
+            return;
+        }
+
+        try {
             showPwaActions();
             pushConfig = await fetch("/pwa/config", {
                 credentials: "same-origin",
                 headers: { "Accept": "application/json" },
             }).then((response) => response.json()).catch(() => null);
+
+            if (iosNeedsHomeScreenInstall()) {
+                setPwaStatus("Instalá SIG y abrila desde el ícono para activar las notificaciones.");
+                await updatePwaDiagnostics();
+                updateRequiredPushHelp();
+                return;
+            }
+
             const syncedSubscription = await ensurePushSubscriptionSaved().catch(() => null);
             if (pushRequired && syncedSubscription) {
                 window.location.reload();
@@ -651,14 +692,15 @@
             await refreshPwaButtons();
             await updatePwaDiagnostics();
             updateRequiredPushHelp();
-        }).catch(() => {
-            setPwaStatus("No se pudo preparar la app instalable.", true);
-            updatePwaDiagnostics();
-        });
-    } else {
-        updatePwaDiagnostics();
-        updateRequiredPushHelp();
-    }
+        } catch (error) {
+            console.error("No se pudo inicializar el servicio de notificaciones de SIG.", error);
+            setPwaStatus(error.message || "No se pudo preparar el servicio de notificaciones.", true);
+            await updatePwaDiagnostics();
+            updateRequiredPushHelp();
+        }
+    };
+
+    initializePwa();
 
     window.addEventListener("beforeinstallprompt", (event) => {
         event.preventDefault();

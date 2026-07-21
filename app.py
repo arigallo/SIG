@@ -19368,7 +19368,9 @@ def pwa_manifest():
             },
         ],
     }
-    return Response(json.dumps(manifest, ensure_ascii=False), mimetype="application/manifest+json")
+    response = Response(json.dumps(manifest, ensure_ascii=False), mimetype="application/manifest+json")
+    response.headers["Cache-Control"] = "private, no-store" if portal_token else "no-cache"
+    return response
 
 
 @app.route("/service-worker.js")

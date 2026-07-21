@@ -79,11 +79,13 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("confirmacion['estado'] == 'no_asiste'", template)
         self.assertIn("No requiere bienestar", template)
 
-    def test_service_worker_never_uses_portal_html_for_static_fallback(self):
+    def test_service_worker_keeps_cache_busters_and_dynamic_manifest_uncached(self):
         source = Path("static/service-worker.js").read_text(encoding="utf-8")
 
-        self.assertIn('const SIG_CACHE = "sig-pwa-v2"', source)
-        self.assertIn('caches.match(event.request, {ignoreSearch: true})', source)
+        self.assertIn('const SIG_CACHE = "sig-pwa-v3"', source)
+        self.assertIn('url.pathname === "/manifest.webmanifest"', source)
+        self.assertIn("caches.match(event.request)", source)
+        self.assertNotIn("ignoreSearch", source)
         self.assertNotIn('cached || caches.match("/portal")', source)
 
     def test_navigation_counters_do_not_block_template_render(self):
@@ -164,6 +166,7 @@ class HotfixTests(unittest.TestCase):
 
         manifest = json.loads(response.get_data(as_text=True))
         self.assertEqual(manifest["start_url"], "/portal/portal-token")
+        self.assertEqual(response.headers["Cache-Control"], "private, no-store")
 
     def test_direct_portal_route_redirects_to_activation_without_push(self):
         with app.app.test_request_context(
@@ -909,6 +912,8 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Android", login)
         self.assertIn("iPhone", login)
         self.assertIn("serviceWorker.register", js)
+        self.assertIn('updateViaCache: "none"', js)
+        self.assertIn("iosNeedsHomeScreenInstall", js)
         self.assertIn("data-pwa-install-inline", js)
         self.assertIn("pushManager.subscribe", js)
         self.assertIn("ensurePushSubscriptionSaved", js)

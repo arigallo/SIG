@@ -1,4 +1,4 @@
-const SIG_CACHE = "sig-pwa-v2";
+const SIG_CACHE = "sig-pwa-v3";
 const APP_SHELL = [
     "/",
     "/portal",
@@ -34,10 +34,15 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    const isStatic = url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest";
+    if (url.pathname === "/manifest.webmanifest") {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
+    const isStatic = url.pathname.startsWith("/static/");
     if (isStatic) {
         event.respondWith(
-            caches.match(event.request, {ignoreSearch: true}).then((cached) => {
+            caches.match(event.request).then((cached) => {
                 const network = fetch(event.request).then((response) => {
                     if (response.ok) {
                         caches.open(SIG_CACHE).then((cache) => cache.put(event.request, response.clone())).catch(() => {});
