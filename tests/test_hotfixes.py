@@ -147,10 +147,14 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("data-pwa-required=\"1\"", response)
         self.assertIn("Android", response)
         self.assertIn("iPhone", response)
+        self.assertIn("Cerrar y continuar temporalmente", response)
+        self.assertIn("durante 2 horas", response)
+        self.assertIn("/portal/portal-token/notificaciones/omitir", response)
 
         styles = Path("static/styles.css").read_text(encoding="utf-8")
         self.assertIn(".entry-shell.portal-push-gate", styles)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", styles)
+        self.assertIn(".portal-push-close", styles)
 
     def test_portal_manifest_keeps_player_start_url(self):
         actor = {"tipo": "portal", "jugador_id": 9}
@@ -178,6 +182,45 @@ class HotfixTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.location, "/portal/portal-token")
+
+    def test_portal_notification_gate_can_be_dismissed_temporarily(self):
+        class Result:
+            def fetchone(self):
+                return {"id": 9}
+
+        class Connection:
+            def execute(self, _sql, _params=None):
+                return Result()
+
+            def close(self):
+                pass
+
+        with app.app.test_request_context(
+            "/portal/portal-token/notificaciones/omitir",
+            method="POST",
+        ):
+            with patch.object(app, "get_connection", return_value=Connection()):
+                with patch.object(app, "jugador_tiene_suscripcion_push_activa", return_value=False):
+                    response = app.portal_omitir_notificaciones("portal-token")
+
+            omision = dict(app.session["portal_push_omision"])
+            self.assertTrue(app.portal_omision_notificaciones_vigente("portal-token"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, "/portal/portal-token")
+        self.assertEqual(omision["token_hash"], app.hash_portal_token("portal-token"))
+        self.assertNotEqual(omision["token_hash"], "portal-token")
+        self.assertGreater(omision["vence_en"], int(app.datetime.now().timestamp()))
+
+    def test_expired_portal_notification_omission_is_removed(self):
+        with app.app.test_request_context("/portal/portal-token"):
+            app.session["portal_push_omision"] = {
+                "token_hash": app.hash_portal_token("portal-token"),
+                "vence_en": int(app.datetime.now().timestamp()) - 1,
+            }
+
+            self.assertFalse(app.portal_omision_notificaciones_vigente("portal-token"))
+            self.assertNotIn("portal_push_omision", app.session)
 
     def test_whatsapp_webhook_fails_closed_without_app_secret(self):
         client = app.app.test_client()

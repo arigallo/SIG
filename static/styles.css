@@ -3915,10 +3915,42 @@ tbody tr:hover {
 }
 
 .portal-push-gate-card {
+    position: relative;
     display: grid;
     gap: 1rem;
     padding: clamp(24px, 4vw, 42px);
     text-align: center;
+}
+
+.portal-push-close-form {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    margin: 0;
+}
+
+.portal-push-close {
+    display: inline-grid;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font: inherit;
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.portal-push-close:hover,
+.portal-push-close:focus-visible {
+    border-color: #64748b;
+    color: #0f172a;
+    outline: 3px solid rgba(15, 23, 42, .14);
+    outline-offset: 2px;
 }
 
 .portal-push-gate-card .compact-logo img {

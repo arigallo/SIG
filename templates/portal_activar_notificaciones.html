@@ -16,6 +16,10 @@
 <body class="login-body entry-body" data-endpoint="portal_activar_notificaciones" data-username="" data-portal-token="{{ token }}" data-pwa-required="1">
     <main class="entry-shell portal-push-gate">
         <section class="card portal-push-gate-card">
+            <form class="portal-push-close-form" method="post" action="{{ url_for('portal_omitir_notificaciones', token=token) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="portal-push-close" type="submit" aria-label="Cerrar y continuar temporalmente" title="Cerrar y continuar temporalmente">&times;</button>
+            </form>
             <div class="login-logo entry-logo compact-logo">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club">
             </div>
@@ -47,7 +51,8 @@
             <div class="flash error" data-pwa-unsupported-help hidden>
                 Este navegador no admite notificaciones web. Prob&aacute; con Chrome o Edge actualizado; en iPhone, instal&aacute; SIG desde Safari.
             </div>
-            <p class="muted-line">Si no pod&eacute;s completar la activaci&oacute;n, comunicate con administraci&oacute;n.</p>
+            <p class="muted-line">Si la activaci&oacute;n no funciona, pod&eacute;s cerrar este aviso y continuar durante 2 horas. Despu&eacute;s volver&aacute; a aparecer mientras las notificaciones no est&eacute;n activadas.</p>
+            <p class="muted-line">Si el problema contin&uacute;a, comunicate con administraci&oacute;n.</p>
         </section>
     </main>
     <script src="{{ static_asset('app.js') }}" defer></script>

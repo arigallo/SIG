@@ -148,6 +148,7 @@ APP_TZ = ZoneInfo(APP_TIMEZONE)
 PWA_VAPID_PUBLIC_KEY = os.environ.get("PWA_VAPID_PUBLIC_KEY", "").strip()
 PWA_VAPID_PRIVATE_KEY = os.environ.get("PWA_VAPID_PRIVATE_KEY", "").strip()
 PWA_VAPID_CLAIMS_SUB = os.environ.get("PWA_VAPID_CLAIMS_SUB", "mailto:admin@sig.local").strip()
+PORTAL_PUSH_OMISION_SEGUNDOS = 2 * 60 * 60
 
 
 def ahora_sig():
@@ -4358,10 +4359,30 @@ def guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado):
     """, (evento["asistencia_evento_id"], jugador["id"], estado))
 
 
+def portal_omision_notificaciones_vigente(token):
+    token_hash = hash_portal_token(token)
+    omision = session.get("portal_push_omision") or {}
+    if not token_hash or not isinstance(omision, dict):
+        return False
+
+    try:
+        vence_en = int(omision.get("vence_en") or 0)
+    except (TypeError, ValueError):
+        vence_en = 0
+
+    hash_guardado = str(omision.get("token_hash") or "")
+    if vence_en <= int(datetime.now().timestamp()) or not hash_guardado:
+        session.pop("portal_push_omision", None)
+        return False
+    return hmac.compare_digest(hash_guardado, token_hash)
+
+
 def portal_tiene_notificaciones_activas(token):
     token = (token or "").strip()
     if not token:
         return False
+    if portal_omision_notificaciones_vigente(token):
+        return True
     conn = get_connection()
     jugador = conn.execute("""
         SELECT id
@@ -8987,6 +9008,7 @@ def proteger_rutas():
         "sugerencias_denuncias_legacy",
         "portal_buscar",
         "portal_jugador",
+        "portal_omitir_notificaciones",
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
         "portal_ver_comprobante",
@@ -9025,7 +9047,7 @@ def proteger_rutas():
     portal_token = (request.view_args or {}).get("token")
     if (
         request.endpoint in rutas_publicas
-        and request.endpoint != "portal_jugador"
+        and request.endpoint not in {"portal_jugador", "portal_omitir_notificaciones"}
         and request.endpoint.startswith("portal_")
         and portal_token
         and not portal_tiene_notificaciones_activas(portal_token)
@@ -16824,6 +16846,29 @@ def portal_buscar():
     return render_template("portal_buscar.html", identificador=identificador)
 
 
+@app.route("/portal/<token>/notificaciones/omitir", methods=["POST"])
+def portal_omitir_notificaciones(token):
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT id
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        abort(404)
+
+    suscripcion_activa = jugador_tiene_suscripcion_push_activa(conn, jugador["id"])
+    conn.close()
+    if not suscripcion_activa:
+        session["portal_push_omision"] = {
+            "token_hash": hash_portal_token(token),
+            "vence_en": int(datetime.now().timestamp()) + PORTAL_PUSH_OMISION_SEGUNDOS,
+        }
+    return redirect(url_for("portal_jugador", token=token))
+
+
 @app.route("/portal/<token>")
 def portal_jugador(token):
     conn = get_connection()
@@ -16838,7 +16883,10 @@ def portal_jugador(token):
         conn.close()
         abort(404)
 
-    if not jugador_tiene_suscripcion_push_activa(conn, jugador["id"]):
+    if (
+        not jugador_tiene_suscripcion_push_activa(conn, jugador["id"])
+        and not portal_omision_notificaciones_vigente(token)
+    ):
         conn.close()
         return render_template(
             "portal_activar_notificaciones.html",
