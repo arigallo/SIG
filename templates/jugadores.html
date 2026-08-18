@@ -157,12 +157,6 @@
                     {% if puede('jugadores_gestionar') %}
                         <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar</a>
                     {% endif %}
-                    {% if puede('jugadores_eliminar') %}
-                        <form method="post" action="{{ url_for('eliminar_jugador', jugador_id=jugador['id']) }}" onsubmit="return confirm('Eliminar este registro?');">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <button class="button danger" type="submit">Eliminar</button>
-                        </form>
-                    {% endif %}
                 </td>
             </tr>
             {% else %}

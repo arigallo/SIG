@@ -241,6 +241,18 @@ class HotfixTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 403)
+    def test_player_delete_is_only_exposed_in_profile_with_strong_confirmation(self):
+        listing = Path("templates/jugadores.html").read_text(encoding="utf-8")
+        detail = Path("templates/jugador_detalle.html").read_text(encoding="utf-8")
+        source = Path("app.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("url_for('eliminar_jugador'", listing)
+        self.assertIn("Zona de peligro", detail)
+        self.assertIn("ELIMINAR {{ jugador['id'] }}", detail)
+        self.assertIn("data-player-delete-form", detail)
+        self.assertIn('confirmacion_esperada = f"ELIMINAR {jugador_id}"', source)
+        self.assertIn('"asistencias"', source)
+        self.assertIn('"cuotas"', source)
 
     def test_timezone_aware_datetime_is_serialized_before_saving(self):
         wb = Workbook()

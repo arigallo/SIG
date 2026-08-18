@@ -767,5 +767,46 @@
     </div>
 </div>
 {% endif %}
+
+{% if puede('jugadores_eliminar') %}
+<section class="danger-zone page-section" aria-labelledby="danger-zone-title">
+    <div class="section-header compact">
+        <div>
+            <span class="badge badge-danger">Zona de peligro</span>
+            <h3 id="danger-zone-title">Eliminar jugador definitivamente</h3>
+        </div>
+    </div>
+    <div class="danger-zone-warning" role="alert">
+        <strong>Esta acción es permanente y no se puede deshacer.</strong>
+        <p>Se eliminarán el perfil de {{ jugador['nombre'] }} {{ jugador['apellido'] }} y todos sus datos asociados:</p>
+        <ul>
+            <li>cuotas, planes de pago, becas y participaciones en gastos;</li>
+            <li>asistencias, confirmaciones del portal y resultados de tests;</li>
+            <li>ficha médica, lesiones, documentos y notas de seguimiento;</li>
+            <li>mensajes, notificaciones y demás vínculos con el jugador.</li>
+        </ul>
+        <p>Si la persona realmente perteneció al club, cambiá su estado a <strong>Baja</strong>. Usá esta opción únicamente para una carga errónea.</p>
+    </div>
+    <form class="danger-zone-form" method="post" action="{{ url_for('eliminar_jugador', jugador_id=jugador['id']) }}" data-player-delete-form>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label class="danger-confirm-check">
+            <input type="checkbox" required>
+            Confirmo que este jugador fue cargado por error y que no corresponde conservar su historial.
+        </label>
+        <label for="confirmacion-eliminar-jugador">Para continuar, escribí <strong>ELIMINAR {{ jugador['id'] }}</strong></label>
+        <input id="confirmacion-eliminar-jugador" name="confirmacion" type="text" autocomplete="off" required
+               pattern="ELIMINAR {{ jugador['id'] }}" aria-describedby="confirmacion-ayuda">
+        <small id="confirmacion-ayuda" class="muted-line">La frase debe coincidir exactamente.</small>
+        <button class="button danger" type="submit">Eliminar jugador y todos sus datos</button>
+    </form>
+</section>
+<script>
+document.querySelector('[data-player-delete-form]').addEventListener('submit', function (event) {
+    if (!window.confirm('ÚLTIMA ADVERTENCIA: se eliminarán definitivamente el jugador y todos sus datos asociados. ¿Querés continuar?')) {
+        event.preventDefault();
+    }
+});
+</script>
+{% endif %}
 </div>
 {% endblock %}

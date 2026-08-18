@@ -12775,11 +12775,57 @@ def eliminar_jugador(jugador_id):
     if check:
         return check
 
+    confirmacion_esperada = f"ELIMINAR {jugador_id}"
+    if request.form.get("confirmacion", "").strip() != confirmacion_esperada:
+        flash(f"La confirmación no coincide. Escribí {confirmacion_esperada} para eliminar al jugador.", "error")
+        return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
+
     conn = get_connection()
-    conn.execute("DELETE FROM jugadores WHERE id = %s", (jugador_id,))
-    conn.commit()
-    conn.close()
-    flash("Jugador eliminado.", "ok")
+    jugador = conn.execute(
+        "SELECT id, nombre, apellido FROM jugadores WHERE id = %s", (jugador_id,)
+    ).fetchone()
+    if jugador is None:
+        conn.close()
+        flash("Jugador no encontrado.", "error")
+        return redirect(url_for("listar_jugadores"))
+
+    try:
+        # Se eliminan primero los registros hijos para que la baja completa sea
+        # atómica y no deje información huérfana.
+        for tabla in (
+            "lesiones_documentos", "gasto_compartido_items",
+            "portal_asistencia_confirmaciones", "asistencias", "test_resultados",
+            "becas_historial", "jugador_bitacora", "documentos_jugadores",
+            "fichas_medicas", "lesiones", "planes_pago", "tareas_sig",
+            "whatsapp_envios", "whatsapp_mensajes", "pwa_push_subscriptions",
+            "pwa_push_envios", "cuotas",
+        ):
+            conn.execute(f"DELETE FROM {tabla} WHERE jugador_id = %s", (jugador_id,))
+
+        conn.execute(
+            "DELETE FROM fichas_medicas_batch WHERE jugador_id = %s OR jugador_sugerido_id = %s",
+            (jugador_id, jugador_id),
+        )
+        conn.execute(
+            "DELETE FROM test_importaciones_batch WHERE jugador_id = %s OR jugador_sugerido_id = %s",
+            (jugador_id, jugador_id),
+        )
+        # El aspirante es una persona independiente: sólo se quita su vínculo.
+        conn.execute("""
+            UPDATE aspirantes
+            SET madrina_jugador_id = CASE WHEN madrina_jugador_id = %s THEN NULL ELSE madrina_jugador_id END,
+                jugador_id = CASE WHEN jugador_id = %s THEN NULL ELSE jugador_id END
+            WHERE madrina_jugador_id = %s OR jugador_id = %s
+        """, (jugador_id, jugador_id, jugador_id, jugador_id))
+        conn.execute("DELETE FROM jugadores WHERE id = %s", (jugador_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    flash(f"Jugador {jugador['apellido']}, {jugador['nombre']} y todos sus datos asociados fueron eliminados.", "ok")
     return redirect(url_for("listar_jugadores"))
 
 @app.route("/jugadores/<int:jugador_id>/cuotas")
