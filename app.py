@@ -1035,6 +1035,7 @@ def obtener_config_avisos_login(conn=None):
 
 
 def obtener_avisos_login_publicos(limite=3):
+    avisos_cumpleanos = obtener_aviso_cumpleanos_hoy()
     try:
         hoy = ahora_sig().strftime("%Y-%m-%d")
         avisos = [
@@ -1043,10 +1044,53 @@ def obtener_avisos_login_publicos(limite=3):
             if aviso.get("activo") and (not aviso.get("visible_hasta") or aviso["visible_hasta"] >= hoy)
         ]
         avisos.sort(key=lambda aviso: (not aviso.get("urgente"), aviso.get("visible_hasta") or "9999-12-31"))
-        return avisos[:limite]
+        return (avisos_cumpleanos + avisos)[:limite]
     except Exception:
         app.logger.exception("No se pudieron obtener los avisos del login.")
+        return avisos_cumpleanos
+
+
+def obtener_aviso_cumpleanos_hoy():
+    """Crea el aviso público de cumpleaños sin requerir configuración manual."""
+    conn = None
+    try:
+        hoy = ahora_sig()
+        dia_mes = hoy.strftime("%m-%d")
+        conn = get_connection()
+        jugadores = conn.execute("""
+            SELECT nombre, apellido, categoria
+            FROM jugadores
+            WHERE estado = 'Activo'
+              AND fecha_nacimiento IS NOT NULL
+              AND fecha_nacimiento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+              AND SUBSTRING(fecha_nacimiento FROM 6 FOR 5) = %s
+            ORDER BY apellido, nombre
+        """, (dia_mes,)).fetchall()
+    except Exception:
+        app.logger.exception("No se pudieron obtener los cumpleaños del día.")
         return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+    if not jugadores:
+        return []
+
+    nombres = [f"{jugador['nombre']} {jugador['apellido']}" for jugador in jugadores]
+    if len(nombres) == 1:
+        mensaje = f"Hoy cumple años {nombres[0]}. ¡Le deseamos un muy feliz cumpleaños!"
+    else:
+        mensaje = f"Hoy cumplen años {', '.join(nombres[:-1])} y {nombres[-1]}. ¡Les deseamos un muy feliz cumpleaños!"
+
+    return [{
+        "activo": True,
+        "urgente": False,
+        "titulo": "🎂 Cumpleaños de hoy",
+        "mensaje": mensaje,
+        "url": "",
+        "visible_hasta": hoy.strftime("%Y-%m-%d"),
+        "automatico": True,
+    }]
 
 
 AUTOMATION_SETTING_KEYS = (

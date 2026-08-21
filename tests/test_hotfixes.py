@@ -19,6 +19,56 @@ from services import portal as portal_service
 
 
 class HotfixTests(unittest.TestCase):
+    def test_login_shows_automatic_birthday_notice_for_active_players(self):
+        class Result:
+            def fetchall(self):
+                return [
+                    {"nombre": "Ana", "apellido": "Pérez", "categoria": "Plantel"},
+                    {"nombre": "Luz", "apellido": "Suárez", "categoria": "Juveniles"},
+                ]
+
+        class Connection:
+            def __init__(self):
+                self.sql = ""
+                self.params = None
+                self.closed = False
+
+            def execute(self, sql, params=None):
+                self.sql = sql
+                self.params = params
+                return Result()
+
+            def close(self):
+                self.closed = True
+
+        conn = Connection()
+        with patch.object(app, "get_connection", return_value=conn):
+            with patch.object(app, "ahora_sig", return_value=datetime(2026, 8, 18, 9, 0)):
+                avisos = app.obtener_aviso_cumpleanos_hoy()
+
+        self.assertEqual(len(avisos), 1)
+        self.assertEqual(avisos[0]["titulo"], "🎂 Cumpleaños de hoy")
+        self.assertIn("Ana Pérez", avisos[0]["mensaje"])
+        self.assertIn("Luz Suárez", avisos[0]["mensaje"])
+        self.assertIn("estado = 'Activo'", conn.sql)
+        self.assertEqual(conn.params, ("08-18",))
+        self.assertTrue(conn.closed)
+
+    def test_login_has_no_birthday_notice_when_no_player_matches(self):
+        class Result:
+            def fetchall(self):
+                return []
+
+        class Connection:
+            def execute(self, _sql, _params=None):
+                return Result()
+
+            def close(self):
+                pass
+
+        with patch.object(app, "get_connection", return_value=Connection()):
+            self.assertEqual(app.obtener_aviso_cumpleanos_hoy(), [])
+
     def test_training_no_asiste_is_saved_without_wellbeing(self):
         class Result:
             def __init__(self, row=None):
