@@ -157,8 +157,8 @@
                 </details>
                 {% endif %}
 
-                {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') %}
-                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
+                {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') or puede('encuestas_ver', 'encuestas_gestionar') %}
+                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
                 <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
                     <summary>Admin</summary>
@@ -175,6 +175,9 @@
                             <a class="{% if endpoint in ['listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones'] %}active{% endif %}" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Sugerencias</a>
                         {% elif puede('sugerencias_configurar') %}
                             <a class="{% if endpoint == 'configurar_sugerencias_recomendaciones' %}active{% endif %}" href="{{ url_for('configurar_sugerencias_recomendaciones') }}">Sugerencias</a>
+                        {% endif %}
+                        {% if puede('encuestas_ver', 'encuestas_gestionar') %}
+                            <a class="{% if endpoint in ['listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion'] %}active{% endif %}" href="{{ url_for('listar_encuestas_satisfaccion') }}">Encuestas</a>
                         {% endif %}
                         {% if puede('auditoria_ver') %}
                             <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditor&iacute;a</a>

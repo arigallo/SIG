@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Nueva encuesta{% endblock %}
+{% block content %}
+<div class="section-header"><div><h2>Nueva encuesta de satisfaccion</h2><p class="page-intro">El formulario usa indicadores estandar para comparar campañas.</p></div></div>
+<form method="post" class="card form-card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+        <div class="full"><label>Titulo</label><input name="titulo" maxlength="200" required value="{{ data.titulo }}" placeholder="Ej.: Satisfaccion temporada 2026"></div>
+        <div class="full"><label>Descripcion para quienes responden</label><textarea name="descripcion" rows="4" maxlength="2000">{{ data.descripcion }}</textarea></div>
+        <div class="full"><label>Publico objetivo</label><input name="publico_objetivo" maxlength="300" value="{{ data.publico_objetivo }}" placeholder="Ej.: Jugadores y familias de infantiles"></div>
+        <div><label>Fecha de inicio</label><input type="date" name="fecha_inicio" value="{{ data.fecha_inicio }}"></div>
+        <div><label>Fecha de cierre</label><input type="date" name="fecha_fin" value="{{ data.fecha_fin }}"></div>
+        <div><label>Estado inicial</label><select name="estado"><option value="borrador">Borrador</option><option value="publicada" {% if data.estado == 'publicada' %}selected{% endif %}>Publicada</option></select></div>
+    </div>
+    <div class="actions spaced"><button class="button" type="submit">Crear encuesta</button><a class="button secondary" href="{{ url_for('listar_encuestas_satisfaccion') }}">Cancelar</a></div>
+</form>
+{% endblock %}

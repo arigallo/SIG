@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Resultados de encuesta{% endblock %}
+{% block content %}
+<div class="section-header"><div><a class="back-link" href="{{ url_for('listar_encuestas_satisfaccion') }}">Volver</a><h2>{{ encuesta.titulo }}</h2><p class="page-intro">{{ encuesta.descripcion or 'Resultados de satisfaccion' }}</p></div>
+<div class="actions">{% if encuesta.estado == 'publicada' %}<a class="button secondary" target="_blank" href="{{ url_for('responder_encuesta_satisfaccion', token=encuesta.token) }}">Abrir formulario</a>{% endif %}</div></div>
+<div class="card spaced"><strong>Enlace para compartir</strong><input readonly value="{{ url_for('responder_encuesta_satisfaccion', token=encuesta.token, _external=True) }}" onclick="this.select()"><span class="muted-line">Estado: {{ encuesta.estado|capitalize }} · Publico: {{ encuesta.publico_objetivo or 'general' }}</span></div>
+{% if puede_gestionar %}<form method="post" action="{{ url_for('cambiar_estado_encuesta_satisfaccion', encuesta_id=encuesta.id) }}" class="actions spaced"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><select name="estado"><option value="borrador" {% if encuesta.estado == 'borrador' %}selected{% endif %}>Borrador</option><option value="publicada" {% if encuesta.estado == 'publicada' %}selected{% endif %}>Publicada</option><option value="cerrada" {% if encuesta.estado == 'cerrada' %}selected{% endif %}>Cerrada</option></select><button class="button secondary">Actualizar estado</button></form>{% endif %}
+<div class="dashboard-cards report-cards spaced">
+<div class="card stat-card"><h3>Respuestas</h3><p class="stat-number compact">{{ resumen.total or 0 }}</p></div>
+<div class="card stat-card"><h3>Satisfaccion general</h3><p class="stat-number compact">{{ resumen.general or '-' }}</p><span class="muted-line">sobre 5</span></div>
+<div class="card stat-card"><h3>Atencion</h3><p class="stat-number compact">{{ resumen.atencion or '-' }}</p><span class="muted-line">sobre 5</span></div>
+<div class="card stat-card"><h3>Comunicacion</h3><p class="stat-number compact">{{ resumen.comunicacion or '-' }}</p><span class="muted-line">sobre 5</span></div>
+<div class="card stat-card"><h3>Instalaciones</h3><p class="stat-number compact">{{ resumen.instalaciones or '-' }}</p><span class="muted-line">sobre 5</span></div>
+<div class="card stat-card"><h3>NPS</h3><p class="stat-number compact">{{ nps if nps is not none else '-' }}</p><span class="muted-line">Recomendacion: {{ resumen.recomendacion or '-' }} / 10</span></div>
+</div>
+<div class="table-wrapper"><table><thead><tr><th>Fecha</th><th>Valoraciones</th><th>Recomendacion</th><th>Comentario</th><th>Identidad</th></tr></thead><tbody>
+{% for item in respuestas %}<tr><td>{{ item.creado_en|fecha_hora }}</td><td>General {{ item.satisfaccion_general }}/5<span class="muted-line">Atencion {{ item.atencion }} · Comunicacion {{ item.comunicacion }} · Instalaciones {{ item.instalaciones }}</span></td><td>{{ item.recomendacion }}/10</td><td class="wide-cell">{{ item.comentario or '-' }}</td><td>{{ item.nombre or 'Anonima' }}{% if item.contacto %}<span class="muted-line">{{ item.contacto }}</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5">Todavia no se recibieron respuestas.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

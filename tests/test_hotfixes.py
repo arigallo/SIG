@@ -1126,6 +1126,37 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("scroll-snap-type: x proximity", css)
         self.assertIn("min-height: 44px", css)
 
+    def test_satisfaction_survey_availability_honors_status_and_dates(self):
+        with patch.object(app, "ahora_sig", return_value=datetime(2026, 8, 29, 12, 0)):
+            self.assertTrue(app.encuesta_esta_disponible({
+                "estado": "publicada", "fecha_inicio": "2026-08-01", "fecha_fin": "2026-08-31"
+            }))
+            self.assertFalse(app.encuesta_esta_disponible({
+                "estado": "borrador", "fecha_inicio": None, "fecha_fin": None
+            }))
+            self.assertFalse(app.encuesta_esta_disponible({
+                "estado": "publicada", "fecha_inicio": "2026-09-01", "fecha_fin": None
+            }))
+            self.assertFalse(app.encuesta_esta_disponible({
+                "estado": "publicada", "fecha_inicio": "fecha-invalida", "fecha_fin": None
+            }))
+
+    def test_satisfaction_survey_schema_permissions_and_templates_are_present(self):
+        source = Path(app.__file__).read_text(encoding="utf-8-sig")
+        base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
+        public = (Path(app.__file__).parent / "templates" / "encuesta_satisfaccion_publica.html").read_text(encoding="utf-8-sig")
+        results = (Path(app.__file__).parent / "templates" / "encuesta_satisfaccion_resultados.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("encuestas_satisfaccion", source)
+        self.assertIn("encuesta_satisfaccion_respuestas", source)
+        self.assertIn("encuestas_ver", app.PERMISOS)
+        self.assertIn("encuestas_gestionar", app.PERMISOS)
+        self.assertIn("responder_encuesta_satisfaccion", source)
+        self.assertIn("listar_encuestas_satisfaccion", base)
+        self.assertIn('name="recomendacion"', public)
+        self.assertIn("csrf_token()", public)
+        self.assertIn("NPS", results)
+
 
 if __name__ == "__main__":
     unittest.main()

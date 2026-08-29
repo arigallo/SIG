@@ -487,6 +487,18 @@ textarea::placeholder {
     color: #94a3b8;
 }
 
+.survey-question {
+    border: 0;
+    border-bottom: 1px solid var(--border-color, #dfe4e8);
+    margin: 0 0 1.4rem;
+    padding: 0 0 1.4rem;
+}
+.survey-question legend { font-weight: 700; margin-bottom: .75rem; }
+.survey-scale { display: flex; flex-wrap: wrap; gap: .35rem; }
+.survey-scale label { flex: 1 1 2.5rem; }
+.survey-scale label span { text-align: center; min-width: 2.5rem; }
+.survey-scale-nps label { flex-basis: 2rem; }
+
 .upload-dropzone {
     display: flex;
     min-height: 150px;

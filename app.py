@@ -746,6 +746,16 @@ PERMISOS = {
         "nombre": "Configurar sugerencias y recomendaciones",
         "descripcion": "Definir los destinatarios de las notificaciones.",
     },
+    "encuestas_ver": {
+        "grupo": "Administracion",
+        "nombre": "Ver encuestas de satisfaccion",
+        "descripcion": "Consultar campañas, respuestas y resultados de satisfaccion.",
+    },
+    "encuestas_gestionar": {
+        "grupo": "Administracion",
+        "nombre": "Gestionar encuestas de satisfaccion",
+        "descripcion": "Crear, publicar y cerrar campañas de encuestas.",
+    },
     "calendario_ver": {
         "grupo": "Deportivo",
         "nombre": "Ver calendario",
@@ -7889,6 +7899,17 @@ def init_db():
             serializar_permisos(permisos_default_rol(nombre_rol)),
         ))
 
+    # Los permisos incorporados en nuevas versiones deben quedar disponibles
+    # para el rol administrador existente sin borrar personalizaciones de otros roles.
+    admin_rol = conn.execute("SELECT permisos FROM roles WHERE nombre = 'admin'").fetchone()
+    if admin_rol:
+        permisos_admin = set(deserializar_permisos(admin_rol["permisos"], "admin"))
+        permisos_admin.update({"encuestas_ver", "encuestas_gestionar"})
+        conn.execute(
+            "UPDATE roles SET permisos = %s WHERE nombre = 'admin'",
+            (serializar_permisos(permisos_admin),),
+        )
+
     columnas_usuarios = get_columns(conn, "usuarios")
     if "rol" not in columnas_usuarios:
         conn.execute("ALTER TABLE usuarios ADD COLUMN rol TEXT DEFAULT 'admin'")
@@ -8004,6 +8025,45 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_sugerencias_denuncias_seguimiento
         ON sugerencias_denuncias (seguimiento_estado, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS encuestas_satisfaccion (
+            id SERIAL PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            descripcion TEXT,
+            publico_objetivo TEXT,
+            token TEXT NOT NULL UNIQUE,
+            estado TEXT NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'publicada', 'cerrada')),
+            fecha_inicio TEXT,
+            fecha_fin TEXT,
+            creada_por TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS encuesta_satisfaccion_respuestas (
+            id SERIAL PRIMARY KEY,
+            encuesta_id INTEGER NOT NULL REFERENCES encuestas_satisfaccion(id) ON DELETE CASCADE,
+            satisfaccion_general INTEGER NOT NULL CHECK (satisfaccion_general BETWEEN 1 AND 5),
+            atencion INTEGER NOT NULL CHECK (atencion BETWEEN 1 AND 5),
+            comunicacion INTEGER NOT NULL CHECK (comunicacion BETWEEN 1 AND 5),
+            instalaciones INTEGER NOT NULL CHECK (instalaciones BETWEEN 1 AND 5),
+            recomendacion INTEGER NOT NULL CHECK (recomendacion BETWEEN 0 AND 10),
+            comentario TEXT,
+            nombre TEXT,
+            contacto TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_encuestas_satisfaccion_estado
+        ON encuestas_satisfaccion (estado, creado_en DESC)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_encuesta_respuestas_encuesta
+        ON encuesta_satisfaccion_respuestas (encuesta_id, creado_en DESC)
     """)
 
     conn.execute("""
@@ -9050,6 +9110,7 @@ def proteger_rutas():
         "meta_data_deletion_status",
         "sugerencias_recomendaciones",
         "sugerencias_denuncias_legacy",
+        "responder_encuesta_satisfaccion",
         "portal_buscar",
         "portal_jugador",
         "portal_omitir_notificaciones",
@@ -9254,6 +9315,7 @@ def auditar_acciones(response):
         "static",
         "presencia_heartbeat",
         "sugerencias_recomendaciones",
+        "responder_encuesta_satisfaccion",
     }:
         return response
 
@@ -10196,6 +10258,106 @@ def sugerencias_recomendaciones():
 @app.route("/sugerencias-denuncias")
 def sugerencias_denuncias_legacy():
     return redirect(url_for("sugerencias_recomendaciones"), code=301)
+
+
+def encuesta_esta_disponible(encuesta):
+    if not encuesta or encuesta.get("estado") != "publicada":
+        return False
+    hoy = ahora_sig().date()
+    inicio = parsear_fecha_encuesta(encuesta.get("fecha_inicio"))
+    fin = parsear_fecha_encuesta(encuesta.get("fecha_fin"))
+    if (encuesta.get("fecha_inicio") and inicio is None) or (encuesta.get("fecha_fin") and fin is None):
+        return False
+    return not ((inicio and inicio > hoy) or (fin and fin < hoy))
+
+
+def parsear_fecha_encuesta(valor):
+    if isinstance(valor, datetime):
+        return valor.date()
+    if isinstance(valor, date):
+        return valor
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+@app.route("/encuestas/<token>", methods=["GET", "POST"])
+def responder_encuesta_satisfaccion(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token or ""):
+        abort(404)
+    conn = get_connection()
+    encuesta = conn.execute(
+        "SELECT * FROM encuestas_satisfaccion WHERE token = %s", (token,)
+    ).fetchone()
+    disponible = encuesta_esta_disponible(encuesta)
+    data = {
+        "satisfaccion_general": request.form.get("satisfaccion_general", ""),
+        "atencion": request.form.get("atencion", ""),
+        "comunicacion": request.form.get("comunicacion", ""),
+        "instalaciones": request.form.get("instalaciones", ""),
+        "recomendacion": request.form.get("recomendacion", ""),
+        "comentario": request.form.get("comentario", "").strip()[:4000],
+        "nombre": request.form.get("nombre", "").strip()[:200],
+        "contacto": request.form.get("contacto", "").strip()[:300],
+    }
+
+    if request.method == "POST":
+        if not disponible:
+            conn.close()
+            flash("Esta encuesta no se encuentra disponible.", "warning")
+            return redirect(url_for("responder_encuesta_satisfaccion", token=token))
+        clave_limite = f"encuesta_{hashlib.sha256(token.encode('utf-8')).hexdigest()[:16]}"
+        if not consumir_limite_publico(clave_limite, max_intentos=10, minutos=60):
+            conn.close()
+            flash("Se alcanzo el limite de envios. Intenta nuevamente mas tarde.", "error")
+            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, disponible=True, data=data), 429
+        if request.form.get("website", "").strip():
+            conn.close()
+            abort(400)
+
+        valores = {}
+        limites = {
+            "satisfaccion_general": (1, 5), "atencion": (1, 5),
+            "comunicacion": (1, 5), "instalaciones": (1, 5),
+            "recomendacion": (0, 10),
+        }
+        try:
+            for campo, (minimo, maximo) in limites.items():
+                valores[campo] = int(request.form.get(campo, ""))
+                if not minimo <= valores[campo] <= maximo:
+                    raise ValueError
+        except (TypeError, ValueError):
+            conn.close()
+            flash("Completa todas las valoraciones antes de enviar.", "error")
+            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, disponible=True, data=data), 400
+
+        respuesta = conn.execute("""
+            INSERT INTO encuesta_satisfaccion_respuestas (
+                encuesta_id, satisfaccion_general, atencion, comunicacion,
+                instalaciones, recomendacion, comentario, nombre, contacto
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (encuesta["id"], valores["satisfaccion_general"], valores["atencion"],
+              valores["comunicacion"], valores["instalaciones"], valores["recomendacion"],
+              data["comentario"] or None, data["nombre"] or None, data["contacto"] or None)).fetchone()
+        conn.commit()
+        conn.close()
+        registrar_auditoria("responder", "encuesta_satisfaccion", str(encuesta["id"]), {
+            "respuesta_id": respuesta["id"], "identificada": bool(data["nombre"] or data["contacto"])
+        }, username="portal")
+        flash("Gracias. Tu respuesta fue registrada.", "ok")
+        return redirect(url_for("responder_encuesta_satisfaccion", token=token, completada=1))
+
+    conn.close()
+    return render_template(
+        "encuesta_satisfaccion_publica.html", encuesta=encuesta,
+        disponible=disponible, completada=bool(encuesta) and request.args.get("completada") == "1",
+        data=data,
+    ), (200 if encuesta else 404)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -20277,6 +20439,125 @@ def configurar_facturas_email():
     configs = obtener_factura_email_configs(conn)
     conn.close()
     return render_template("facturas_email_config.html", config=configs[0], config2=configs[1], configs=configs)
+
+
+@app.route("/admin/encuestas")
+def listar_encuestas_satisfaccion():
+    check = permiso_requerido("encuestas_ver", "encuestas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    encuestas = conn.execute("""
+        SELECT e.*, COUNT(r.id) AS respuestas,
+               ROUND(AVG(r.satisfaccion_general)::numeric, 1) AS promedio_general
+        FROM encuestas_satisfaccion e
+        LEFT JOIN encuesta_satisfaccion_respuestas r ON r.encuesta_id = e.id
+        GROUP BY e.id
+        ORDER BY e.creado_en DESC, e.id DESC
+    """).fetchall()
+    conn.close()
+    return render_template("encuestas_satisfaccion.html", encuestas=encuestas,
+                           puede_gestionar=tiene_permiso("encuestas_gestionar"))
+
+
+@app.route("/admin/encuestas/nueva", methods=["GET", "POST"])
+def nueva_encuesta_satisfaccion():
+    check = permiso_requerido("encuestas_gestionar")
+    if check:
+        return check
+    data = {
+        "titulo": request.form.get("titulo", "").strip(),
+        "descripcion": request.form.get("descripcion", "").strip(),
+        "publico_objetivo": request.form.get("publico_objetivo", "").strip(),
+        "fecha_inicio": request.form.get("fecha_inicio", "").strip(),
+        "fecha_fin": request.form.get("fecha_fin", "").strip(),
+        "estado": request.form.get("estado", "borrador").strip(),
+    }
+    if request.method == "POST":
+        if len(data["titulo"]) < 3:
+            flash("El titulo debe tener al menos 3 caracteres.", "error")
+            return render_template("encuesta_satisfaccion_form.html", data=data)
+        fechas_invalidas = any(
+            data[campo] and parsear_fecha_encuesta(data[campo]) is None
+            for campo in ("fecha_inicio", "fecha_fin")
+        )
+        if fechas_invalidas:
+            flash("Ingresa fechas validas.", "error")
+            return render_template("encuesta_satisfaccion_form.html", data=data)
+        if data["fecha_inicio"] and data["fecha_fin"] and data["fecha_fin"] < data["fecha_inicio"]:
+            flash("La fecha de cierre no puede ser anterior a la de inicio.", "error")
+            return render_template("encuesta_satisfaccion_form.html", data=data)
+        if data["estado"] not in {"borrador", "publicada"}:
+            data["estado"] = "borrador"
+        conn = get_connection()
+        encuesta = conn.execute("""
+            INSERT INTO encuestas_satisfaccion
+                (titulo, descripcion, publico_objetivo, token, estado, fecha_inicio, fecha_fin, creada_por)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+        """, (data["titulo"][:200], data["descripcion"][:2000] or None,
+              data["publico_objetivo"][:300] or None, secrets.token_urlsafe(18), data["estado"],
+              data["fecha_inicio"] or None, data["fecha_fin"] or None, session.get("username"))).fetchone()
+        conn.commit()
+        conn.close()
+        registrar_auditoria("crear", "encuesta_satisfaccion", str(encuesta["id"]), data)
+        flash("Encuesta creada correctamente.", "ok")
+        return redirect(url_for("ver_encuesta_satisfaccion", encuesta_id=encuesta["id"]))
+    return render_template("encuesta_satisfaccion_form.html", data=data)
+
+
+@app.route("/admin/encuestas/<int:encuesta_id>")
+def ver_encuesta_satisfaccion(encuesta_id):
+    check = permiso_requerido("encuestas_ver", "encuestas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    encuesta = conn.execute("SELECT * FROM encuestas_satisfaccion WHERE id = %s", (encuesta_id,)).fetchone()
+    if not encuesta:
+        conn.close()
+        abort(404)
+    resumen = conn.execute("""
+        SELECT COUNT(*) AS total,
+               ROUND(AVG(satisfaccion_general)::numeric, 1) AS general,
+               ROUND(AVG(atencion)::numeric, 1) AS atencion,
+               ROUND(AVG(comunicacion)::numeric, 1) AS comunicacion,
+               ROUND(AVG(instalaciones)::numeric, 1) AS instalaciones,
+               ROUND(AVG(recomendacion)::numeric, 1) AS recomendacion,
+               SUM(CASE WHEN recomendacion >= 9 THEN 1 ELSE 0 END) AS promotores,
+               SUM(CASE WHEN recomendacion <= 6 THEN 1 ELSE 0 END) AS detractores
+        FROM encuesta_satisfaccion_respuestas WHERE encuesta_id = %s
+    """, (encuesta_id,)).fetchone()
+    respuestas = conn.execute("""
+        SELECT * FROM encuesta_satisfaccion_respuestas
+        WHERE encuesta_id = %s ORDER BY creado_en DESC, id DESC LIMIT 500
+    """, (encuesta_id,)).fetchall()
+    conn.close()
+    total = resumen["total"] or 0
+    nps = round(((resumen["promotores"] or 0) - (resumen["detractores"] or 0)) * 100 / total) if total else None
+    return render_template("encuesta_satisfaccion_resultados.html", encuesta=encuesta, resumen=resumen,
+                           respuestas=respuestas, nps=nps,
+                           puede_gestionar=tiene_permiso("encuestas_gestionar"))
+
+
+@app.route("/admin/encuestas/<int:encuesta_id>/estado", methods=["POST"])
+def cambiar_estado_encuesta_satisfaccion(encuesta_id):
+    check = permiso_requerido("encuestas_gestionar")
+    if check:
+        return check
+    estado = request.form.get("estado", "").strip()
+    if estado not in {"borrador", "publicada", "cerrada"}:
+        abort(400)
+    conn = get_connection()
+    actualizado = conn.execute("""
+        UPDATE encuestas_satisfaccion SET estado = %s, actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s RETURNING id
+    """, (estado, encuesta_id)).fetchone()
+    conn.commit()
+    conn.close()
+    if not actualizado:
+        abort(404)
+    registrar_auditoria("cambiar_estado", "encuesta_satisfaccion", str(encuesta_id), {"estado": estado})
+    flash("Estado de la encuesta actualizado.", "ok")
+    return redirect(url_for("ver_encuesta_satisfaccion", encuesta_id=encuesta_id))
 
 
 @app.route("/admin/sugerencias-recomendaciones")
