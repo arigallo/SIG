@@ -1,17 +1,80 @@
 {% extends "base.html" %}
 {% block title %}Nueva encuesta{% endblock %}
 {% block content %}
-<div class="section-header"><div><h2>Nueva encuesta de satisfaccion</h2><p class="page-intro">El formulario usa indicadores estandar para comparar campañas.</p></div></div>
-<form method="post" class="card form-card">
+<div class="section-header">
+    <div><h2>Nueva encuesta</h2><p class="page-intro">Configura la campaña y crea las preguntas que necesites.</p></div>
+</div>
+<form method="post" class="card form-card" data-survey-builder>
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="preguntas_json" data-questions-json>
     <div class="form-grid">
-        <div class="full"><label>Titulo</label><input name="titulo" maxlength="200" required value="{{ data.titulo }}" placeholder="Ej.: Satisfaccion temporada 2026"></div>
-        <div class="full"><label>Descripcion para quienes responden</label><textarea name="descripcion" rows="4" maxlength="2000">{{ data.descripcion }}</textarea></div>
-        <div class="full"><label>Publico objetivo</label><input name="publico_objetivo" maxlength="300" value="{{ data.publico_objetivo }}" placeholder="Ej.: Jugadores y familias de infantiles"></div>
+        <div class="full"><label>Título</label><input name="titulo" maxlength="200" required value="{{ data.titulo }}" placeholder="Ej.: Encuesta de cierre de temporada"></div>
+        <div class="full"><label>Descripción para quienes responden</label><textarea name="descripcion" rows="4" maxlength="2000">{{ data.descripcion }}</textarea></div>
+        <div class="full"><label>Público objetivo</label><input name="publico_objetivo" maxlength="300" value="{{ data.publico_objetivo }}" placeholder="Ej.: Jugadores y familias de infantiles"></div>
         <div><label>Fecha de inicio</label><input type="date" name="fecha_inicio" value="{{ data.fecha_inicio }}"></div>
         <div><label>Fecha de cierre</label><input type="date" name="fecha_fin" value="{{ data.fecha_fin }}"></div>
         <div><label>Estado inicial</label><select name="estado"><option value="borrador">Borrador</option><option value="publicada" {% if data.estado == 'publicada' %}selected{% endif %}>Publicada</option></select></div>
     </div>
+
+    <section class="survey-builder spaced">
+        <div class="section-header compact-header">
+            <div><h3>Preguntas</h3><p class="muted-line">Puedes crear hasta 30 preguntas y ordenar cómo aparecerán.</p></div>
+            <button class="button secondary" type="button" data-add-question>Agregar pregunta</button>
+        </div>
+        <div data-question-list></div>
+    </section>
+
     <div class="actions spaced"><button class="button" type="submit">Crear encuesta</button><a class="button secondary" href="{{ url_for('listar_encuestas_satisfaccion') }}">Cancelar</a></div>
 </form>
+<script type="application/json" data-initial-questions>{{ preguntas|tojson }}</script>
+<script>
+(() => {
+    const form = document.querySelector("[data-survey-builder]");
+    if (!form) return;
+    const list = form.querySelector("[data-question-list]");
+    const hidden = form.querySelector("[data-questions-json]");
+    const initial = JSON.parse(document.querySelector("[data-initial-questions]").textContent || "[]");
+
+    const sync = () => {
+        const questions = [...list.querySelectorAll("[data-question-card]")].map((card) => ({
+            texto: card.querySelector("[data-question-text]").value,
+            tipo: card.querySelector("[data-question-type]").value,
+            opciones: card.querySelector("[data-question-options]").value.split("\n").map((item) => item.trim()).filter(Boolean),
+            requerida: card.querySelector("[data-question-required]").checked,
+        }));
+        hidden.value = JSON.stringify(questions);
+        [...list.querySelectorAll("[data-question-number]")].forEach((node, index) => node.textContent = `Pregunta ${index + 1}`);
+    };
+    const createCard = (question = {}) => {
+        const card = document.createElement("article");
+        card.className = "survey-builder-card";
+        card.dataset.questionCard = "";
+        card.innerHTML = `
+            <div class="survey-builder-card-head"><strong data-question-number></strong><div class="actions">
+                <button class="button secondary compact" type="button" data-move-up title="Subir">↑</button>
+                <button class="button secondary compact" type="button" data-move-down title="Bajar">↓</button>
+                <button class="button secondary compact" type="button" data-remove-question>Eliminar</button>
+            </div></div>
+            <div class="form-grid"><div class="full"><label>Enunciado</label><input maxlength="500" required data-question-text></div>
+            <div><label>Tipo de respuesta</label><select data-question-type><option value="escala_1_5">Escala de 1 a 5</option><option value="nps_0_10">Recomendación de 0 a 10 (NPS)</option><option value="opcion_unica">Opción única</option><option value="texto_largo">Texto libre</option></select></div>
+            <div class="survey-required-field"><label><input type="checkbox" data-question-required> Respuesta obligatoria</label></div>
+            <div class="full" data-options-field hidden><label>Opciones <span class="field-hint">una por línea</span></label><textarea rows="4" maxlength="3000" data-question-options placeholder="Opción 1\nOpción 2"></textarea></div></div>`;
+        card.querySelector("[data-question-text]").value = question.texto || "";
+        card.querySelector("[data-question-type]").value = question.tipo || "escala_1_5";
+        card.querySelector("[data-question-options]").value = (question.opciones || []).join("\n");
+        card.querySelector("[data-question-required]").checked = question.requerida !== false;
+        const updateType = () => card.querySelector("[data-options-field]").hidden = card.querySelector("[data-question-type]").value !== "opcion_unica";
+        card.querySelector("[data-question-type]").addEventListener("change", () => { updateType(); sync(); });
+        card.querySelector("[data-remove-question]").addEventListener("click", () => { card.remove(); sync(); });
+        card.querySelector("[data-move-up]").addEventListener("click", () => { if (card.previousElementSibling) list.insertBefore(card, card.previousElementSibling); sync(); });
+        card.querySelector("[data-move-down]").addEventListener("click", () => { if (card.nextElementSibling) list.insertBefore(card.nextElementSibling, card); sync(); });
+        card.querySelectorAll("input, textarea, select").forEach((input) => input.addEventListener("input", sync));
+        list.appendChild(card); updateType(); sync();
+    };
+    initial.forEach(createCard);
+    form.querySelector("[data-add-question]").addEventListener("click", () => { if (list.children.length < 30) createCard(); });
+    form.addEventListener("submit", (event) => { sync(); if (!list.children.length) { event.preventDefault(); alert("Agrega al menos una pregunta."); } });
+    sync();
+})();
+</script>
 {% endblock %}

@@ -1153,9 +1153,26 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("encuestas_gestionar", app.PERMISOS)
         self.assertIn("responder_encuesta_satisfaccion", source)
         self.assertIn("listar_encuestas_satisfaccion", base)
-        self.assertIn('name="recomendacion"', public)
+        self.assertIn('name="pregunta_{{ pregunta.id }}"', public)
         self.assertIn("csrf_token()", public)
         self.assertIn("NPS", results)
+
+    def test_custom_survey_questions_are_normalized_and_validated(self):
+        preguntas, error = app.normalizar_preguntas_encuesta(json.dumps([
+            {"texto": "¿Cómo fue la actividad?", "tipo": "escala_1_5", "requerida": True},
+            {"texto": "Elige una categoría", "tipo": "opcion_unica", "opciones": ["A", "B", "A"]},
+            {"texto": "Comentario opcional", "tipo": "texto_largo", "requerida": False},
+        ]))
+
+        self.assertIsNone(error)
+        self.assertEqual(len(preguntas), 3)
+        self.assertEqual(preguntas[1]["opciones"], ["A", "B"])
+        self.assertFalse(preguntas[2]["requerida"])
+
+        _, error = app.normalizar_preguntas_encuesta(json.dumps([
+            {"texto": "Sin opciones", "tipo": "opcion_unica", "opciones": ["Una"]}
+        ]))
+        self.assertIn("entre 2 y 15 opciones", error)
 
 
 if __name__ == "__main__":

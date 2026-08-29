@@ -8046,17 +8046,90 @@ def init_db():
         CREATE TABLE IF NOT EXISTS encuesta_satisfaccion_respuestas (
             id SERIAL PRIMARY KEY,
             encuesta_id INTEGER NOT NULL REFERENCES encuestas_satisfaccion(id) ON DELETE CASCADE,
-            satisfaccion_general INTEGER NOT NULL CHECK (satisfaccion_general BETWEEN 1 AND 5),
-            atencion INTEGER NOT NULL CHECK (atencion BETWEEN 1 AND 5),
-            comunicacion INTEGER NOT NULL CHECK (comunicacion BETWEEN 1 AND 5),
-            instalaciones INTEGER NOT NULL CHECK (instalaciones BETWEEN 1 AND 5),
-            recomendacion INTEGER NOT NULL CHECK (recomendacion BETWEEN 0 AND 10),
+            satisfaccion_general INTEGER CHECK (satisfaccion_general BETWEEN 1 AND 5),
+            atencion INTEGER CHECK (atencion BETWEEN 1 AND 5),
+            comunicacion INTEGER CHECK (comunicacion BETWEEN 1 AND 5),
+            instalaciones INTEGER CHECK (instalaciones BETWEEN 1 AND 5),
+            recomendacion INTEGER CHECK (recomendacion BETWEEN 0 AND 10),
             comentario TEXT,
             nombre TEXT,
             contacto TEXT,
             creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    for columna in ("satisfaccion_general", "atencion", "comunicacion", "instalaciones", "recomendacion"):
+        conn.execute(
+            f"ALTER TABLE encuesta_satisfaccion_respuestas ALTER COLUMN {columna} DROP NOT NULL"
+        )
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS encuesta_satisfaccion_preguntas (
+            id SERIAL PRIMARY KEY,
+            encuesta_id INTEGER NOT NULL REFERENCES encuestas_satisfaccion(id) ON DELETE CASCADE,
+            texto TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('escala_1_5', 'nps_0_10', 'opcion_unica', 'texto_largo')),
+            opciones TEXT,
+            requerida INTEGER NOT NULL DEFAULT 1,
+            orden INTEGER NOT NULL DEFAULT 0,
+            clave_legacy TEXT,
+            UNIQUE (encuesta_id, orden)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS encuesta_satisfaccion_respuesta_items (
+            id SERIAL PRIMARY KEY,
+            respuesta_id INTEGER NOT NULL REFERENCES encuesta_satisfaccion_respuestas(id) ON DELETE CASCADE,
+            pregunta_id INTEGER NOT NULL REFERENCES encuesta_satisfaccion_preguntas(id) ON DELETE CASCADE,
+            valor_texto TEXT,
+            valor_numero INTEGER,
+            UNIQUE (respuesta_id, pregunta_id)
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_encuesta_preguntas_encuesta
+        ON encuesta_satisfaccion_preguntas (encuesta_id, orden)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_encuesta_respuesta_items_pregunta
+        ON encuesta_satisfaccion_respuesta_items (pregunta_id, respuesta_id)
+    """)
+
+    # Compatibilidad con campañas creadas por la primera versión de encuestas.
+    conn.execute("""
+        INSERT INTO encuesta_satisfaccion_preguntas
+            (encuesta_id, texto, tipo, opciones, requerida, orden, clave_legacy)
+        SELECT e.id, base.texto, base.tipo, NULL, base.requerida, base.orden, base.clave
+        FROM encuestas_satisfaccion e
+        CROSS JOIN (VALUES
+            ('¿Cuál es tu satisfacción general con el club?', 'escala_1_5', 1, 1, 'satisfaccion_general'),
+            ('¿Cómo valorás la atención recibida?', 'escala_1_5', 1, 2, 'atencion'),
+            ('¿Cómo valorás la comunicación del club?', 'escala_1_5', 1, 3, 'comunicacion'),
+            ('¿Cómo valorás las instalaciones?', 'escala_1_5', 1, 4, 'instalaciones'),
+            ('¿Qué tan probable es que recomiendes el club?', 'nps_0_10', 1, 5, 'recomendacion'),
+            ('¿Qué deberíamos mantener o mejorar?', 'texto_largo', 0, 6, 'comentario')
+        ) AS base(texto, tipo, requerida, orden, clave)
+        WHERE NOT EXISTS (
+            SELECT 1 FROM encuesta_satisfaccion_preguntas p WHERE p.encuesta_id = e.id
+        )
+    """)
+    for clave_legacy, columna, numerica in (
+        ("satisfaccion_general", "satisfaccion_general", True),
+        ("atencion", "atencion", True),
+        ("comunicacion", "comunicacion", True),
+        ("instalaciones", "instalaciones", True),
+        ("recomendacion", "recomendacion", True),
+        ("comentario", "comentario", False),
+    ):
+        campo_valor = "valor_numero" if numerica else "valor_texto"
+        conn.execute(f"""
+            INSERT INTO encuesta_satisfaccion_respuesta_items
+                (respuesta_id, pregunta_id, {campo_valor})
+            SELECT r.id, p.id, r.{columna}
+            FROM encuesta_satisfaccion_respuestas r
+            JOIN encuesta_satisfaccion_preguntas p
+              ON p.encuesta_id = r.encuesta_id AND p.clave_legacy = %s
+            WHERE r.{columna} IS NOT NULL
+            ON CONFLICT (respuesta_id, pregunta_id) DO NOTHING
+        """, (clave_legacy,))
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_encuestas_satisfaccion_estado
         ON encuestas_satisfaccion (estado, creado_en DESC)
@@ -10285,6 +10358,74 @@ def parsear_fecha_encuesta(valor):
         return None
 
 
+ENCUESTA_TIPOS_PREGUNTA = {
+    "escala_1_5": "Escala de 1 a 5",
+    "nps_0_10": "Recomendación de 0 a 10 (NPS)",
+    "opcion_unica": "Opción única",
+    "texto_largo": "Texto libre",
+}
+
+
+def normalizar_preguntas_encuesta(valor):
+    try:
+        items = json.loads(valor or "[]")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return [], "No se pudo interpretar la configuración de preguntas."
+    if not isinstance(items, list) or not 1 <= len(items) <= 30:
+        return [], "La encuesta debe tener entre 1 y 30 preguntas."
+
+    preguntas = []
+    for orden, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            return [], f"La pregunta {orden} no es válida."
+        texto = str(item.get("texto") or "").strip()
+        tipo = str(item.get("tipo") or "").strip()
+        if not 3 <= len(texto) <= 500:
+            return [], f"La pregunta {orden} debe tener entre 3 y 500 caracteres."
+        if tipo not in ENCUESTA_TIPOS_PREGUNTA:
+            return [], f"Selecciona un tipo válido para la pregunta {orden}."
+        requerida = item.get("requerida", True)
+        if not isinstance(requerida, bool):
+            return [], f"La configuración de obligatoriedad de la pregunta {orden} no es válida."
+
+        opciones = []
+        if tipo == "opcion_unica":
+            opciones_raw = item.get("opciones") or []
+            if isinstance(opciones_raw, str):
+                opciones_raw = opciones_raw.splitlines()
+            if not isinstance(opciones_raw, list):
+                return [], f"Las opciones de la pregunta {orden} no son válidas."
+            for opcion in opciones_raw:
+                opcion = str(opcion or "").strip()[:200]
+                if opcion and opcion not in opciones:
+                    opciones.append(opcion)
+            if not 2 <= len(opciones) <= 15:
+                return [], f"La pregunta {orden} debe tener entre 2 y 15 opciones."
+
+        preguntas.append({
+            "texto": texto,
+            "tipo": tipo,
+            "opciones": opciones,
+            "requerida": requerida,
+            "orden": orden,
+        })
+    return preguntas, None
+
+
+def preparar_preguntas_encuesta(filas):
+    preguntas = []
+    for fila in filas:
+        item = dict(fila)
+        try:
+            opciones = json.loads(item.get("opciones") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            opciones = []
+        item["opciones_lista"] = opciones if isinstance(opciones, list) else []
+        item["tipo_label"] = ENCUESTA_TIPOS_PREGUNTA.get(item.get("tipo"), item.get("tipo"))
+        preguntas.append(item)
+    return preguntas
+
+
 @app.route("/encuestas/<token>", methods=["GET", "POST"])
 def responder_encuesta_satisfaccion(token):
     if not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", token or ""):
@@ -10293,16 +10434,18 @@ def responder_encuesta_satisfaccion(token):
     encuesta = conn.execute(
         "SELECT * FROM encuestas_satisfaccion WHERE token = %s", (token,)
     ).fetchone()
-    disponible = encuesta_esta_disponible(encuesta)
+    preguntas = preparar_preguntas_encuesta(conn.execute("""
+        SELECT * FROM encuesta_satisfaccion_preguntas
+        WHERE encuesta_id = %s ORDER BY orden, id
+    """, (encuesta["id"],)).fetchall()) if encuesta else []
+    disponible = encuesta_esta_disponible(encuesta) and bool(preguntas)
     data = {
-        "satisfaccion_general": request.form.get("satisfaccion_general", ""),
-        "atencion": request.form.get("atencion", ""),
-        "comunicacion": request.form.get("comunicacion", ""),
-        "instalaciones": request.form.get("instalaciones", ""),
-        "recomendacion": request.form.get("recomendacion", ""),
-        "comentario": request.form.get("comentario", "").strip()[:4000],
         "nombre": request.form.get("nombre", "").strip()[:200],
         "contacto": request.form.get("contacto", "").strip()[:300],
+        "respuestas": {
+            str(pregunta["id"]): request.form.get(f"pregunta_{pregunta['id']}", "")[:4000]
+            for pregunta in preguntas
+        },
     }
 
     if request.method == "POST":
@@ -10314,36 +10457,56 @@ def responder_encuesta_satisfaccion(token):
         if not consumir_limite_publico(clave_limite, max_intentos=10, minutos=60):
             conn.close()
             flash("Se alcanzo el limite de envios. Intenta nuevamente mas tarde.", "error")
-            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, disponible=True, data=data), 429
+            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, preguntas=preguntas, disponible=True, data=data), 429
         if request.form.get("website", "").strip():
             conn.close()
             abort(400)
 
-        valores = {}
-        limites = {
-            "satisfaccion_general": (1, 5), "atencion": (1, 5),
-            "comunicacion": (1, 5), "instalaciones": (1, 5),
-            "recomendacion": (0, 10),
-        }
-        try:
-            for campo, (minimo, maximo) in limites.items():
-                valores[campo] = int(request.form.get(campo, ""))
-                if not minimo <= valores[campo] <= maximo:
-                    raise ValueError
-        except (TypeError, ValueError):
+        items_respuesta = []
+        error_respuesta = None
+        for pregunta in preguntas:
+            valor = data["respuestas"][str(pregunta["id"])].strip()
+            if not valor and pregunta["requerida"]:
+                error_respuesta = f"Completa la pregunta: {pregunta['texto']}"
+                break
+            if not valor:
+                continue
+            if pregunta["tipo"] in {"escala_1_5", "nps_0_10"}:
+                try:
+                    numero = int(valor)
+                except ValueError:
+                    error_respuesta = f"La respuesta a “{pregunta['texto']}” no es válida."
+                    break
+                minimo, maximo = (1, 5) if pregunta["tipo"] == "escala_1_5" else (0, 10)
+                if not minimo <= numero <= maximo:
+                    error_respuesta = f"La respuesta a “{pregunta['texto']}” no es válida."
+                    break
+                items_respuesta.append((pregunta["id"], None, numero))
+            elif pregunta["tipo"] == "opcion_unica":
+                if valor not in pregunta["opciones_lista"]:
+                    error_respuesta = f"Selecciona una opción válida para “{pregunta['texto']}”."
+                    break
+                items_respuesta.append((pregunta["id"], valor, None))
+            else:
+                items_respuesta.append((pregunta["id"], valor[:4000], None))
+
+        if error_respuesta:
             conn.close()
-            flash("Completa todas las valoraciones antes de enviar.", "error")
-            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, disponible=True, data=data), 400
+            flash(error_respuesta, "error")
+            return render_template("encuesta_satisfaccion_publica.html", encuesta=encuesta, preguntas=preguntas, disponible=True, data=data), 400
 
         respuesta = conn.execute("""
             INSERT INTO encuesta_satisfaccion_respuestas (
-                encuesta_id, satisfaccion_general, atencion, comunicacion,
-                instalaciones, recomendacion, comentario, nombre, contacto
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                encuesta_id, nombre, contacto
+            ) VALUES (%s, %s, %s)
             RETURNING id
-        """, (encuesta["id"], valores["satisfaccion_general"], valores["atencion"],
-              valores["comunicacion"], valores["instalaciones"], valores["recomendacion"],
-              data["comentario"] or None, data["nombre"] or None, data["contacto"] or None)).fetchone()
+        """, (encuesta["id"], data["nombre"] or None, data["contacto"] or None)).fetchone()
+        for pregunta_id, valor_texto, valor_numero in items_respuesta:
+            conn.execute("""
+                INSERT INTO encuesta_satisfaccion_respuesta_items
+                    (respuesta_id, pregunta_id, valor_texto, valor_numero)
+                VALUES (%s, %s, %s, %s)
+            """, (respuesta["id"], pregunta_id, valor_texto, valor_numero))
         conn.commit()
         conn.close()
         registrar_auditoria("responder", "encuesta_satisfaccion", str(encuesta["id"]), {
@@ -10356,7 +10519,7 @@ def responder_encuesta_satisfaccion(token):
     return render_template(
         "encuesta_satisfaccion_publica.html", encuesta=encuesta,
         disponible=disponible, completada=bool(encuesta) and request.args.get("completada") == "1",
-        data=data,
+        preguntas=preguntas, data=data,
     ), (200 if encuesta else 404)
 
 
@@ -20448,10 +20611,11 @@ def listar_encuestas_satisfaccion():
         return check
     conn = get_connection()
     encuestas = conn.execute("""
-        SELECT e.*, COUNT(r.id) AS respuestas,
-               ROUND(AVG(r.satisfaccion_general)::numeric, 1) AS promedio_general
+        SELECT e.*, COUNT(DISTINCT r.id) AS respuestas,
+               COUNT(DISTINCT p.id) AS preguntas
         FROM encuestas_satisfaccion e
         LEFT JOIN encuesta_satisfaccion_respuestas r ON r.encuesta_id = e.id
+        LEFT JOIN encuesta_satisfaccion_preguntas p ON p.encuesta_id = e.id
         GROUP BY e.id
         ORDER BY e.creado_en DESC, e.id DESC
     """).fetchall()
@@ -20473,20 +20637,30 @@ def nueva_encuesta_satisfaccion():
         "fecha_fin": request.form.get("fecha_fin", "").strip(),
         "estado": request.form.get("estado", "borrador").strip(),
     }
+    preguntas_default = [
+        {"texto": "¿Cuál es tu satisfacción general?", "tipo": "escala_1_5", "opciones": [], "requerida": True},
+        {"texto": "¿Qué deberíamos mantener o mejorar?", "tipo": "texto_largo", "opciones": [], "requerida": False},
+    ]
+    preguntas_json = request.form.get("preguntas_json", "")
+    preguntas = preguntas_default
     if request.method == "POST":
+        preguntas, error_preguntas = normalizar_preguntas_encuesta(preguntas_json)
         if len(data["titulo"]) < 3:
             flash("El titulo debe tener al menos 3 caracteres.", "error")
-            return render_template("encuesta_satisfaccion_form.html", data=data)
+            return render_template("encuesta_satisfaccion_form.html", data=data, preguntas=preguntas or preguntas_default)
+        if error_preguntas:
+            flash(error_preguntas, "error")
+            return render_template("encuesta_satisfaccion_form.html", data=data, preguntas=preguntas or preguntas_default)
         fechas_invalidas = any(
             data[campo] and parsear_fecha_encuesta(data[campo]) is None
             for campo in ("fecha_inicio", "fecha_fin")
         )
         if fechas_invalidas:
             flash("Ingresa fechas validas.", "error")
-            return render_template("encuesta_satisfaccion_form.html", data=data)
+            return render_template("encuesta_satisfaccion_form.html", data=data, preguntas=preguntas)
         if data["fecha_inicio"] and data["fecha_fin"] and data["fecha_fin"] < data["fecha_inicio"]:
             flash("La fecha de cierre no puede ser anterior a la de inicio.", "error")
-            return render_template("encuesta_satisfaccion_form.html", data=data)
+            return render_template("encuesta_satisfaccion_form.html", data=data, preguntas=preguntas)
         if data["estado"] not in {"borrador", "publicada"}:
             data["estado"] = "borrador"
         conn = get_connection()
@@ -20497,12 +20671,22 @@ def nueva_encuesta_satisfaccion():
         """, (data["titulo"][:200], data["descripcion"][:2000] or None,
               data["publico_objetivo"][:300] or None, secrets.token_urlsafe(18), data["estado"],
               data["fecha_inicio"] or None, data["fecha_fin"] or None, session.get("username"))).fetchone()
+        for pregunta in preguntas:
+            conn.execute("""
+                INSERT INTO encuesta_satisfaccion_preguntas
+                    (encuesta_id, texto, tipo, opciones, requerida, orden)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (encuesta["id"], pregunta["texto"], pregunta["tipo"],
+                  json.dumps(pregunta["opciones"], ensure_ascii=False) if pregunta["opciones"] else None,
+                  1 if pregunta["requerida"] else 0, pregunta["orden"]))
         conn.commit()
         conn.close()
-        registrar_auditoria("crear", "encuesta_satisfaccion", str(encuesta["id"]), data)
+        registrar_auditoria("crear", "encuesta_satisfaccion", str(encuesta["id"]), {
+            **data, "cantidad_preguntas": len(preguntas)
+        })
         flash("Encuesta creada correctamente.", "ok")
         return redirect(url_for("ver_encuesta_satisfaccion", encuesta_id=encuesta["id"]))
-    return render_template("encuesta_satisfaccion_form.html", data=data)
+    return render_template("encuesta_satisfaccion_form.html", data=data, preguntas=preguntas)
 
 
 @app.route("/admin/encuestas/<int:encuesta_id>")
@@ -20515,26 +20699,50 @@ def ver_encuesta_satisfaccion(encuesta_id):
     if not encuesta:
         conn.close()
         abort(404)
+    preguntas = preparar_preguntas_encuesta(conn.execute("""
+        SELECT * FROM encuesta_satisfaccion_preguntas
+        WHERE encuesta_id = %s ORDER BY orden, id
+    """, (encuesta_id,)).fetchall())
     resumen = conn.execute("""
-        SELECT COUNT(*) AS total,
-               ROUND(AVG(satisfaccion_general)::numeric, 1) AS general,
-               ROUND(AVG(atencion)::numeric, 1) AS atencion,
-               ROUND(AVG(comunicacion)::numeric, 1) AS comunicacion,
-               ROUND(AVG(instalaciones)::numeric, 1) AS instalaciones,
-               ROUND(AVG(recomendacion)::numeric, 1) AS recomendacion,
-               SUM(CASE WHEN recomendacion >= 9 THEN 1 ELSE 0 END) AS promotores,
-               SUM(CASE WHEN recomendacion <= 6 THEN 1 ELSE 0 END) AS detractores
-        FROM encuesta_satisfaccion_respuestas WHERE encuesta_id = %s
+        SELECT COUNT(*) AS total FROM encuesta_satisfaccion_respuestas WHERE encuesta_id = %s
     """, (encuesta_id,)).fetchone()
+    items = conn.execute("""
+        SELECT i.*, r.creado_en, r.nombre, r.contacto
+        FROM encuesta_satisfaccion_respuesta_items i
+        JOIN encuesta_satisfaccion_respuestas r ON r.id = i.respuesta_id
+        WHERE r.encuesta_id = %s ORDER BY r.creado_en DESC, r.id DESC
+    """, (encuesta_id,)).fetchall()
     respuestas = conn.execute("""
-        SELECT * FROM encuesta_satisfaccion_respuestas
+        SELECT id, nombre, contacto, creado_en FROM encuesta_satisfaccion_respuestas
         WHERE encuesta_id = %s ORDER BY creado_en DESC, id DESC LIMIT 500
     """, (encuesta_id,)).fetchall()
     conn.close()
-    total = resumen["total"] or 0
-    nps = round(((resumen["promotores"] or 0) - (resumen["detractores"] or 0)) * 100 / total) if total else None
+    items_por_pregunta = {}
+    for item in items:
+        items_por_pregunta.setdefault(item["pregunta_id"], []).append(dict(item))
+    for pregunta in preguntas:
+        valores = items_por_pregunta.get(pregunta["id"], [])
+        pregunta["cantidad_respuestas"] = len(valores)
+        if pregunta["tipo"] in {"escala_1_5", "nps_0_10"}:
+            numeros = [item["valor_numero"] for item in valores if item["valor_numero"] is not None]
+            pregunta["promedio"] = round(sum(numeros) / len(numeros), 1) if numeros else None
+            minimo, maximo = (1, 5) if pregunta["tipo"] == "escala_1_5" else (0, 10)
+            pregunta["distribucion"] = [
+                {"valor": valor, "cantidad": numeros.count(valor)} for valor in range(minimo, maximo + 1)
+            ]
+            if pregunta["tipo"] == "nps_0_10" and numeros:
+                promotores = sum(1 for numero in numeros if numero >= 9)
+                detractores = sum(1 for numero in numeros if numero <= 6)
+                pregunta["nps"] = round((promotores - detractores) * 100 / len(numeros))
+        elif pregunta["tipo"] == "opcion_unica":
+            textos = [item["valor_texto"] for item in valores]
+            pregunta["distribucion"] = [
+                {"valor": opcion, "cantidad": textos.count(opcion)} for opcion in pregunta["opciones_lista"]
+            ]
+        else:
+            pregunta["respuestas_texto"] = [item for item in valores if item["valor_texto"]]
     return render_template("encuesta_satisfaccion_resultados.html", encuesta=encuesta, resumen=resumen,
-                           respuestas=respuestas, nps=nps,
+                           preguntas=preguntas, respuestas=respuestas,
                            puede_gestionar=tiene_permiso("encuestas_gestionar"))
 
 

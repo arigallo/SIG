@@ -499,6 +499,116 @@ textarea::placeholder {
 .survey-scale label span { text-align: center; min-width: 2.5rem; }
 .survey-scale-nps label { flex-basis: 2rem; }
 
+.survey-options {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.survey-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border-color, #dfe4e8);
+    border-radius: var(--radius-soft);
+    cursor: pointer;
+}
+
+.survey-options input,
+.survey-required-field input {
+    width: auto;
+}
+
+.survey-builder {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color, #dfe4e8);
+}
+
+.survey-builder-card {
+    margin-top: 1rem;
+    padding: 1.1rem;
+    border: 1px solid var(--border-color, #dfe4e8);
+    border-radius: var(--radius-soft);
+    background: #f8fafb;
+}
+
+.survey-builder-card-head,
+.survey-result-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.survey-required-field {
+    display: flex;
+    align-items: end;
+    padding-bottom: 0.7rem;
+}
+
+.survey-results {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.survey-result-card h3 {
+    margin: 0.2rem 0 0;
+}
+
+.survey-result-summary {
+    justify-content: flex-start;
+}
+
+.survey-result-summary > div {
+    min-width: 120px;
+}
+
+.survey-distribution {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.survey-distribution > div {
+    display: grid;
+    grid-template-columns: minmax(28px, auto) 1fr 35px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.survey-option-distribution > div {
+    grid-template-columns: minmax(120px, 0.5fr) 1fr 35px;
+}
+
+.survey-bar {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e8edf0;
+}
+
+.survey-bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary);
+}
+
+.survey-text-responses article {
+    padding: 0.85rem 0;
+    border-top: 1px solid var(--border-color, #dfe4e8);
+}
+
+.survey-text-responses article:first-child {
+    border-top: 0;
+}
+
+.survey-text-responses p {
+    margin: 0 0 0.35rem;
+    white-space: pre-wrap;
+}
+
 .upload-dropzone {
     display: flex;
     min-height: 150px;

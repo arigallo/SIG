@@ -1,22 +1,28 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Encuesta de satisfaccion - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Encuesta - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
 <body class="login-body entry-body"><main class="public-form-shell">
 <section class="public-form-header">
     <div class="login-logo entry-logo"><picture><source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club"></picture></div>
     <p class="entry-kicker">Ruda Macho Rugby Club</p><h1>{{ encuesta.titulo if encuesta else 'Encuesta no encontrada' }}</h1>
-    {% if encuesta %}<p>{{ encuesta.descripcion or 'Tu opinion nos ayuda a mejorar.' }}</p>{% endif %}
+    {% if encuesta %}<p>{{ encuesta.descripcion or 'Tu opinión nos ayuda a mejorar.' }}</p>{% endif %}
 </section>
 {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash {{ category }} login-flash">{{ message }}</div>{% endfor %}{% endwith %}
 {% if completada and encuesta %}
-<section class="public-form-card"><h2>¡Gracias por participar!</h2><p>La respuesta se guardo correctamente.</p></section>
+<section class="public-form-card"><h2>¡Gracias por participar!</h2><p>La respuesta se guardó correctamente.</p></section>
 {% elif disponible %}
 <form method="post" class="public-form-card">
 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input class="honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-{% set preguntas = [('satisfaccion_general','¿Cuál es tu satisfacción general con el club?'),('atencion','¿Cómo valorás la atención recibida?'),('comunicacion','¿Cómo valorás la comunicación del club?'),('instalaciones','¿Cómo valorás las instalaciones?')] %}
-{% for campo, pregunta in preguntas %}<fieldset class="survey-question"><legend>{{ pregunta }}</legend><div class="segmented-control survey-scale">{% for valor in range(1,6) %}<label><input type="radio" name="{{ campo }}" value="{{ valor }}" {% if data and data[campo]|string == valor|string %}checked{% endif %} required><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">1 = Muy insatisfecho · 5 = Muy satisfecho</span></fieldset>{% endfor %}
-<fieldset class="survey-question"><legend>¿Qué tan probable es que recomiendes el club?</legend><div class="segmented-control survey-scale survey-scale-nps">{% for valor in range(0,11) %}<label><input type="radio" name="recomendacion" value="{{ valor }}" {% if data and data.recomendacion|string == valor|string %}checked{% endif %} required><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">0 = Nada probable · 10 = Muy probable</span></fieldset>
-<div class="form-grid"><div class="full"><label>¿Qué deberíamos mantener o mejorar?</label><textarea name="comentario" rows="5" maxlength="4000">{{ data.comentario if data else '' }}</textarea></div><div><label>Nombre <span class="field-hint">(opcional)</span></label><input name="nombre" maxlength="200" value="{{ data.nombre if data else '' }}"></div><div><label>Contacto <span class="field-hint">(opcional)</span></label><input name="contacto" maxlength="300" value="{{ data.contacto if data else '' }}"></div></div>
+{% for pregunta in preguntas %}
+<fieldset class="survey-question"><legend>{{ loop.index }}. {{ pregunta.texto }}{% if pregunta.requerida %} <span aria-label="obligatoria">*</span>{% endif %}</legend>
+    {% set valor_actual = data.respuestas[pregunta.id|string] if data and data.respuestas else '' %}
+    {% if pregunta.tipo == 'escala_1_5' %}<div class="segmented-control survey-scale">{% for valor in range(1,6) %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ valor }}" {% if valor_actual|string == valor|string %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">1 = Valoración mínima · 5 = Valoración máxima</span>
+    {% elif pregunta.tipo == 'nps_0_10' %}<div class="segmented-control survey-scale survey-scale-nps">{% for valor in range(0,11) %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ valor }}" {% if valor_actual|string == valor|string %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">0 = Nada probable · 10 = Muy probable</span>
+    {% elif pregunta.tipo == 'opcion_unica' %}<div class="survey-options">{% for opcion in pregunta.opciones_lista %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ opcion }}" {% if valor_actual == opcion %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ opcion }}</span></label>{% endfor %}</div>
+    {% else %}<textarea name="pregunta_{{ pregunta.id }}" rows="5" maxlength="4000" {% if pregunta.requerida %}required{% endif %}>{{ valor_actual }}</textarea>{% endif %}
+</fieldset>
+{% endfor %}
+<div class="form-grid"><div><label>Nombre <span class="field-hint">(opcional)</span></label><input name="nombre" maxlength="200" value="{{ data.nombre if data else '' }}"></div><div><label>Contacto <span class="field-hint">(opcional)</span></label><input name="contacto" maxlength="300" value="{{ data.contacto if data else '' }}"></div></div>
 <button class="button login-button" type="submit">Enviar respuesta</button>
 </form>
-{% else %}<section class="public-form-card"><h2>Encuesta no disponible</h2><p>La campaña todavia no comenzo o ya fue cerrada.</p></section>{% endif %}
+{% else %}<section class="public-form-card"><h2>Encuesta no disponible</h2><p>La campaña todavía no comenzó, ya fue cerrada o no tiene preguntas.</p></section>{% endif %}
 </main></body></html>

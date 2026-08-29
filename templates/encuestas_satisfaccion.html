@@ -7,14 +7,14 @@
 </div>
 <div class="table-wrapper">
 <table>
-    <thead><tr><th>Encuesta</th><th>Periodo</th><th>Estado</th><th>Respuestas</th><th>Promedio</th><th></th></tr></thead>
+    <thead><tr><th>Encuesta</th><th>Periodo</th><th>Estado</th><th>Preguntas</th><th>Respuestas</th><th></th></tr></thead>
     <tbody>
     {% for encuesta in encuestas %}
     <tr>
         <td><strong>{{ encuesta.titulo }}</strong><span class="muted-line">{{ encuesta.publico_objetivo or 'Publico general' }}</span></td>
         <td>{{ encuesta.fecha_inicio or 'Sin inicio' }} — {{ encuesta.fecha_fin or 'Sin cierre' }}</td>
         <td><span class="badge {% if encuesta.estado == 'publicada' %}badge-success{% elif encuesta.estado == 'cerrada' %}badge-muted{% else %}badge-warning{% endif %}">{{ encuesta.estado|capitalize }}</span></td>
-        <td>{{ encuesta.respuestas or 0 }}</td><td>{{ encuesta.promedio_general or '-' }}{% if encuesta.promedio_general %} / 5{% endif %}</td>
+        <td>{{ encuesta.preguntas or 0 }}</td><td>{{ encuesta.respuestas or 0 }}</td>
         <td><a class="button secondary" href="{{ url_for('ver_encuesta_satisfaccion', encuesta_id=encuesta.id) }}">Ver resultados</a></td>
     </tr>
     {% else %}<tr><td colspan="6">Todavia no hay encuestas. Crea la primera campaña para comenzar.</td></tr>{% endfor %}
