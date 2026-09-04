@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Pagos por débito automático{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Pagos por débito automático</h2>
+        <p class="page-intro">Revisá las cuotas debitadas y registrá juntas solamente las que correspondan.</p>
+    </div>
+</div>
+
+<form method="get" class="card form-card form-card-narrow">
+    <div class="field">
+        <label for="periodo">Mes de la cuota</label>
+        <input id="periodo" type="month" name="periodo" value="{{ periodo }}" required>
+    </div>
+    <div class="actions-row">
+        <button class="button secondary" type="submit">Ver cuotas</button>
+    </div>
+</form>
+
+<form method="post" class="card spaced">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="periodo" value="{{ periodo }}">
+    <div class="section-header compact">
+        <div>
+            <h3>Cuotas pendientes de {{ periodo }}</h3>
+            <span class="muted-line">{{ cuotas|length }} jugador(es) con débito automático</span>
+        </div>
+    </div>
+    <div class="table-wrapper flush">
+        <table>
+            <thead>
+                <tr>
+                    <th>Abonar</th>
+                    <th>Jugador</th>
+                    <th>N.º de socio</th>
+                    <th>Categoría</th>
+                    <th>Vencimiento</th>
+                    <th>Importe</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in cuotas %}
+                <tr>
+                    <td data-label="Abonar">
+                        <input type="checkbox" name="cuota_ids" value="{{ cuota['id'] }}" checked aria-label="Abonar cuota de {{ cuota['apellido'] }}, {{ cuota['nombre'] }}">
+                    </td>
+                    <td data-label="Jugador">
+                        <a href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}"><strong>{{ cuota['apellido'] }}, {{ cuota['nombre'] }}</strong></a>
+                    </td>
+                    <td data-label="N.º de socio">{{ cuota['numero_socio'] or '-' }}</td>
+                    <td data-label="Categoría">{{ cuota['categoria'] or '-' }}</td>
+                    <td data-label="Vencimiento">{{ cuota['fecha_vencimiento'] or '-' }}</td>
+                    <td data-label="Importe">{{ cuota['importe'] | moneda }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty">No hay cuotas pendientes de débito automático para este mes.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if cuotas %}
+    <div class="actions-row top-gap">
+        <button class="button" type="submit" onclick="return confirm('¿Registrar como pagadas todas las cuotas seleccionadas?');">Registrar pagos seleccionados</button>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}

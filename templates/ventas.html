@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Ventas del club{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Ventas del club</h2>
+        <p class="muted-line">Catalogo, stock y ventas conectadas con Caja.</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('ver_caja', mes=mes) }}">Ver caja</a>
+</div>
+
+<div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Ventas del mes</h3>
+        <p class="stat-number">{{ resumen['operaciones'] or 0 }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Ingresos por ventas</h3>
+        <p class="stat-number status-paid">{{ resumen['total'] | moneda }}</p>
+    </div>
+    <div class="card stat-card">
+        <h3>Productos activos</h3>
+        <p class="stat-number">{{ productos | selectattr('activo') | list | length }}</p>
+    </div>
+</div>
+
+{% if puede('ventas_gestionar') %}
+<div class="page-section">
+    <div class="section-header"><h3>Registrar venta</h3></div>
+    <form method="post" action="{{ url_for('registrar_venta_club') }}" class="card form-card form-card-wide" id="venta-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div>
+                <label>Fecha</label>
+                <input type="date" name="fecha" value="{{ fecha_hoy }}" required>
+            </div>
+            <div>
+                <label>Comprador (opcional)</label>
+                <input type="text" name="comprador" maxlength="120" placeholder="Nombre o referencia">
+            </div>
+            <div>
+                <label>Medio de pago</label>
+                <select name="medio_pago" required>
+                    <option>Efectivo</option>
+                    <option>Transferencia</option>
+                    <option>Tarjeta</option>
+                    <option>Otro</option>
+                </select>
+            </div>
+            <div class="full">
+                <label>Productos</label>
+                <div id="venta-items" class="sales-items">
+                    <div class="sales-item-row">
+                        <select name="producto_id" required>
+                            <option value="">Seleccionar producto</option>
+                            {% for producto in productos if producto['activo'] and producto['stock'] > 0 %}
+                                <option value="{{ producto['id'] }}" data-precio="{{ producto['precio'] }}">{{ producto['nombre'] }} — {{ producto['precio'] | moneda }} (stock {{ producto['stock'] }})</option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="cantidad" value="1" min="1" required aria-label="Cantidad">
+                        <button class="button secondary sales-remove" type="button" aria-label="Quitar producto">Quitar</button>
+                    </div>
+                </div>
+                <button class="button secondary spaced-small" type="button" id="agregar-item">+ Agregar producto</button>
+            </div>
+            <div class="full">
+                <label>Notas</label>
+                <textarea name="notas" rows="2" maxlength="500"></textarea>
+            </div>
+        </div>
+        <div class="actions-row stack-gap">
+            <strong>Total estimado: <span id="venta-total">$ 0,00</span></strong>
+            <button class="button" type="submit">Confirmar venta</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-section">
+    <div class="section-header"><h3>Agregar producto</h3></div>
+    <form method="post" action="{{ url_for('crear_producto_venta') }}" class="card form-card form-card-wide">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div><label>Nombre</label><input type="text" name="nombre" maxlength="120" required></div>
+            <div><label>Precio</label><input type="number" name="precio" min="0.01" step="0.01" required></div>
+            <div><label>Stock inicial</label><input type="number" name="stock" value="0" min="0" step="1" required></div>
+            <div class="full"><label>Descripcion</label><input type="text" name="descripcion" maxlength="250"></div>
+        </div>
+        <div class="actions-row"><button class="button" type="submit">Agregar al catalogo</button></div>
+    </form>
+</div>
+{% endif %}
+
+<div class="page-section">
+    <div class="section-header"><h3>Catalogo y stock</h3></div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody>
+            {% for producto in productos %}
+                <tr class="{% if not producto['activo'] %}movement-cancelled{% endif %}">
+                    <td><strong>{{ producto['nombre'] }}</strong>{% if producto['descripcion'] %}<span class="muted-line">{{ producto['descripcion'] }}</span>{% endif %}</td>
+                    <td>{{ producto['precio'] | moneda }}</td>
+                    <td><strong class="{% if producto['stock'] <= 2 %}text-danger{% endif %}">{{ producto['stock'] }}</strong></td>
+                    <td>{{ 'Activo' if producto['activo'] else 'Pausado' }}</td>
+                    <td class="actions">
+                    {% if puede('ventas_gestionar') %}
+                        <form method="post" action="{{ url_for('ajustar_stock_producto', producto_id=producto['id']) }}" class="inline-form">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="number" name="cantidad" step="1" placeholder="+/- stock" required aria-label="Ajuste de stock">
+                            <button class="button secondary" type="submit">Ajustar</button>
+                        </form>
+                        <form method="post" action="{{ url_for('alternar_producto_venta', producto_id=producto['id']) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="button secondary" type="submit">{{ 'Pausar' if producto['activo'] else 'Activar' }}</button>
+                        </form>
+                    {% else %}-{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="empty">Todavia no hay productos cargados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-section">
+    <div class="section-header"><h3>Historial</h3></div>
+    <form method="get" class="card form-card form-card-narrow spaced-small">
+        <div class="field"><label>Mes</label><input type="month" name="mes" value="{{ mes }}"></div>
+        <button class="button secondary" type="submit">Aplicar</button>
+    </form>
+    <div class="table-wrapper spaced-small">
+        <table>
+            <thead><tr><th>Fecha</th><th>Venta</th><th>Comprador</th><th>Detalle</th><th>Pago</th><th>Total</th><th>Accion</th></tr></thead>
+            <tbody>
+            {% for venta in ventas %}
+                <tr class="{% if venta['estado'] == 'anulada' %}movement-cancelled{% endif %}">
+                    <td>{{ venta['fecha'] }}</td><td>#{{ venta['id'] }}</td><td>{{ venta['comprador'] or '-' }}</td>
+                    <td>{{ venta['detalle'] }}{% if venta['notas'] %}<span class="muted-line">{{ venta['notas'] }}</span>{% endif %}</td>
+                    <td>{{ venta['medio_pago'] }}</td><td>{{ venta['total'] | moneda }}</td>
+                    <td>{% if venta['estado'] == 'confirmada' and puede('ventas_gestionar') %}
+                        <form method="post" action="{{ url_for('anular_venta_club', venta_id=venta['id']) }}" onsubmit="return confirm('¿Anular esta venta? Se repondra el stock y se anulara el ingreso en Caja.');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button danger" type="submit">Anular</button>
+                        </form>{% else %}<span>{{ venta['estado'] | capitalize }}</span>{% endif %}</td>
+                </tr>
+            {% else %}<tr><td colspan="7" class="empty">No hay ventas en este mes.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(() => {
+    const list = document.getElementById('venta-items');
+    const add = document.getElementById('agregar-item');
+    const total = document.getElementById('venta-total');
+    if (!list || !add || !total) return;
+    const update = () => {
+        let value = 0;
+        list.querySelectorAll('.sales-item-row').forEach(row => {
+            const option = row.querySelector('select').selectedOptions[0];
+            const qty = Number(row.querySelector('input').value || 0);
+            value += Number(option?.dataset.precio || 0) * qty;
+        });
+        total.textContent = value.toLocaleString('es-AR', {style: 'currency', currency: 'ARS'});
+    };
+    add.addEventListener('click', () => {
+        const row = list.querySelector('.sales-item-row').cloneNode(true);
+        row.querySelector('select').value = '';
+        row.querySelector('input').value = '1';
+        list.appendChild(row);
+        update();
+    });
+    list.addEventListener('click', event => {
+        if (!event.target.classList.contains('sales-remove')) return;
+        if (list.children.length > 1) event.target.closest('.sales-item-row').remove();
+        update();
+    });
+    list.addEventListener('input', update);
+    list.addEventListener('change', update);
+})();
+</script>
+{% endblock %}

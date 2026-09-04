@@ -4119,6 +4119,28 @@ tbody tr:hover {
     gap: .75rem;
 }
 
+.sales-items {
+    display: grid;
+    gap: 10px;
+}
+
+.sales-item-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) 100px auto;
+    gap: 10px;
+    align-items: center;
+}
+
+@media (max-width: 640px) {
+    .sales-item-row {
+        grid-template-columns: 1fr 90px;
+    }
+
+    .sales-item-row select {
+        grid-column: 1 / -1;
+    }
+}
+
 @media (max-width: 640px) {
     .entry-shell.portal-push-gate {
         min-height: calc(100vh - 32px);

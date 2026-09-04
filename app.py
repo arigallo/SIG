@@ -691,6 +691,16 @@ PERMISOS = {
         "nombre": "Gestionar presupuesto",
         "descripcion": "Crear y administrar gastos e ingresos presupuestados.",
     },
+    "ventas_ver": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Ver ventas del club",
+        "descripcion": "Consultar productos, stock, ventas e ingresos asociados.",
+    },
+    "ventas_gestionar": {
+        "grupo": "Cuotas y caja",
+        "nombre": "Gestionar ventas del club",
+        "descripcion": "Administrar productos, stock y registrar o anular ventas.",
+    },
     "reportes_ver": {
         "grupo": "Reportes",
         "nombre": "Ver reportes",
@@ -847,6 +857,8 @@ ROLE_PRESETS = {
         "facturas_recibidas_gestionar",
         "presupuesto_ver",
         "presupuesto_gestionar",
+        "ventas_ver",
+        "ventas_gestionar",
         "reportes_ver",
         "comunicaciones_ver",
         "calendario_ver",
@@ -7062,6 +7074,7 @@ def init_db():
         "portal_actualizado_en": "TEXT",
         "tipo_miembro": "TEXT DEFAULT 'Jugador'",
         "cobra_cuota": "INTEGER DEFAULT 1",
+        "debito_automatico": "INTEGER DEFAULT 0",
     }
 
     for columna, tipo_columna in columnas_extra_jugador.items():
@@ -8314,6 +8327,51 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS venta_productos (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            descripcion TEXT,
+            precio REAL NOT NULL,
+            stock INTEGER NOT NULL DEFAULT 0,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ventas_club (
+            id SERIAL PRIMARY KEY,
+            fecha TEXT NOT NULL,
+            comprador TEXT,
+            medio_pago TEXT NOT NULL,
+            total REAL NOT NULL,
+            notas TEXT,
+            estado TEXT NOT NULL DEFAULT 'confirmada',
+            movimiento_id INTEGER,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT,
+            anulado_en TIMESTAMPTZ,
+            anulado_por TEXT,
+            FOREIGN KEY (movimiento_id) REFERENCES movimientos(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS venta_items (
+            id SERIAL PRIMARY KEY,
+            venta_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            producto_nombre TEXT NOT NULL,
+            cantidad INTEGER NOT NULL,
+            precio_unitario REAL NOT NULL,
+            subtotal REAL NOT NULL,
+            FOREIGN KEY (venta_id) REFERENCES ventas_club(id) ON DELETE CASCADE,
+            FOREIGN KEY (producto_id) REFERENCES venta_productos(id)
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ventas_club_fecha ON ventas_club (fecha DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_venta_items_venta ON venta_items (venta_id)")
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS cierres_mensuales (
             id SERIAL PRIMARY KEY,
             mes TEXT UNIQUE NOT NULL,
@@ -8775,6 +8833,242 @@ def ver_caja():
         movimientos_mes=movimientos_mes,
         cierre_mes=cierre_mes
     )
+
+
+@app.route("/finanzas/ventas")
+def ver_ventas_club():
+    check = permiso_requerido("ventas_ver", "ventas_gestionar")
+    if check:
+        return check
+
+    mes = normalizar_mes(request.args.get("mes"), ahora_sig().strftime("%Y-%m"))
+    conn = get_connection()
+    productos = conn.execute("""
+        SELECT * FROM venta_productos
+        ORDER BY activo DESC, nombre
+    """).fetchall()
+    ventas = conn.execute("""
+        SELECT v.*,
+               COALESCE(string_agg(i.producto_nombre || ' x' || i.cantidad, ', ' ORDER BY i.id), '') AS detalle
+        FROM ventas_club v
+        LEFT JOIN venta_items i ON i.venta_id = v.id
+        WHERE substring(v.fecha from 1 for 7) = %s
+        GROUP BY v.id
+        ORDER BY v.fecha DESC, v.id DESC
+    """, (mes,)).fetchall()
+    resumen = conn.execute("""
+        SELECT COUNT(*) FILTER (WHERE estado = 'confirmada') AS operaciones,
+               COALESCE(SUM(total) FILTER (WHERE estado = 'confirmada'), 0) AS total
+        FROM ventas_club
+        WHERE substring(fecha from 1 for 7) = %s
+    """, (mes,)).fetchone()
+    conn.close()
+    return render_template(
+        "ventas.html",
+        productos=productos,
+        ventas=ventas,
+        resumen=resumen,
+        mes=mes,
+        fecha_hoy=ahora_sig().strftime("%Y-%m-%d"),
+    )
+
+
+@app.route("/finanzas/ventas/productos", methods=["POST"])
+def crear_producto_venta():
+    check = permiso_requerido("ventas_gestionar")
+    if check:
+        return check
+
+    nombre = request.form.get("nombre", "").strip()
+    descripcion = request.form.get("descripcion", "").strip()
+    precio = parsear_importe(request.form.get("precio"))
+    try:
+        stock = int(request.form.get("stock", "0") or 0)
+    except ValueError:
+        stock = -1
+    if not nombre or precio is None or precio <= 0 or stock < 0:
+        flash("Completa un nombre, un precio mayor a cero y un stock valido.", "error")
+        return redirect(url_for("ver_ventas_club"))
+
+    conn = get_connection()
+    producto = conn.execute("""
+        INSERT INTO venta_productos (nombre, descripcion, precio, stock)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+    """, (nombre, descripcion or None, precio, stock)).fetchone()
+    conn.commit()
+    conn.close()
+    registrar_auditoria("crear", "producto_venta", str(producto["id"]), {
+        "nombre": nombre, "precio": precio, "stock": stock,
+    })
+    flash("Producto agregado al catalogo.", "ok")
+    return redirect(url_for("ver_ventas_club"))
+
+
+@app.route("/finanzas/ventas/productos/<int:producto_id>/stock", methods=["POST"])
+def ajustar_stock_producto(producto_id):
+    check = permiso_requerido("ventas_gestionar")
+    if check:
+        return check
+    try:
+        cantidad = int(request.form.get("cantidad", "0") or 0)
+    except ValueError:
+        cantidad = 0
+    if cantidad == 0:
+        flash("Indica una cantidad distinta de cero.", "error")
+        return redirect(url_for("ver_ventas_club"))
+
+    conn = get_connection()
+    producto = conn.execute("SELECT * FROM venta_productos WHERE id = %s FOR UPDATE", (producto_id,)).fetchone()
+    if not producto or producto["stock"] + cantidad < 0:
+        conn.close()
+        flash("El ajuste no es valido o dejaria el stock en negativo.", "error")
+        return redirect(url_for("ver_ventas_club"))
+    nuevo_stock = producto["stock"] + cantidad
+    conn.execute("UPDATE venta_productos SET stock = %s, actualizado_en = CURRENT_TIMESTAMP WHERE id = %s", (nuevo_stock, producto_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("ajustar_stock", "producto_venta", str(producto_id), {
+        "ajuste": cantidad, "stock_anterior": producto["stock"], "stock_nuevo": nuevo_stock,
+    })
+    flash("Stock actualizado.", "ok")
+    return redirect(url_for("ver_ventas_club"))
+
+
+@app.route("/finanzas/ventas/productos/<int:producto_id>/alternar", methods=["POST"])
+def alternar_producto_venta(producto_id):
+    check = permiso_requerido("ventas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    producto = conn.execute("SELECT * FROM venta_productos WHERE id = %s", (producto_id,)).fetchone()
+    if not producto:
+        conn.close()
+        flash("Producto no encontrado.", "error")
+        return redirect(url_for("ver_ventas_club"))
+    activo = 0 if producto["activo"] else 1
+    conn.execute("UPDATE venta_productos SET activo = %s, actualizado_en = CURRENT_TIMESTAMP WHERE id = %s", (activo, producto_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("alternar", "producto_venta", str(producto_id), {"activo": activo})
+    flash("Producto actualizado.", "ok")
+    return redirect(url_for("ver_ventas_club"))
+
+
+@app.route("/finanzas/ventas/registrar", methods=["POST"])
+def registrar_venta_club():
+    check = permiso_requerido("ventas_gestionar")
+    if check:
+        return check
+
+    fecha = validar_fecha_movimiento(request.form.get("fecha", "").strip())
+    comprador = request.form.get("comprador", "").strip()
+    medio_pago = request.form.get("medio_pago", "").strip()
+    notas = request.form.get("notas", "").strip()
+    if not fecha or medio_pago not in {"Efectivo", "Transferencia", "Tarjeta", "Otro"}:
+        flash("Revisa la fecha y el medio de pago.", "error")
+        return redirect(url_for("ver_ventas_club"))
+
+    cantidades = {}
+    for producto_texto, cantidad_texto in zip(request.form.getlist("producto_id"), request.form.getlist("cantidad")):
+        try:
+            producto_id, cantidad = int(producto_texto), int(cantidad_texto)
+        except (TypeError, ValueError):
+            continue
+        if cantidad > 0:
+            cantidades[producto_id] = cantidades.get(producto_id, 0) + cantidad
+    if not cantidades:
+        flash("Agrega al menos un producto a la venta.", "error")
+        return redirect(url_for("ver_ventas_club", mes=fecha[:7]))
+
+    conn = get_connection()
+    try:
+        cierre = conn.execute("SELECT id FROM cierres_mensuales WHERE mes = %s", (fecha[:7],)).fetchone()
+        if cierre:
+            raise ValueError("No se puede registrar una venta en un mes de caja cerrado.")
+        productos = []
+        total = 0.0
+        for producto_id, cantidad in cantidades.items():
+            producto = conn.execute("SELECT * FROM venta_productos WHERE id = %s FOR UPDATE", (producto_id,)).fetchone()
+            if not producto or not producto["activo"]:
+                raise ValueError("Uno de los productos ya no esta disponible.")
+            if producto["stock"] < cantidad:
+                raise ValueError(f"Stock insuficiente para {producto['nombre']} (disponible: {producto['stock']}).")
+            subtotal = round(float(producto["precio"]) * cantidad, 2)
+            total += subtotal
+            productos.append((producto, cantidad, subtotal))
+        total = round(total, 2)
+        venta = conn.execute("""
+            INSERT INTO ventas_club (fecha, comprador, medio_pago, total, notas, creado_por)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (fecha, comprador or None, medio_pago, total, notas or None, session.get("username"))).fetchone()
+        movimiento = conn.execute("""
+            INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
+            VALUES ('ingreso', %s, %s, %s, %s)
+            RETURNING id
+        """, (f"Venta del club #{venta['id']}", total, fecha, medio_pago)).fetchone()
+        conn.execute("UPDATE ventas_club SET movimiento_id = %s WHERE id = %s", (movimiento["id"], venta["id"]))
+        for producto, cantidad, subtotal in productos:
+            conn.execute("""
+                INSERT INTO venta_items (venta_id, producto_id, producto_nombre, cantidad, precio_unitario, subtotal)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (venta["id"], producto["id"], producto["nombre"], cantidad, producto["precio"], subtotal))
+            conn.execute("UPDATE venta_productos SET stock = stock - %s, actualizado_en = CURRENT_TIMESTAMP WHERE id = %s", (cantidad, producto["id"]))
+        conn.commit()
+    except ValueError as error:
+        conn.rollback()
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("ver_ventas_club", mes=fecha[:7]))
+    except Exception:
+        conn.rollback()
+        conn.close()
+        raise
+    conn.close()
+    registrar_auditoria("crear", "venta_club", str(venta["id"]), {
+        "total": total, "fecha": fecha, "medio_pago": medio_pago, "movimiento_id": movimiento["id"],
+    })
+    flash(f"Venta #{venta['id']} registrada e ingreso agregado a Caja.", "ok")
+    return redirect(url_for("ver_ventas_club", mes=fecha[:7]))
+
+
+@app.route("/finanzas/ventas/<int:venta_id>/anular", methods=["POST"])
+def anular_venta_club(venta_id):
+    check = permiso_requerido("ventas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    try:
+        venta = conn.execute("SELECT * FROM ventas_club WHERE id = %s FOR UPDATE", (venta_id,)).fetchone()
+        if not venta or venta["estado"] != "confirmada":
+            raise ValueError("La venta no existe o ya fue anulada.")
+        cierre = conn.execute("SELECT id FROM cierres_mensuales WHERE mes = %s", (venta["fecha"][:7],)).fetchone()
+        if cierre:
+            raise ValueError("No se puede anular una venta de un mes de caja cerrado.")
+        items = conn.execute("SELECT * FROM venta_items WHERE venta_id = %s", (venta_id,)).fetchall()
+        for item in items:
+            conn.execute("UPDATE venta_productos SET stock = stock + %s, actualizado_en = CURRENT_TIMESTAMP WHERE id = %s", (item["cantidad"], item["producto_id"]))
+        conn.execute("""
+            UPDATE ventas_club SET estado = 'anulada', anulado_en = CURRENT_TIMESTAMP, anulado_por = %s
+            WHERE id = %s
+        """, (session.get("username"), venta_id))
+        if venta["movimiento_id"]:
+            conn.execute("""
+                UPDATE movimientos SET anulado = 1, fecha_anulacion = %s, usuario_anulacion = %s,
+                       motivo_anulacion = 'Venta del club anulada'
+                WHERE id = %s
+            """, (ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), session.get("username"), venta["movimiento_id"]))
+        conn.commit()
+    except ValueError as error:
+        conn.rollback()
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("ver_ventas_club"))
+    conn.close()
+    registrar_auditoria("anular", "venta_club", str(venta_id), {"movimiento_id": venta["movimiento_id"]})
+    flash("Venta anulada, stock repuesto y movimiento de Caja anulado.", "ok")
+    return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
 
 @app.route("/movimientos/nuevo", methods=["GET", "POST"])
 def nuevo_movimiento():
@@ -11160,6 +11454,88 @@ def ver_panel_cobranzas():
 
     return render_template("cobranzas.html", panel=obtener_panel_cobranzas())
 
+
+@app.route("/finanzas/debitos-automaticos", methods=["GET", "POST"])
+def pagos_masivos_debito_automatico():
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    periodo = (request.form.get("periodo") if request.method == "POST" else request.args.get("periodo", "")).strip()
+    if not periodo:
+        periodo = ahora_sig().strftime("%Y-%m")
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", periodo):
+        flash("El período debe tener formato AAAA-MM.", "error")
+        periodo = ahora_sig().strftime("%Y-%m")
+
+    conn = get_connection()
+    if request.method == "POST":
+        ids_seleccionados = []
+        for valor in request.form.getlist("cuota_ids"):
+            try:
+                ids_seleccionados.append(int(valor))
+            except (TypeError, ValueError):
+                continue
+
+        if not ids_seleccionados:
+            conn.close()
+            flash("Seleccioná al menos una cuota para registrar.", "error")
+            return redirect(url_for("pagos_masivos_debito_automatico", periodo=periodo))
+
+        cuotas = conn.execute("""
+            SELECT c.id, c.jugador_id, c.periodo, c.importe, c.numero_recibo,
+                   j.nombre, j.apellido
+            FROM cuotas c
+            JOIN jugadores j ON j.id = c.jugador_id
+            WHERE c.id = ANY(%s) AND c.periodo = %s AND c.pagado = 0
+              AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.importe, 0) > 0
+              AND COALESCE(j.debito_automatico, 0) = 1
+            ORDER BY j.apellido, j.nombre
+            FOR UPDATE OF c
+        """, (ids_seleccionados, periodo)).fetchall()
+
+        pagadas = 0
+        total = 0
+        for cuota in cuotas:
+            numero_recibo = cuota["numero_recibo"] or siguiente_numero_recibo(conn)
+            conn.execute("""
+                UPDATE cuotas
+                SET pagado = 1, fecha_pago = CURRENT_DATE, numero_recibo = %s,
+                    metodo_pago = 'Débito automático', referencia_pago = %s
+                WHERE id = %s
+            """, (numero_recibo, f"Pago masivo {periodo}", cuota["id"]))
+            conn.execute("""
+                INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
+                VALUES ('ingreso', %s, %s, CURRENT_DATE, 'Cuota Social (Débito automático)')
+            """, (f"Cuota {periodo} - {cuota['apellido']}, {cuota['nombre']}", cuota["importe"]))
+            pagadas += 1
+            total += float(cuota["importe"] or 0)
+
+        conn.commit()
+        conn.close()
+        registrar_auditoria("pago_masivo", "cuotas_debito_automatico", periodo, {
+            "cuotas": [cuota["id"] for cuota in cuotas], "cantidad": pagadas, "total": round(total, 2),
+        })
+        omitidas = len(set(ids_seleccionados)) - pagadas
+        mensaje = f"Se registraron {pagadas} pago(s) por débito automático por un total de {formato_moneda(total)}."
+        if omitidas:
+            mensaje += f" Se omitieron {omitidas} cuota(s) que ya no estaban disponibles."
+        flash(mensaje, "ok")
+        return redirect(url_for("pagos_masivos_debito_automatico", periodo=periodo))
+
+    cuotas = conn.execute("""
+        SELECT c.id, c.jugador_id, c.periodo, c.importe, c.fecha_vencimiento,
+               j.nombre, j.apellido, j.categoria, j.numero_socio
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.periodo = %s AND c.pagado = 0
+          AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.importe, 0) > 0
+          AND COALESCE(j.debito_automatico, 0) = 1
+        ORDER BY j.apellido, j.nombre
+    """, (periodo,)).fetchall()
+    conn.close()
+    return render_template("pagos_masivos_debito.html", cuotas=cuotas, periodo=periodo)
+
 @app.route("/jugadores/<int:jugador_id>/ficha-medica")
 def ver_ficha_medica(jugador_id):
     check = permiso_requerido("salud_ver")
@@ -12731,6 +13107,7 @@ def nuevo_jugador():
             "numero_socio": request.form.get("numero_socio", "").strip(),
             "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
             "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
+            "debito_automatico": 1 if request.form.get("debito_automatico") == "on" else 0,
             "documentos": request.form.get("documentos", "").strip(),
             "observaciones": request.form.get("observaciones", "").strip(),
         }
@@ -12762,9 +13139,9 @@ def nuevo_jugador():
                 fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
                 email_tutor, direccion, obra_social, numero_afiliado_obra_social, numero_socio, documentos, observaciones,
                 beca_activa, beca_porcentaje, beca_desde, beca_hasta, beca_motivo,
-                tipo_miembro, cobra_cuota
+                tipo_miembro, cobra_cuota, debito_automatico
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
@@ -12773,7 +13150,7 @@ def nuevo_jugador():
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
             data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["documentos"], data["observaciones"],
             data["beca_activa"], data["beca_porcentaje"], data["beca_desde"],
-            data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"]
+            data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"], data["debito_automatico"]
         )).fetchone()
 
         if data["beca_activa"]:
@@ -13073,6 +13450,7 @@ def editar_jugador(jugador_id):
             "numero_socio": request.form.get("numero_socio", "").strip(),
             "tipo_miembro": normalizar_tipo_miembro(request.form.get("tipo_miembro")),
             "cobra_cuota": 1 if request.form.get("cobra_cuota", "on") == "on" else 0,
+            "debito_automatico": 1 if request.form.get("debito_automatico") == "on" else 0,
             "documentos": request.form.get("documentos", "").strip(),
             "observaciones": request.form.get("observaciones", "").strip(),
         }
@@ -13107,7 +13485,7 @@ def editar_jugador(jugador_id):
                 email = %s, categoria = %s, fecha_ingreso = %s, estado = %s,
                 contacto_tutor = %s, parentesco_tutor = %s, telefono_tutor = %s,
                 email_tutor = %s, direccion = %s, obra_social = %s, numero_afiliado_obra_social = %s, numero_socio = %s,
-                tipo_miembro = %s, cobra_cuota = %s, documentos = %s, observaciones = %s,
+                tipo_miembro = %s, cobra_cuota = %s, debito_automatico = %s, documentos = %s, observaciones = %s,
                 beca_activa = %s, beca_porcentaje = %s, beca_desde = %s,
                 beca_hasta = %s, beca_motivo = %s
             WHERE id = %s
@@ -13116,7 +13494,7 @@ def editar_jugador(jugador_id):
             data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
             data["estado"], data["contacto_tutor"], data["parentesco_tutor"],
             data["telefono_tutor"], data["email_tutor"], data["direccion"],
-            data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["tipo_miembro"], data["cobra_cuota"],
+            data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["tipo_miembro"], data["cobra_cuota"], data["debito_automatico"],
             data["documentos"], data["observaciones"], data["beca_activa"], data["beca_porcentaje"],
             data["beca_desde"], data["beca_hasta"], data["beca_motivo"], jugador_id
         ))

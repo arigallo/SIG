@@ -65,6 +65,14 @@
     </div>
 
     <div>
+        <label class="checkbox-row">
+            <input type="checkbox" name="debito_automatico"
+                   {% if jugador and jugador.get('debito_automatico', 0) %}checked{% endif %}>
+            <span>Paga por débito automático</span>
+        </label>
+    </div>
+
+    <div>
         <label>Fecha de ingreso</label>
         <input type="date" name="fecha_ingreso" value="{{ jugador['fecha_ingreso'] if jugador else '' }}">
     </div>
