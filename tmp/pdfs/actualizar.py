@@ -1,0 +1,10 @@
+from pathlib import Path
+p=Path('tmp/pdfs/crear_instructivo.py')
+s=p.read_text(encoding='utf-8-sig').replace("'Arial'","'Segoe'").replace("'ArialB'","'SegoeB'").replace('Fonts/arial.ttf','Fonts/segoeui.ttf').replace('Fonts/arialbd.ttf','Fonts/segoeuib.ttf')
+s=s.replace("#14283F","#10231e").replace('#007F82','#0f766e').replace('#445469','#17212f').replace('#74D6CD','#d6a443')
+s=s.replace("c.setFillColor(navy);c.rect(0,744,596,98,fill=1,stroke=0)","c.setFillColor(navy);c.rect(0,744,596,98,fill=1,stroke=0)\n c.setFillColor(HexColor('#d6a443'));c.rect(0,741,596,3,fill=1,stroke=0)\n c.drawImage('static/img/logo.png',464,757,width=79,height=72,preserveAspectRatio=True,mask='auto')")
+s=s.replace("setFont('SegoeB',23)","setFont('SegoeB',22)")
+s=s.replace("def h(t): p(t,15,navy,8)","def h(t): p('<b>'+t+'</b>',15,navy,8)")
+s=s.replace("title(1,'Tu primer ingreso','Todo lo que necesitás para empezar: acceso, avisos y datos personales.')", "title(1,'Tu primer ingreso','Tu primera tarea al ingresar al SIG: actualizar todos tus datos personales.')\nh('Primero: actualizá todos tus datos personales')\np('En tu primer ingreso al SIG, bajá hasta <b>Datos personales</b> y revisá, completá o corregí <b>todos los campos</b>: nombre, apellido, DNI, fecha de nacimiento, teléfono, email, dirección, obra social y número de afiliado; también contacto familiar, parentesco, teléfono y email familiar. Tocá <b>Actualizar datos</b> y verificá el mensaje de guardado. Si todavía no entraste, seguí estos pasos para acceder.')")
+s=s.replace("step(4,'Revisá tus datos','Comprobá tu nombre y categoría. Bajá hasta <b>Datos personales</b>, completá o corregí los datos de contacto, obra social y contacto familiar, y tocá <b>Actualizar datos</b>. Verificá el mensaje que aparece después de guardar.')", "")
+p.write_text(s,encoding='utf-8')

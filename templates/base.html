@@ -16,6 +16,9 @@
 </head>
 
 <body data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
+    {% set rol_guia = (session.get('rol') or '')|trim|lower %}
+    {% set guias_roles = {'admin': 'Administrador', 'tesorero': 'Tesorero', 'medico': 'Médico', 'entrenador': 'Entrenador', 'madrinas': 'Madrinas'} %}
+    {% if rol_guia in ['madrina', 'padrino', 'padrinos'] %}{% set rol_guia = 'madrinas' %}{% endif %}
     <header class="topbar">
         <div class="container topbar-content">
 
@@ -201,6 +204,17 @@
                     <summary>{{ session.get('username') or 'Cuenta' }}{% if session.get('rol') %}<span class="nav-role">{{ session.get('rol') }}</span>{% endif %}</summary>
                     <div class="nav-menu">
                         <a href="{{ url_for('cambiar_mi_password') }}">Mi clave</a>
+                        {% if rol_guia in guias_roles %}
+                            <a href="{{ url_for('static', filename='docs/instructivo_' ~ rol_guia ~ '.pdf') }}" target="_blank" rel="noopener">Instructivo de mi rol (PDF)</a>
+                        {% endif %}
+                        {% if puede('aspirantes_ver', 'aspirantes_gestionar') %}
+                            <a href="{{ url_for('static', filename='docs/instructivo_madrinas.pdf') }}" target="_blank" rel="noopener">Instructivo de madrinas (PDF)</a>
+                        {% endif %}
+                        {% if session.get('rol') == 'admin' %}
+                            {% for clave, nombre in guias_roles.items() if clave not in ['admin', 'madrinas'] %}
+                                <a href="{{ url_for('static', filename='docs/instructivo_' ~ clave ~ '.pdf') }}" target="_blank" rel="noopener">Instructivo: {{ nombre }} (PDF)</a>
+                            {% endfor %}
+                        {% endif %}
                         <a href="{{ url_for('logout') }}">Salir</a>
                     </div>
                 </details>
@@ -211,6 +225,13 @@
 
     <main class="container">
         {% set endpoint = request.endpoint or '' %}
+        {% if session.get('user_id') and rol_guia in guias_roles %}
+            <div class="role-guide-bar">
+                {% set guia_clave = rol_guia %}
+                {% set guia_nombre = guias_roles[rol_guia] %}
+                {% include '_instructivo_button.html' %}
+            </div>
+        {% endif %}
 
         {% if session.get('rol') == 'admin' and mantenimiento and mantenimiento.activo %}
             <div class="maintenance-banner">

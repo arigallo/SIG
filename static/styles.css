@@ -4154,3 +4154,53 @@ tbody tr:hover {
         width: 100%;
     }
 }
+.role-guide-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin: 16px 0;
+}
+
+.role-guide-button {
+    --guide-accent: #1e40af;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 10px 16px;
+    box-sizing: border-box;
+    border: 2px solid var(--guide-accent);
+    border-radius: 12px;
+    background: var(--guide-accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-decoration: none;
+    box-shadow: 0 3px 9px #0f172a20;
+}
+
+.role-guide-button--admin { --guide-accent: #334155; }
+.role-guide-button--tesorero { --guide-accent: #166534; }
+.role-guide-button--medico { --guide-accent: #115e59; }
+.role-guide-button--entrenador { --guide-accent: #1e40af; }
+.role-guide-button--madrinas { --guide-accent: #7e22ce; }
+.role-guide-button--portal_del_jugador { --guide-accent: #9a3412; }
+
+.role-guide-button:hover {
+    color: var(--guide-accent);
+    background: #fff;
+}
+
+.role-guide-button:focus-visible {
+    outline: 3px solid var(--guide-accent);
+    outline-offset: 4px;
+}
+
+.role-guide-button svg,
+.role-guide-format { flex-shrink: 0; }
+.role-guide-format { font-size: 11px; }
+
+@media (max-width: 640px) {
+    .role-guide-bar .role-guide-button { width: 100%; }
+}

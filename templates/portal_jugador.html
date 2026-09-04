@@ -40,7 +40,9 @@
                 </div>
             </div>
             <div class="portal-hero-actions">
-                <a class="button secondary" href="{{ url_for('static', filename='docs/instructivo_portal_del_jugador.pdf') }}" target="_blank" rel="noopener">Instructivo del portal (PDF)</a>
+                {% set guia_clave = 'portal_del_jugador' %}
+                {% set guia_nombre = 'Jugador' %}
+                {% include '_instructivo_button.html' %}
                 <a class="button" href="{{ calendario_webcal_url }}">iPhone</a>
                 <a class="button secondary" href="{{ calendario_android_url }}">Android</a>
                 <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>

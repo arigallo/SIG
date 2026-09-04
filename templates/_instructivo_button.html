@@ -1,0 +1,9 @@
+<a class="role-guide-button role-guide-button--{{ guia_clave }}"
+   href="{{ url_for('static', filename='docs/instructivo_' ~ guia_clave ~ '.pdf') }}"
+   target="_blank" rel="noopener" aria-label="Abrir instructivo: {{ guia_nombre }} (PDF, nueva pestaña)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+        <path d="M12 5v15M3 4.5c3-1 6-.5 9 1.5 3-2 6-2.5 9-1.5v14c-3-1-6-.5-9 1.5-3-2-6-2.5-9-1.5z" stroke-linejoin="round"/>
+    </svg>
+    <span>Instructivo: {{ guia_nombre }}</span>
+    <span class="role-guide-format">PDF ↗</span>
+</a>
