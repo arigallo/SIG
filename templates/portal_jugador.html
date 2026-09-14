@@ -39,16 +39,88 @@
                     <span><strong>Socio club:</strong> {{ jugador['numero_socio'] or '-' }}</span>
                 </div>
             </div>
-            <div class="portal-hero-actions">
-                {% set guia_clave = 'portal_del_jugador' %}
-                {% set guia_nombre = 'Jugador' %}
-                {% include '_instructivo_button.html' %}
-                <a class="button" href="{{ calendario_webcal_url }}">iPhone</a>
-                <a class="button secondary" href="{{ calendario_android_url }}">Android</a>
-                <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
-                <a class="button secondary" href="{{ calendario_ics_url }}">Descargar ICS</a>
-                <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Constancia PDF</a>
+            <details class="portal-utility-menu">
+                <summary aria-label="Abrir herramientas del portal">
+                    <span>Herramientas</span>
+                    <span class="portal-menu-icon" aria-hidden="true"></span>
+                </summary>
+                <div class="portal-utility-menu-panel">
+                    {% set guia_clave = 'portal_del_jugador' %}
+                    {% set guia_nombre = 'Jugador' %}
+                    {% include '_instructivo_button.html' %}
+                    <a class="button" href="{{ calendario_webcal_url }}">Agregar en iPhone</a>
+                    <a class="button secondary" href="{{ calendario_android_url }}">Agregar en Android</a>
+                    <a class="button secondary" href="{{ calendario_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
+                    <a class="button secondary" href="{{ calendario_ics_url }}">Descargar calendario ICS</a>
+                    <a class="button secondary" href="{{ url_for('portal_descargar_constancia', token=token) }}">Descargar constancia</a>
+                </div>
+            </details>
+        </section>
+
+        <section id="inicio" class="portal-today page-section">
+            <div class="portal-today-heading">
+                <span class="portal-eyebrow">Tu agenda y tus pendientes</span>
+                <h2>Mi d&iacute;a</h2>
+                <p>Lo importante para entrenar, jugar y estar al d&iacute;a con el club.</p>
             </div>
+
+            <article id="equipo" class="card portal-panel portal-calendar-featured">
+                <div class="section-header compact">
+                    <div>
+                        <h3>Calendario deportivo</h3>
+                        <span class="muted-line">Pr&oacute;ximos eventos publicados para tu categor&iacute;a</span>
+                    </div>
+                    <a class="portal-text-link" href="{{ calendario_ics_url }}">Sincronizar</a>
+                </div>
+                <div class="portal-event-list">
+                    {% for evento in eventos_deportivos %}
+                        <div class="portal-event-item">
+                            <div class="portal-event-main">
+                                <div class="portal-event-meta">
+                                    <span class="badge badge-info">{{ evento['tipo'] }}</span>
+                                    <span class="muted-line">{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
+                                </div>
+                                <h4>{{ evento['titulo'] }}</h4>
+                                {% if evento['descripcion'] %}<p class="muted-line">{{ evento['descripcion'] }}</p>{% endif %}
+                                <div class="portal-chip-row">
+                                    {% if evento['ubicacion'] %}<span>{{ evento['ubicacion'] }}</span>{% endif %}
+                                    {% if evento['convocatoria_texto'] %}<span>{{ evento['convocatoria_texto'] }}</span>{% endif %}
+                                    {% if evento['convocatoria_cierre'] %}<span>Confirmar antes de {{ evento['convocatoria_cierre'] }}</span>{% endif %}
+                                    {% if evento['minuta_post_evento'] %}<span>{{ evento['minuta_post_evento'] }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="portal-event-side">
+                                {% if evento['asistencia_evento_id'] %}
+                                    {% set confirmacion = evento['confirmacion_portal'] %}
+                                    {% if confirmacion %}<span class="badge {{ asistencia_portal_badge_class(confirmacion['estado']) }}">{{ asistencia_portal_label(evento, confirmacion['estado']) }}</span>{% endif %}
+                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                        <select name="estado" aria-label="Confirmaci&oacute;n para {{ evento['titulo'] }}">
+                                            {% for opcion in asistencia_portal_opciones(evento) %}
+                                                <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button class="button secondary" type="submit">{{ 'Guardar confirmacion' if es_evento_partido(evento) else 'Continuar' }}</button>
+                                    </form>
+                                    {% if not es_evento_partido(evento) %}
+                                        {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}
+                                            <span class="muted-line">No requiere bienestar</span>
+                                        {% elif confirmacion and confirmacion['bienestar_completo'] %}
+                                            <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} &middot; {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
+                                        {% else %}
+                                            <span class="muted-line">Falta cuestionario de bienestar</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted-line">Sin confirmaci&oacute;n</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="empty">No hay eventos deportivos publicados.</p>
+                    {% endfor %}
+                </div>
+            </article>
         </section>
 
         {% if comunicaciones_portal %}
@@ -74,33 +146,46 @@
         </section>
         {% endif %}
 
-        <section class="portal-summary-grid">
-            <article class="card portal-summary-card">
-                <span class="portal-summary-label">Deuda actual</span>
-                <strong class="portal-summary-value {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</strong>
-                <span class="muted-line">
-                    {% if deuda > 0 %}
-                        Cuotas: {{ deuda_cuotas | moneda }} · Gastos compartidos: {{ gasto_pendiente_total | moneda }}
-                    {% else %}
-                        No hay deuda pendiente.
-                    {% endif %}
-                </span>
-            </article>
-            <article class="card portal-summary-card">
-                <span class="portal-summary-label">Ficha m&eacute;dica</span>
-                <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
-                <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revisa el estado de tu documentaci&oacute;n.{% endif %}</span>
-            </article>
-            <article class="card portal-summary-card">
+        <section class="portal-summary-grid" aria-label="Estados importantes">
+            <article class="card portal-summary-card portal-status-info">
                 <span class="portal-summary-label">Pr&oacute;ximo evento</span>
                 <strong class="portal-summary-value">{% if proximo_evento %}{{ proximo_evento['titulo'] }}{% else %}Sin agenda cercana{% endif %}</strong>
                 <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todav&iacute;a no hay eventos publicados.{% endif %}</span>
             </article>
-            <article class="card portal-summary-card">
-                <span class="portal-summary-label">Gastos compartidos</span>
-                <strong class="portal-summary-value {% if gasto_pendiente_total > 0 %}text-danger{% endif %}">{{ gasto_pendiente_total | moneda }}</strong>
-                <span class="muted-line">{{ gastos_pendientes | length }} pendiente(s) · {{ gastos_pagados | length }} pago(s) registrados</span>
+            <article class="card portal-summary-card portal-status-{{ ficha_portal['nivel'] }}">
+                <span class="portal-summary-label">Ficha m&eacute;dica</span>
+                <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
+                <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revis&aacute; el estado de tu documentaci&oacute;n.{% endif %}</span>
             </article>
+            <article class="card portal-summary-card {% if deuda > 0 %}portal-status-danger{% else %}portal-status-success{% endif %}">
+                <span class="portal-summary-label">Estado de cuenta</span>
+                <strong class="portal-summary-value {% if deuda > 0 %}text-danger{% endif %}">{% if deuda > 0 %}{{ deuda | moneda }}{% else %}Al d&iacute;a{% endif %}</strong>
+                <span class="muted-line">{% if deuda > 0 %}Cuotas: {{ deuda_cuotas | moneda }} · Gastos: {{ gasto_pendiente_total | moneda }}{% else %}No hay deuda pendiente.{% endif %}</span>
+            </article>
+            <article class="card portal-summary-card {% if documentos_por_vencer > 0 %}portal-status-warning{% else %}portal-status-success{% endif %}">
+                <span class="portal-summary-label">Documentaci&oacute;n</span>
+                <strong class="portal-summary-value">{% if documentos_por_vencer > 0 %}{{ documentos_por_vencer }} por revisar{% else %}Todo en orden{% endif %}</strong>
+                <span class="muted-line">{{ documentos | length }} documento(s) disponible(s)</span>
+            </article>
+        </section>
+
+        <section class="portal-quick-section page-section" aria-labelledby="portal-quick-title">
+            <div class="section-header compact">
+                <div>
+                    <span class="portal-eyebrow">Elegidos para vos</span>
+                    <h3 id="portal-quick-title">Accesos r&aacute;pidos</h3>
+                </div>
+                <a class="portal-text-link" href="#portal-preferences">Personalizar</a>
+            </div>
+            <div class="portal-quick-grid">
+                {% for acceso in accesos_rapidos %}
+                    <a class="portal-quick-card portal-quick-{{ acceso['clave'] }}" href="{{ acceso['href'] }}">
+                        <span class="portal-quick-symbol" aria-hidden="true"></span>
+                        <strong>{{ acceso['label'] }}</strong>
+                        <small>{{ acceso['hint'] }}</small>
+                    </a>
+                {% endfor %}
+            </div>
         </section>
 
         <section class="card page-section">
@@ -132,14 +217,15 @@
         </section>
         {% endif %}
 
-        <section class="card page-section">
-            <div class="section-header compact">
-                <div>
-                    <h3>Cuenta corriente</h3>
-                    <span class="muted-line">Tus cuotas y gastos compartidos recientes</span>
-                </div>
-            </div>
-            <div class="table-wrapper flush portal-card-table portal-ledger-table">
+        <details id="pagos" class="card page-section portal-collapsible" data-portal-collapse="cuenta-corriente">
+            <summary>
+                <span>
+                    <strong>Cuenta corriente</strong>
+                    <small>Tus cuotas y gastos compartidos recientes</small>
+                </span>
+                <span class="portal-collapse-icon" aria-hidden="true"></span>
+            </summary>
+            <div class="table-wrapper flush portal-card-table portal-ledger-table portal-collapsible-body">
                 <table>
                     <thead>
                         <tr><th>Fecha</th><th>Concepto</th><th>Importe</th><th>Estado</th></tr>
@@ -158,71 +244,10 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+        </details>
 
-        <section class="portal-overview-grid page-section">
-            <article class="card portal-panel portal-panel-large">
-                <div class="section-header compact">
-                    <div>
-                        <h3>Calendario deportivo</h3>
-                        <span class="muted-line">Eventos publicados para tu categor&iacute;a</span>
-                    </div>
-                </div>
-                <div class="portal-event-list">
-                    {% for evento in eventos_deportivos %}
-                        <div class="portal-event-item">
-                            <div class="portal-event-main">
-                                <div class="portal-event-meta">
-                                    <span class="badge badge-info">{{ evento['tipo'] }}</span>
-                                    <span class="muted-line">{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
-                                </div>
-                                <h4>{{ evento['titulo'] }}</h4>
-                                {% if evento['descripcion'] %}
-                                    <p class="muted-line">{{ evento['descripcion'] }}</p>
-                                {% endif %}
-                                <div class="portal-chip-row">
-                                    {% if evento['ubicacion'] %}<span>{{ evento['ubicacion'] }}</span>{% endif %}
-                                    {% if evento['convocatoria_texto'] %}<span>{{ evento['convocatoria_texto'] }}</span>{% endif %}
-                                    {% if evento['convocatoria_cierre'] %}<span>Confirmar antes de {{ evento['convocatoria_cierre'] }}</span>{% endif %}
-                                    {% if evento['minuta_post_evento'] %}<span>{{ evento['minuta_post_evento'] }}</span>{% endif %}
-                                </div>
-                            </div>
-                            <div class="portal-event-side">
-                                {% if evento['asistencia_evento_id'] %}
-                                    {% set confirmacion = evento['confirmacion_portal'] %}
-                                    {% if confirmacion %}
-                                        <span class="badge {{ asistencia_portal_badge_class(confirmacion['estado']) }}">{{ asistencia_portal_label(evento, confirmacion['estado']) }}</span>
-                                    {% endif %}
-                                    <form method="post" action="{{ url_for('portal_confirmar_asistencia', token=token, evento_id=evento['id']) }}" class="portal-confirm-form">
-                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                        <select name="estado">
-                                            {% for opcion in asistencia_portal_opciones(evento) %}
-                                                <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <button class="button secondary" type="submit">{{ 'Guardar confirmacion' if es_evento_partido(evento) else 'Continuar' }}</button>
-                                    </form>
-                                    {% if not es_evento_partido(evento) %}
-                                        {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}
-                                            <span class="muted-line">No requiere bienestar</span>
-                                        {% elif confirmacion and confirmacion['bienestar_completo'] %}
-                                            <span class="muted-line">{{ confirmacion['bienestar_resumen']['label'] }} &middot; {{ confirmacion['bienestar_resumen']['promedio'] }}/5</span>
-                                        {% else %}
-                                            <span class="muted-line">Falta cuestionario de bienestar</span>
-                                        {% endif %}
-                                    {% endif %}
-                                {% else %}
-                                    <span class="muted-line">Sin confirmaci&oacute;n</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% else %}
-                        <p class="empty">No hay eventos deportivos publicados.</p>
-                    {% endfor %}
-                </div>
-            </article>
-
-            <article class="card portal-panel">
+        <section class="portal-health-feature page-section">
+            <article id="salud" class="card portal-panel portal-status-{{ ficha_portal['nivel'] }}">
                 <div class="section-header compact">
                     <h3>Salud y disponibilidad</h3>
                     <span class="badge {% if ficha_portal['nivel'] == 'danger' %}badge-danger{% elif ficha_portal['nivel'] == 'warning' %}badge-warning{% else %}badge-success{% endif %}">{{ ficha_portal['label'] }}</span>
@@ -243,6 +268,45 @@
                 {% else %}
                     <p>No hay lesiones activas o en recuperaci&oacute;n.</p>
                 {% endif %}
+            </article>
+        </section>
+
+        <section class="portal-season-grid page-section" aria-labelledby="portal-season-title">
+            <article class="portal-player-card">
+                <div class="portal-player-card-topline">
+                    <span>Player Card</span>
+                    <span>{{ temporada_resumen['anio'] }}</span>
+                </div>
+                <div class="portal-player-identity">
+                    <div>
+                        <span class="portal-player-kicker">Ruda Macho Rugby</span>
+                        <h2>{{ jugador['nombre'] }} {{ jugador['apellido'] }}</h2>
+                        <p>{{ jugador['posicion'] or 'Jugador' }} &middot; {{ jugador['categoria'] or 'Sin categor&iacute;a' }}</p>
+                    </div>
+                    {% if jugador['numero_camiseta'] %}<strong class="portal-shirt-number">{{ jugador['numero_camiseta'] }}</strong>{% endif %}
+                </div>
+                <div class="portal-player-metrics">
+                    <div><strong>{{ temporada_resumen['partidos'] }}</strong><span>Partidos</span></div>
+                    <div><strong>{{ temporada_resumen['entrenamientos'] }}</strong><span>Entrenamientos</span></div>
+                    <div><strong>{{ temporada_resumen['asistencia_porcentaje'] }}%</strong><span>Asistencia</span></div>
+                </div>
+            </article>
+
+            <article class="card portal-season-card">
+                <span class="portal-eyebrow">Modo Ruda</span>
+                <h2 id="portal-season-title">Mi temporada</h2>
+                <p>{{ temporada_resumen['eventos'] }} eventos registrados durante {{ temporada_resumen['anio'] }}.</p>
+                <div class="portal-progress-header">
+                    <span>Asistencia</span>
+                    <strong>{{ temporada_resumen['asistencia_porcentaje'] }}%</strong>
+                </div>
+                <div class="portal-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ temporada_resumen['asistencia_porcentaje'] }}">
+                    <span style="width: {{ temporada_resumen['asistencia_porcentaje'] }}%"></span>
+                </div>
+                <div class="portal-season-goal">
+                    <span>Objetivo de temporada</span>
+                    <strong>{{ jugador['objetivo_temporada'] or 'Defin&iacute; tu objetivo desde Perfil.' }}</strong>
+                </div>
             </article>
         </section>
 
@@ -732,7 +796,7 @@
         </section>
 
         <section class="detail-grid page-section">
-            <article class="card portal-panel">
+            <article id="perfil" class="card portal-panel">
                 <h3>Datos personales</h3>
                 <form method="post" action="{{ url_for('portal_actualizar_contacto', token=token) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -778,7 +842,7 @@
                 {% endif %}
             </article>
 
-            <article class="card portal-panel">
+            <article id="documentos" class="card portal-panel">
                 <h3>Documentos</h3>
                 {% if documentos %}
                     <ul class="document-list">
@@ -799,7 +863,109 @@
                     <p>No hay documentos cargados.</p>
                 {% endif %}
             </article>
+
+            <article id="portal-preferences" class="card portal-panel portal-preferences-card">
+                <div class="section-header compact">
+                    <div>
+                        <h3>Perfil deportivo y preferencias</h3>
+                        <span class="muted-line">Personaliz&aacute; tu inicio y tu Player Card</span>
+                    </div>
+                </div>
+                <form method="post" action="{{ url_for('portal_actualizar_configuracion', token=token) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div class="portal-preferences-fields">
+                        <label>Posici&oacute;n<input type="text" name="posicion" maxlength="60" value="{{ jugador['posicion'] or '' }}" placeholder="Ej: Fullback"></label>
+                        <label>N&uacute;mero de camiseta<input type="text" name="numero_camiseta" maxlength="8" value="{{ jugador['numero_camiseta'] or '' }}" inputmode="numeric" placeholder="Ej: 15"></label>
+                    </div>
+                    <label>Objetivo de temporada<textarea name="objetivo_temporada" maxlength="500" rows="3" placeholder="¿Qu&eacute; quer&eacute;s lograr esta temporada?">{{ jugador['objetivo_temporada'] or '' }}</textarea></label>
+                    <fieldset class="portal-access-fieldset">
+                        <legend>Accesos visibles en Inicio</legend>
+                        <div class="portal-access-options">
+                            {% for clave, acceso in accesos_disponibles.items() %}
+                                <label><input type="checkbox" name="accesos_rapidos" value="{{ clave }}" {% if clave in accesos_guardados %}checked{% endif %}>{{ acceso['label'] }}</label>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+                    <div class="actions">
+                        <button class="button" type="submit">Guardar preferencias</button>
+                        <button class="button secondary" type="button" data-portal-open-onboarding>Repetir recorrido</button>
+                    </div>
+                </form>
+            </article>
         </section>
+
+        <div class="portal-onboarding" {% if jugador['portal_onboarding_visto'] %}hidden{% endif %} data-portal-onboarding role="dialog" aria-modal="true" aria-labelledby="portal-onboarding-title">
+            <div class="portal-onboarding-card">
+                <form method="post" action="{{ url_for('portal_actualizar_configuracion', token=token) }}" data-portal-onboarding-form>
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <div class="portal-onboarding-progress"><span data-portal-onboarding-progress></span></div>
+                    <span class="portal-onboarding-count"><span data-portal-onboarding-current>1</span>/7</span>
+
+                    <section class="portal-onboarding-step" data-portal-onboarding-step>
+                        <span class="portal-eyebrow">Mi equipo. Mi temporada. Mi SIG.</span>
+                        <h2 id="portal-onboarding-title">Bienvenido/a al equipo</h2>
+                        <p>Vamos a dejar tu espacio listo en pocos pasos.</p>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">01</span>
+                        <h2>Tu categor&iacute;a</h2>
+                        <p>Este dato lo administra el club.</p>
+                        <div class="portal-onboarding-choice"><strong>{{ jugador['categoria'] or 'Sin categor&iacute;a asignada' }}</strong><span>Plantel o categor&iacute;a actual</span></div>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">02</span>
+                        <h2>Tu estado</h2>
+                        <p>Confirm&aacute; que tu situaci&oacute;n dentro del club sea correcta.</p>
+                        <div class="portal-onboarding-choice"><strong>{{ jugador['estado'] or 'Sin estado' }}</strong><span>Estado informado por administraci&oacute;n</span></div>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">03</span>
+                        <h2>Perfil deportivo</h2>
+                        <div class="portal-preferences-fields">
+                            <label>Posici&oacute;n<input type="text" name="posicion" maxlength="60" value="{{ jugador['posicion'] or '' }}" placeholder="Ej: Fullback"></label>
+                            <label>N&uacute;mero de camiseta<input type="text" name="numero_camiseta" maxlength="8" value="{{ jugador['numero_camiseta'] or '' }}" inputmode="numeric" placeholder="Ej: 15"></label>
+                        </div>
+                        <label>Objetivo de temporada<textarea name="objetivo_temporada" maxlength="500" rows="3">{{ jugador['objetivo_temporada'] or '' }}</textarea></label>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">04</span>
+                        <h2>Documentaci&oacute;n</h2>
+                        <p>Ten&eacute;s {{ documentos | length }} documento(s) disponible(s) y {{ documentos_por_vencer }} para revisar.</p>
+                        <div class="portal-onboarding-choice"><strong>{{ ficha_portal['label'] }}</strong><span>Estado de ficha m&eacute;dica</span></div>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">05</span>
+                        <h2>Accesos r&aacute;pidos</h2>
+                        <p>Eleg&iacute; qu&eacute; quer&eacute;s tener siempre a mano.</p>
+                        <div class="portal-access-options portal-access-options-wizard">
+                            {% for clave, acceso in accesos_disponibles.items() %}
+                                <label><input type="checkbox" name="accesos_rapidos" value="{{ clave }}" {% if clave in accesos_guardados %}checked{% endif %}>{{ acceso['label'] }}<small>{{ acceso['hint'] }}</small></label>
+                            {% endfor %}
+                        </div>
+                    </section>
+                    <section class="portal-onboarding-step" data-portal-onboarding-step hidden>
+                        <span class="portal-onboarding-icon" aria-hidden="true">06</span>
+                        <h2>Tu perfil est&aacute; listo</h2>
+                        <p>{{ jugador['nombre'] }} {{ jugador['apellido'] }}</p>
+                        <div class="portal-onboarding-choice"><strong>{{ jugador['categoria'] or '-' }}</strong><span>{{ jugador['estado'] or '-' }}</span></div>
+                    </section>
+
+                    <div class="portal-onboarding-actions">
+                        <button class="button secondary" type="button" data-portal-onboarding-back hidden>Volver</button>
+                        <button class="button" type="button" data-portal-onboarding-next>Siguiente</button>
+                        <button class="button" type="submit" data-portal-onboarding-submit hidden>Entrar al SIG</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <nav class="portal-mobile-nav" aria-label="Secciones del portal">
+            <a href="#inicio"><span aria-hidden="true">&#8962;</span>Inicio</a>
+            <a href="#equipo"><span aria-hidden="true">&#9679;</span>Equipo</a>
+            <a href="#documentos"><span aria-hidden="true">&#9633;</span>Documentos</a>
+            <a href="#pagos"><span aria-hidden="true">$</span>Pagos</a>
+            <a href="#perfil"><span aria-hidden="true">&#9675;</span>Perfil</a>
+        </nav>
     </main>
     <script src="{{ static_asset('app.js') }}" defer></script>
 </body>

@@ -7072,6 +7072,11 @@ def init_db():
         "portal_token": "TEXT",
         "portal_activo": "INTEGER DEFAULT 0",
         "portal_actualizado_en": "TEXT",
+        "portal_onboarding_visto": "INTEGER DEFAULT 0",
+        "portal_accesos_rapidos": "TEXT",
+        "posicion": "TEXT",
+        "numero_camiseta": "TEXT",
+        "objetivo_temporada": "TEXT",
         "tipo_miembro": "TEXT DEFAULT 'Jugador'",
         "cobra_cuota": "INTEGER DEFAULT 1",
         "debito_automatico": "INTEGER DEFAULT 0",
@@ -9480,6 +9485,7 @@ def proteger_rutas():
         "responder_encuesta_satisfaccion",
         "portal_buscar",
         "portal_jugador",
+        "portal_actualizar_configuracion",
         "portal_omitir_notificaciones",
         "portal_actualizar_contacto",
         "portal_subir_comprobante",
@@ -17737,6 +17743,15 @@ def portal_jugador(token):
         LIMIT 12
     """, (jugador["id"],)).fetchall()
 
+    temporada_actual = ahora_sig().year
+    temporada_filas = conn.execute("""
+        SELECT e.tipo, a.presente
+        FROM asistencias a
+        JOIN eventos_asistencia e ON e.id = a.evento_id
+        WHERE a.jugador_id = %s
+          AND e.fecha::text LIKE %s
+    """, (jugador["id"], f"{temporada_actual}-%")).fetchall()
+
     gastos_compartidos = conn.execute("""
         SELECT
             i.*,
@@ -17882,6 +17897,39 @@ def portal_jugador(token):
     gasto_pendiente_total = round(sum(float(item.get("importe") or 0) for item in gastos_pendientes), 2)
     deuda = round(float(deuda_cuotas or 0) + gasto_pendiente_total, 2)
 
+    temporada_total = len(temporada_filas)
+    temporada_presentes = sum(1 for item in temporada_filas if bool(item.get("presente")))
+    temporada_resumen = {
+        "anio": temporada_actual,
+        "eventos": temporada_total,
+        "asistencia_porcentaje": round((temporada_presentes / temporada_total) * 100) if temporada_total else 0,
+        "partidos": sum(
+            1 for item in temporada_filas
+            if bool(item.get("presente")) and "partido" in (item.get("tipo") or "").lower()
+        ),
+        "entrenamientos": sum(
+            1 for item in temporada_filas
+            if bool(item.get("presente")) and "entrenamiento" in (item.get("tipo") or "").lower()
+        ),
+    }
+
+    accesos_disponibles = {
+        "entrenamientos": {"label": "Entrenamientos", "href": "#equipo", "hint": "Agenda y confirmaciones"},
+        "pagos": {"label": "Pagos", "href": "#pagos", "hint": "Cuenta y comprobantes"},
+        "salud": {"label": "Salud", "href": "#salud", "hint": "Apto y disponibilidad"},
+        "calendario": {"label": "Calendario", "href": "#equipo", "hint": "Próximos eventos"},
+        "documentos": {"label": "Documentos", "href": "#documentos", "hint": "Ficha y certificados"},
+        "perfil": {"label": "Perfil", "href": "#perfil", "hint": "Datos y preferencias"},
+    }
+    accesos_guardados = [
+        clave.strip()
+        for clave in (jugador.get("portal_accesos_rapidos") or "").split(",")
+        if clave.strip() in accesos_disponibles
+    ]
+    if not accesos_guardados:
+        accesos_guardados = ["entrenamientos", "pagos", "salud", "calendario"]
+    accesos_rapidos = [dict(clave=clave, **accesos_disponibles[clave]) for clave in accesos_guardados]
+
     portal_alertas = []
     if deuda > 0:
         portal_alertas.append({
@@ -17941,6 +17989,11 @@ def portal_jugador(token):
         deuda_cuotas=deuda_cuotas,
         ficha=ficha,
         documentos=documentos,
+        documentos_por_vencer=documentos_por_vencer,
+        accesos_disponibles=accesos_disponibles,
+        accesos_guardados=accesos_guardados,
+        accesos_rapidos=accesos_rapidos,
+        temporada_resumen=temporada_resumen,
         historial_asistencia=historial_asistencia,
         lesiones_activas_portal=lesiones_activas_portal,
         portal_alertas=portal_alertas,
@@ -17969,6 +18022,53 @@ def portal_jugador(token):
         comunicaciones_portal=comunicaciones_portal,
         token=token,
     )
+
+
+@app.route("/portal/<token>/configuracion", methods=["POST"])
+def portal_actualizar_configuracion(token):
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT id
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        abort(404)
+
+    accesos_validos = {"entrenamientos", "pagos", "salud", "calendario", "documentos", "perfil"}
+    accesos = []
+    for clave in request.form.getlist("accesos_rapidos"):
+        if clave in accesos_validos and clave not in accesos:
+            accesos.append(clave)
+    if not accesos:
+        accesos = ["entrenamientos", "pagos", "salud", "calendario"]
+
+    posicion = request.form.get("posicion", "").strip()[:60]
+    numero_camiseta = request.form.get("numero_camiseta", "").strip()[:8]
+    objetivo_temporada = request.form.get("objetivo_temporada", "").strip()[:500]
+
+    conn.execute("""
+        UPDATE jugadores
+        SET posicion = %s,
+            numero_camiseta = %s,
+            objetivo_temporada = %s,
+            portal_accesos_rapidos = %s,
+            portal_onboarding_visto = 1,
+            portal_actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (
+        posicion,
+        numero_camiseta,
+        objetivo_temporada,
+        ",".join(accesos),
+        jugador["id"],
+    ))
+    conn.commit()
+    conn.close()
+    flash("Tu perfil y tus accesos quedaron actualizados.", "ok")
+    return redirect(url_for("portal_jugador", token=token, _anchor="inicio"))
 
 
 @app.route("/portal/<token>/eventos/<int:evento_id>/confirmar", methods=["POST"])

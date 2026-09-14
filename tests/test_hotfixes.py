@@ -1126,6 +1126,45 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("scroll-snap-type: x proximity", css)
         self.assertIn("min-height: 44px", css)
 
+    def test_player_portal_sig_2_prioritizes_calendar_and_compact_navigation(self):
+        root = Path(app.__file__).parent
+        portal = (root / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
+        css = (root / "static" / "styles.css").read_text(encoding="utf-8-sig")
+        javascript = (root / "static" / "app.js").read_text(encoding="utf-8-sig")
+
+        self.assertEqual(portal.count("<h3>Calendario deportivo</h3>"), 1)
+        self.assertLess(portal.index("<h3>Calendario deportivo</h3>"), portal.index("Cuenta corriente"))
+        self.assertIn('class="portal-utility-menu"', portal)
+        self.assertIn('data-portal-collapse="cuenta-corriente"', portal)
+        self.assertIn('class="portal-mobile-nav"', portal)
+        self.assertIn("Documentaci&oacute;n", portal)
+        self.assertIn(".portal-status-danger", css)
+        self.assertIn(".portal-mobile-nav", css)
+        self.assertIn("sig:portal:collapse", javascript)
+
+    def test_player_portal_personalization_and_sports_experience_are_present(self):
+        root = Path(app.__file__).parent
+        source = (root / "app.py").read_text(encoding="utf-8-sig")
+        portal = (root / "templates" / "portal_jugador.html").read_text(encoding="utf-8-sig")
+        javascript = (root / "static" / "app.js").read_text(encoding="utf-8-sig")
+
+        for column in (
+            "portal_onboarding_visto",
+            "portal_accesos_rapidos",
+            "posicion",
+            "numero_camiseta",
+            "objetivo_temporada",
+        ):
+            self.assertIn(f'"{column}"', source)
+        self.assertIn('def portal_actualizar_configuracion(token):', source)
+        self.assertIn('"portal_actualizar_configuracion",', source)
+        self.assertIn('data-portal-onboarding-step', portal)
+        self.assertEqual(portal.count('data-portal-onboarding-step'), 7)
+        self.assertIn('class="portal-player-card"', portal)
+        self.assertIn('id="portal-season-title"', portal)
+        self.assertIn('name="accesos_rapidos"', portal)
+        self.assertIn('data-portal-onboarding-progress', javascript)
+
     def test_satisfaction_survey_availability_honors_status_and_dates(self):
         with patch.object(app, "ahora_sig", return_value=datetime(2026, 8, 29, 12, 0)):
             self.assertTrue(app.encuesta_esta_disponible({

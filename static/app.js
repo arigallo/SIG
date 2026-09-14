@@ -781,3 +781,73 @@
         await updatePwaDiagnostics();
     });
 })();
+
+(() => {
+    const collapsibles = document.querySelectorAll("[data-portal-collapse]");
+    collapsibles.forEach((section) => {
+        const key = `sig:portal:collapse:${section.dataset.portalCollapse}`;
+        try {
+            section.open = window.localStorage?.getItem(key) === "open";
+        } catch (_error) {
+            section.open = false;
+        }
+        section.addEventListener("toggle", () => {
+            try {
+                window.localStorage?.setItem(key, section.open ? "open" : "closed");
+            } catch (_error) {
+                // El portal sigue funcionando aunque el navegador bloquee storage.
+            }
+        });
+    });
+})();
+
+(() => {
+    const onboarding = document.querySelector("[data-portal-onboarding]");
+    if (!onboarding) {
+        return;
+    }
+
+    const steps = Array.from(onboarding.querySelectorAll("[data-portal-onboarding-step]"));
+    const currentLabel = onboarding.querySelector("[data-portal-onboarding-current]");
+    const progress = onboarding.querySelector("[data-portal-onboarding-progress]");
+    const backButton = onboarding.querySelector("[data-portal-onboarding-back]");
+    const nextButton = onboarding.querySelector("[data-portal-onboarding-next]");
+    const submitButton = onboarding.querySelector("[data-portal-onboarding-submit]");
+    let currentStep = 0;
+
+    const renderStep = () => {
+        steps.forEach((step, index) => {
+            step.hidden = index !== currentStep;
+        });
+        currentLabel.textContent = String(currentStep + 1);
+        progress.style.width = `${((currentStep + 1) / steps.length) * 100}%`;
+        backButton.hidden = currentStep === 0;
+        nextButton.hidden = currentStep === steps.length - 1;
+        submitButton.hidden = currentStep !== steps.length - 1;
+    };
+
+    const openOnboarding = () => {
+        currentStep = 0;
+        onboarding.hidden = false;
+        document.body.classList.add("portal-onboarding-open");
+        renderStep();
+        onboarding.querySelector("h2")?.focus({ preventScroll: true });
+    };
+
+    nextButton?.addEventListener("click", () => {
+        currentStep = Math.min(currentStep + 1, steps.length - 1);
+        renderStep();
+    });
+    backButton?.addEventListener("click", () => {
+        currentStep = Math.max(currentStep - 1, 0);
+        renderStep();
+    });
+    document.querySelectorAll("[data-portal-open-onboarding]").forEach((button) => {
+        button.addEventListener("click", openOnboarding);
+    });
+
+    if (!onboarding.hidden) {
+        document.body.classList.add("portal-onboarding-open");
+    }
+    renderStep();
+})();
