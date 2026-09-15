@@ -7,7 +7,7 @@
     <title>Bienestar y asistencia</title>
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
-<body>
+<body class="portal-body portal-wellness-body">
     <main class="container portal-page portal-wellness-page">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -39,36 +39,36 @@
 
             <div class="wellness-grid-two">
                 <div class="wellness-question">
-                    <label>&iquest;C&oacute;mo fue tu calidad de sue&ntilde;o anoche?</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Muy mala'),(2,'Mala'),(3,'Normal'),(4,'Buena'),(5,'Muy buena')] %}<label><input type="radio" name="sueno_calidad" value="{{ n }}" {% if actual.get('sueno_calidad')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="sueno-calidad">&iquest;C&oacute;mo fue tu calidad de sue&ntilde;o anoche?</label>
+                    <select id="sueno-calidad" name="sueno_calidad" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Muy mala'),(2,'Mala'),(3,'Normal'),(4,'Buena'),(5,'Muy buena')] %}<option value="{{ n }}" {% if actual.get('sueno_calidad')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>&iquest;Cu&aacute;ntas horas dormiste?</label>
-                    <div class="wellness-pills">{% for item in horas_opciones %}<label><input type="radio" name="horas_sueno" value="{{ item }}" {% if actual.get('horas_sueno') == item %}checked{% endif %}><span>{{ item }}</span></label>{% endfor %}</div>
+                    <label for="horas-sueno">&iquest;Cu&aacute;ntas horas dormiste?</label>
+                    <select id="horas-sueno" name="horas_sueno" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for item in horas_opciones %}<option value="{{ item }}" {% if actual.get('horas_sueno') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Nivel de dolor muscular general (DOMS)</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Muy alto'),(2,'Alto'),(3,'Moderado'),(4,'Bajo'),(5,'Sin dolor')] %}<label><input type="radio" name="doms" value="{{ n }}" {% if actual.get('doms')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="doms">Nivel de dolor muscular general (DOMS)</label>
+                    <select id="doms" name="doms" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Muy alto'),(2,'Alto'),(3,'Moderado'),(4,'Bajo'),(5,'Sin dolor')] %}<option value="{{ n }}" {% if actual.get('doms')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Nivel de fatiga percibida</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Extremadamente fatigado'),(2,'Muy fatigado'),(3,'Fatiga moderada'),(4,'Fatiga baja'),(5,'Muy descansado')] %}<label><input type="radio" name="fatiga" value="{{ n }}" {% if actual.get('fatiga')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="fatiga">Nivel de fatiga percibida</label>
+                    <select id="fatiga" name="fatiga" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Extremadamente fatigado'),(2,'Muy fatigado'),(3,'Fatiga moderada'),(4,'Fatiga baja'),(5,'Muy descansado')] %}<option value="{{ n }}" {% if actual.get('fatiga')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Nivel de estr&eacute;s general</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Muy alto'),(2,'Alto'),(3,'Medio'),(4,'Bajo'),(5,'Muy bajo')] %}<label><input type="radio" name="estres" value="{{ n }}" {% if actual.get('estres')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="estres">Nivel de estr&eacute;s general</label>
+                    <select id="estres" name="estres" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Muy alto'),(2,'Alto'),(3,'Medio'),(4,'Bajo'),(5,'Muy bajo')] %}<option value="{{ n }}" {% if actual.get('estres')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Estado de &aacute;nimo general</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Muy bajo'),(2,'Bajo'),(3,'Normal'),(4,'Bueno'),(5,'Muy bueno')] %}<label><input type="radio" name="animo" value="{{ n }}" {% if actual.get('animo')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="animo">Estado de &aacute;nimo general</label>
+                    <select id="animo" name="animo" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Muy bajo'),(2,'Bajo'),(3,'Normal'),(4,'Bueno'),(5,'Muy bueno')] %}<option value="{{ n }}" {% if actual.get('animo')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Motivaci&oacute;n para entrenar hoy</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Muy baja'),(2,'Baja'),(3,'Normal'),(4,'Alta'),(5,'Muy alta')] %}<label><input type="radio" name="motivacion" value="{{ n }}" {% if actual.get('motivacion')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="motivacion">Motivaci&oacute;n para entrenar hoy</label>
+                    <select id="motivacion" name="motivacion" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Muy baja'),(2,'Baja'),(3,'Normal'),(4,'Alta'),(5,'Muy alta')] %}<option value="{{ n }}" {% if actual.get('motivacion')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="wellness-question">
-                    <label>Percepci&oacute;n de recuperaci&oacute;n f&iacute;sica</label>
-                    <div class="wellness-scale">{% for n,label in [(1,'Nada recuperado'),(2,'Poco recuperado'),(3,'Moderado'),(4,'Bien'),(5,'Totalmente recuperado')] %}<label><input type="radio" name="recuperacion" value="{{ n }}" {% if actual.get('recuperacion')|string == n|string %}checked{% endif %}><span>{{ n }}</span><small>{{ label }}</small></label>{% endfor %}</div>
+                    <label for="recuperacion">Percepci&oacute;n de recuperaci&oacute;n f&iacute;sica</label>
+                    <select id="recuperacion" name="recuperacion" required><option value="">Seleccion&aacute; una opci&oacute;n</option>{% for n,label in [(1,'Nada recuperado'),(2,'Poco recuperado'),(3,'Moderado'),(4,'Bien'),(5,'Totalmente recuperado')] %}<option value="{{ n }}" {% if actual.get('recuperacion')|string == n|string %}selected{% endif %}>{{ n }} &mdash; {{ label }}</option>{% endfor %}</select>
                 </div>
             </div>
 

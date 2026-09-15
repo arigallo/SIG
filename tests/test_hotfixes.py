@@ -451,6 +451,34 @@ class HotfixTests(unittest.TestCase):
             ["Voy", "Dudoso", "No voy"],
         )
 
+    def test_wellness_scoring_treats_normal_answers_as_ok_and_preserves_real_alerts(self):
+        normal = {
+            "sueno_calidad": 3,
+            "horas_sueno": "6-7 h",
+            "doms": 3,
+            "fatiga": 3,
+            "estres": 3,
+            "animo": 3,
+            "motivacion": 3,
+            "recuperacion": 3,
+            "dolor_zonas_lista": ["No"],
+        }
+        severo = {**normal, "sueno_calidad": 1, "horas_sueno": "<5 h", "doms": 1, "fatiga": 1, "recuperacion": 1}
+        molestias_leves = {**normal, "dolor_zonas_lista": ["Hombro", "Brazo"]}
+
+        self.assertEqual(portal_service.resumen_bienestar_confirmacion(normal)["nivel"], "success")
+        self.assertEqual(portal_service.resumen_bienestar_confirmacion(severo)["nivel"], "danger")
+        self.assertEqual(portal_service.resumen_bienestar_confirmacion(molestias_leves)["nivel"], "warning")
+        self.assertEqual(portal_service.horas_sueno_score("7-8 h"), 5)
+        self.assertEqual(portal_service.horas_sueno_score(">8 h"), 4)
+
+    def test_wellness_questionnaire_uses_compact_dropdowns(self):
+        template = Path("templates/portal_bienestar.html").read_text(encoding="utf-8-sig")
+        for field in ("sueno_calidad", "horas_sueno", "doms", "fatiga", "estres", "animo", "motivacion", "recuperacion"):
+            self.assertIn(f'<select id=', template)
+            self.assertIn(f'name="{field}" required', template)
+            self.assertNotIn(f'type="radio" name="{field}"', template)
+
     def test_asistencia_event_export_is_excel_and_includes_unsaved_players(self):
         source = Path("app.py").read_text(encoding="utf-8")
         template = Path("templates/tomar_asistencia.html").read_text(encoding="utf-8")
@@ -1167,6 +1195,21 @@ class HotfixTests(unittest.TestCase):
         self.assertIn('class="portal-body"', portal)
         self.assertIn('viewBox="0 0 24 24"', portal)
         self.assertIn('data-portal-onboarding-progress', javascript)
+
+    def test_uncollectible_debts_are_auditable_and_excluded_from_pending_totals(self):
+        root = Path(app.__file__).parent
+        source = (root / "app.py").read_text(encoding="utf-8-sig")
+        finance_service = (root / "services" / "finanzas.py").read_text(encoding="utf-8-sig")
+        cuotas = (root / "templates" / "cuotas.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn('"incobrable": "INTEGER DEFAULT 0"', source)
+        self.assertIn('def actualizar_cuota_incobrable(cuota_id):', source)
+        self.assertIn('"marcar_incobrable" if marcar else "restaurar_deuda"', source)
+        self.assertGreaterEqual(source.count("COALESCE(incobrable, 0) = 0"), 10)
+        self.assertGreaterEqual(source.count("COALESCE(c.incobrable, 0) = 0"), 10)
+        self.assertIn('"COALESCE(incobrable, 0) = 0"', finance_service)
+        self.assertIn("Declarar incobrable", cuotas)
+        self.assertIn("Restaurar deuda", cuotas)
 
     def test_satisfaction_survey_availability_honors_status_and_dates(self):
         with patch.object(app, "ahora_sig", return_value=datetime(2026, 8, 29, 12, 0)):

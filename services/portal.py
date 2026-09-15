@@ -24,7 +24,17 @@ PORTAL_ASISTENCIA_BADGES = {
 }
 
 BIENESTAR_HORAS_OPCIONES = ["<5 h", "5-6 h", "6-7 h", "7-8 h", ">8 h"]
-BIENESTAR_HORAS_SCORE = {"<5 h": 1, "5-6 h": 2, "6-7 h": 3, "7-8 h": 4, ">8 h": 5}
+BIENESTAR_HORAS_SCORE = {"<5 h": 1, "5-6 h": 2, "6-7 h": 4, "7-8 h": 5, ">8 h": 4}
+BIENESTAR_PESOS = {
+    "sueno_calidad": 1.0,
+    "horas_sueno": 0.75,
+    "doms": 1.25,
+    "fatiga": 1.5,
+    "estres": 1.0,
+    "animo": 0.75,
+    "motivacion": 0.75,
+    "recuperacion": 1.5,
+}
 BIENESTAR_DOLOR_ZONAS = [
     "No",
     "Cuello",
@@ -75,24 +85,32 @@ def horas_sueno_score(valor):
 def resumen_bienestar_confirmacion(confirmacion):
     if not confirmacion or confirmacion.get("sueno_calidad") is None:
         return None
-    valores = []
+    valores = {}
     for clave in ("sueno_calidad", "doms", "fatiga", "estres", "animo", "motivacion", "recuperacion"):
         try:
-            valores.append(int(confirmacion.get(clave) or 0))
+            valores[clave] = int(confirmacion.get(clave) or 0)
         except (TypeError, ValueError):
-            valores.append(0)
+            valores[clave] = 0
     horas_score = horas_sueno_score(confirmacion.get("horas_sueno"))
     if horas_score:
-        valores.append(horas_score)
-    promedio = round(sum(valores) / len([v for v in valores if v]), 1) if any(valores) else 0
+        valores["horas_sueno"] = horas_score
+    valores_validos = {clave: valor for clave, valor in valores.items() if valor}
+    peso_total = sum(BIENESTAR_PESOS[clave] for clave in valores_validos)
+    promedio = round(
+        sum(valor * BIENESTAR_PESOS[clave] for clave, valor in valores_validos.items()) / peso_total,
+        1,
+    ) if peso_total else 0
     zonas = confirmacion.get("dolor_zonas_lista") or []
     zonas_alerta = [zona for zona in zonas if zona and zona not in {"No", "Otro"}]
     if confirmacion.get("dolor_otro"):
         zonas_alerta.append("Otro")
-    if promedio and promedio < 2.6 or len(zonas_alerta) >= 2:
+    dolor_relevante = len(zonas_alerta) >= 2 and (
+        promedio < 3 or valores.get("doms", 5) <= 2 or valores.get("recuperacion", 5) <= 2
+    )
+    if (promedio and promedio < 2.25) or dolor_relevante:
         nivel = "danger"
         label = "Alerta roja"
-    elif promedio and promedio < 3.6 or len(zonas_alerta) == 1:
+    elif (promedio and promedio < 3) or zonas_alerta:
         nivel = "warning"
         label = "Alerta amarilla"
     else:

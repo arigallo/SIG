@@ -34,7 +34,7 @@
                 </div>
                 <h1>Hola, {{ jugador['nombre'] }} {{ jugador['apellido'] }}</h1>
                 <p class="portal-hero-text">
-                    Tu espacio personal para seguir entrenamientos, pagos, salud y evolucion deportiva en un solo lugar.
+                    Tu espacio personal para seguir entrenamientos, pagos, salud y evoluci&oacute;n deportiva en un solo lugar.
                 </p>
                 <div class="portal-hero-meta">
                     <span class="portal-meta-category"><strong>Categor&iacute;a</strong>{{ jugador['categoria'] or '-' }}</span>
@@ -80,8 +80,10 @@
                         <div class="portal-event-item">
                             <div class="portal-event-main">
                                 <div class="portal-event-meta">
-                                    <span class="badge badge-info">{{ evento['tipo'] }}</span>
-                                    <span class="muted-line">{{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
+                                    <span class="badge badge-info portal-event-badge">
+                                        <strong>{{ evento['tipo'] }}</strong>
+                                        <span>&middot; {{ evento['fecha'] }}{% if evento['hora_inicio'] %} {{ evento['hora_inicio'] }}{% endif %}</span>
+                                    </span>
                                 </div>
                                 <h4>{{ evento['titulo'] }}</h4>
                                 {% if evento['descripcion'] %}<p class="muted-line">{{ evento['descripcion'] }}</p>{% endif %}
@@ -103,7 +105,7 @@
                                                 <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button class="button secondary" type="submit">{{ 'Guardar confirmacion' if es_evento_partido(evento) else 'Continuar' }}</button>
+                                        <button class="button secondary" type="submit">{% if es_evento_partido(evento) %}Guardar confirmaci&oacute;n{% else %}Continuar{% endif %}</button>
                                     </form>
                                     {% if not es_evento_partido(evento) %}
                                         {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}
@@ -326,7 +328,7 @@
                 </div>
                 <div class="portal-season-goal">
                     <span>Objetivo de temporada</span>
-                    <strong>{{ jugador['objetivo_temporada'] or 'Defin&iacute; tu objetivo desde Perfil.' }}</strong>
+                    <strong>{{ jugador['objetivo_temporada'] or 'Definí tu objetivo desde Perfil.' }}</strong>
                 </div>
             </article>
         </section>
@@ -469,7 +471,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if cuota['anulada'] %}
+                                {% if cuota['incobrable'] %}
+                                    <span class="badge badge-muted">Incobrable</span>
+                                {% elif cuota['anulada'] %}
                                     <span class="badge badge-muted">Anulada</span>
                                     {% if cuota['anulacion_motivo'] %}
                                         <span class="muted-line">{{ cuota['anulacion_motivo'] }}</span>

@@ -1192,6 +1192,7 @@ def ejecutar_automatizaciones(usuario="sistema"):
             JOIN jugadores j ON j.id = c.jugador_id
             WHERE c.pagado = 0
               AND COALESCE(c.anulada, 0) = 0
+              AND COALESCE(c.incobrable, 0) = 0
               AND COALESCE(c.importe, 0) > 0
               AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
               AND c.fecha_vencimiento::date <= CURRENT_DATE + (%s * INTERVAL '1 day')
@@ -3433,7 +3434,7 @@ def registrar_historial_beca(conn, jugador_id, data, accion, detalle=None):
 
 
 def recalcular_cuotas_becadas(conn, jugador, periodo_desde="", periodo_hasta=""):
-    condiciones = ["jugador_id = %s", "pagado = 0", "COALESCE(anulada, 0) = 0"]
+    condiciones = ["jugador_id = %s", "pagado = 0", "COALESCE(anulada, 0) = 0", "COALESCE(incobrable, 0) = 0"]
     parametros = [jugador["id"]]
 
     if periodo_desde:
@@ -3595,7 +3596,7 @@ def obtener_reportes(desde, hasta):
         SELECT
             COALESCE(SUM(CASE WHEN pagado = 1 THEN importe ELSE 0 END), 0) AS cuotas_cobradas,
             COUNT(CASE WHEN pagado = 1 THEN 1 END) AS cuotas_pagadas,
-            COUNT(CASE WHEN pagado = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS cuotas_pendientes_periodo
+            COUNT(CASE WHEN pagado = 0 AND COALESCE(incobrable, 0) = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS cuotas_pendientes_periodo
         FROM cuotas
         WHERE periodo BETWEEN %s AND %s
     """, (desde, hasta)).fetchone()
@@ -3616,6 +3617,7 @@ def obtener_reportes(desde, hasta):
             COUNT(*) AS cuotas_pendientes
         FROM cuotas
         WHERE pagado = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """).fetchone()
 
@@ -3654,7 +3656,7 @@ def obtener_reportes(desde, hasta):
             periodo AS mes,
             COUNT(*) AS cuotas_emitidas,
             COUNT(CASE WHEN pagado = 1 THEN 1 END) AS cuotas_pagadas,
-            COUNT(CASE WHEN pagado = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS cuotas_pendientes,
+            COUNT(CASE WHEN pagado = 0 AND COALESCE(incobrable, 0) = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS cuotas_pendientes,
             COALESCE(SUM(importe), 0) AS total_emitido,
             COALESCE(SUM(CASE WHEN pagado = 1 THEN importe ELSE 0 END), 0) AS total_cobrado
         FROM cuotas
@@ -3732,6 +3734,7 @@ def obtener_reportes(desde, hasta):
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY COALESCE(NULLIF(j.categoria, ''), 'Sin categoria')
         ORDER BY deuda DESC, categoria ASC
@@ -3775,6 +3778,7 @@ def obtener_reportes(desde, hasta):
         FROM jugadores j
         JOIN cuotas c ON c.jugador_id = j.id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY j.id, j.apellido, j.nombre, j.categoria, j.telefono, j.email
         HAVING COUNT(c.id) >= 2
@@ -3823,6 +3827,7 @@ def obtener_reportes(desde, hasta):
             FROM cuotas c
             WHERE c.pagado = 0
               AND COALESCE(c.anulada, 0) = 0
+              AND COALESCE(c.incobrable, 0) = 0
               AND COALESCE(c.importe, 0) > 0
             UNION ALL
             SELECT i.importe,
@@ -3941,6 +3946,7 @@ def obtener_alertas():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
@@ -3964,6 +3970,7 @@ def obtener_alertas():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
@@ -4357,7 +4364,7 @@ def obtener_estado_sistema_admin():
         estado["conteos"] = conn.execute("""
             SELECT
                 (SELECT COUNT(*) FROM jugadores) AS jugadores,
-                (SELECT COUNT(*) FROM cuotas WHERE pagado = 0 AND COALESCE(importe, 0) > 0) AS cuotas_pendientes,
+                (SELECT COUNT(*) FROM cuotas WHERE pagado = 0 AND COALESCE(incobrable, 0) = 0 AND COALESCE(importe, 0) > 0) AS cuotas_pendientes,
                 (
                     SELECT COUNT(*)
                     FROM cuotas
@@ -4638,6 +4645,7 @@ def obtener_calendario(mes):
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
@@ -5710,6 +5718,7 @@ def obtener_morosos_para_comunicacion():
         FROM jugadores j
         JOIN cuotas c ON c.jugador_id = j.id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY
             j.id, j.apellido, j.nombre, j.categoria, j.telefono, j.email,
@@ -5738,6 +5747,7 @@ def obtener_notificaciones_operativas():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
@@ -5761,6 +5771,7 @@ def obtener_notificaciones_operativas():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
           AND c.fecha_vencimiento IS NOT NULL
           AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
@@ -6123,11 +6134,13 @@ def obtener_panel_cobranzas():
             COUNT(*) FILTER (
                 WHERE COALESCE(anulada, 0) = 0
                   AND pagado = 0
+                  AND COALESCE(incobrable, 0) = 0
                   AND COALESCE(importe, 0) > 0
             ) AS pendientes,
             COUNT(*) FILTER (
                 WHERE COALESCE(anulada, 0) = 0
                   AND pagado = 0
+                  AND COALESCE(incobrable, 0) = 0
                   AND COALESCE(importe, 0) > 0
                   AND fecha_vencimiento IS NOT NULL
                   AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
@@ -6140,18 +6153,18 @@ def obtener_panel_cobranzas():
                   AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
             ) AS comprobantes,
             COALESCE(SUM(CASE WHEN COALESCE(anulada, 0) = 0 AND pagado = 1 THEN importe ELSE 0 END), 0) AS cobrado,
-            COALESCE(SUM(CASE WHEN COALESCE(anulada, 0) = 0 AND pagado = 0 THEN importe ELSE 0 END), 0) AS pendiente_importe
+            COALESCE(SUM(CASE WHEN COALESCE(anulada, 0) = 0 AND COALESCE(incobrable, 0) = 0 AND pagado = 0 THEN importe ELSE 0 END), 0) AS pendiente_importe
         FROM cuotas
     """).fetchone()
     por_categoria = conn.execute("""
         SELECT
             COALESCE(j.categoria, 'Sin categoria') AS categoria,
-            COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0) AS pendientes,
-            COALESCE(SUM(CASE WHEN c.pagado = 0 AND COALESCE(c.anulada, 0) = 0 THEN c.importe ELSE 0 END), 0) AS deuda
+            COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.incobrable, 0) = 0) AS pendientes,
+            COALESCE(SUM(CASE WHEN c.pagado = 0 AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.incobrable, 0) = 0 THEN c.importe ELSE 0 END), 0) AS deuda
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         GROUP BY COALESCE(j.categoria, 'Sin categoria')
-        HAVING COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0) > 0
+        HAVING COUNT(c.id) FILTER (WHERE c.pagado = 0 AND COALESCE(c.importe, 0) > 0 AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.incobrable, 0) = 0) > 0
         ORDER BY deuda DESC, categoria
         LIMIT 20
     """).fetchall()
@@ -6253,7 +6266,7 @@ def obtener_presupuesto_mensual(mes, meses_proyeccion=6):
             COUNT(*) AS cuotas_emitidas,
             COALESCE(SUM(importe), 0) AS total_emitido,
             COALESCE(SUM(CASE WHEN pagado = 1 THEN importe ELSE 0 END), 0) AS total_cobrado,
-            COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(anulada, 0) = 0 THEN importe ELSE 0 END), 0) AS total_pendiente
+            COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(anulada, 0) = 0 AND COALESCE(incobrable, 0) = 0 THEN importe ELSE 0 END), 0) AS total_pendiente
         FROM cuotas
         WHERE periodo = ANY(%s)
         GROUP BY periodo
@@ -6391,6 +6404,7 @@ def buscar_match_conciliacion(conn, fila):
     condiciones = [
         "j.dni = %s",
         "c.pagado = 0",
+        "COALESCE(c.incobrable, 0) = 0",
         "COALESCE(c.importe, 0) > 0",
         "ABS(COALESCE(c.importe, 0) - %s) < 1",
     ]
@@ -7576,6 +7590,10 @@ def init_db():
         "anulada_por": "TEXT",
         "anulacion_motivo": "TEXT",
         "importe_anulado": "REAL",
+        "incobrable": "INTEGER DEFAULT 0",
+        "incobrable_en": "TEXT",
+        "incobrable_por": "TEXT",
+        "incobrable_motivo": "TEXT",
     }
     for columna, tipo_columna in columnas_plan_cuota.items():
         if columna not in columnas_cuotas:
@@ -11175,6 +11193,7 @@ def index():
         FROM jugadores j
         JOIN cuotas c ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY j.id, j.nombre, j.apellido
         HAVING COALESCE(SUM(c.importe), 0) > 0
@@ -11228,6 +11247,7 @@ def index():
         SELECT COALESCE(SUM(importe), 0) AS total
         FROM cuotas
         WHERE pagado = 0
+        AND COALESCE(incobrable, 0) = 0
         AND COALESCE(importe, 0) > 0
     """).fetchone()["total"]
 
@@ -11242,6 +11262,7 @@ def index():
     SELECT COALESCE(SUM(importe), 0) AS total
     FROM cuotas
     WHERE pagado = 0
+      AND COALESCE(incobrable, 0) = 0
       AND COALESCE(importe, 0) > 0
       AND fecha_vencimiento IS NOT NULL
       AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
@@ -11253,6 +11274,7 @@ def index():
     SELECT COUNT(*) AS total
     FROM cuotas
     WHERE pagado = 0
+      AND COALESCE(incobrable, 0) = 0
       AND COALESCE(importe, 0) > 0
       AND substring(periodo from 1 for 7) = %s
     """, (mes_actual,)).fetchone()["total"]
@@ -11270,6 +11292,7 @@ def index():
     FROM cuotas c
     JOIN jugadores j ON j.id = c.jugador_id
     WHERE c.pagado = 0
+      AND COALESCE(c.incobrable, 0) = 0
       AND COALESCE(c.importe, 0) > 0
     ORDER BY
         CASE
@@ -11494,6 +11517,7 @@ def pagos_masivos_debito_automatico():
             FROM cuotas c
             JOIN jugadores j ON j.id = c.jugador_id
             WHERE c.id = ANY(%s) AND c.periodo = %s AND c.pagado = 0
+              AND COALESCE(c.incobrable, 0) = 0
               AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.importe, 0) > 0
               AND COALESCE(j.debito_automatico, 0) = 1
             ORDER BY j.apellido, j.nombre
@@ -11535,6 +11559,7 @@ def pagos_masivos_debito_automatico():
         FROM cuotas c
         JOIN jugadores j ON j.id = c.jugador_id
         WHERE c.periodo = %s AND c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.anulada, 0) = 0 AND COALESCE(c.importe, 0) > 0
           AND COALESCE(j.debito_automatico, 0) = 1
         ORDER BY j.apellido, j.nombre
@@ -13611,6 +13636,7 @@ def ver_cuotas(jugador_id):
         WHERE jugador_id = %s
           AND pagado = 0
           AND COALESCE(anulada, 0) = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (jugador_id,)).fetchone()["total"] or 0
 
@@ -13740,6 +13766,7 @@ def listar_planes_pago():
             FROM cuotas
             WHERE pagado = 0
               AND COALESCE(anulada, 0) = 0
+              AND COALESCE(incobrable, 0) = 0
               AND COALESCE(importe, 0) > 0
             GROUP BY jugador_id
         ) deuda ON deuda.jugador_id = j.id
@@ -13845,6 +13872,7 @@ def nuevo_plan_pago(jugador_id):
               AND id = ANY(%s)
               AND pagado = 0
               AND COALESCE(anulada, 0) = 0
+              AND COALESCE(incobrable, 0) = 0
               AND COALESCE(importe, 0) > 0
             FOR UPDATE
         """, (jugador_id, cuotas_ids)).fetchall()
@@ -13953,6 +13981,7 @@ def editar_plan_pago(plan_id):
         WHERE jugador_id = %s
           AND pagado = 0
           AND COALESCE(anulada, 0) = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (plan["jugador_id"],)).fetchone()["total"]
 
@@ -14229,6 +14258,11 @@ def pagar_cuota(cuota_id):
     if cuota.get("anulada"):
         conn.close()
         flash("La cuota esta anulada por un plan de pago.", "error")
+        return redirect(url_for("ver_cuotas", jugador_id=cuota["jugador_id"]))
+
+    if cuota.get("incobrable"):
+        conn.close()
+        flash("La cuota está marcada como incobrable. Restaurala antes de registrar un pago.", "error")
         return redirect(url_for("ver_cuotas", jugador_id=cuota["jugador_id"]))
 
     if request.method == "POST":
@@ -15462,6 +15496,7 @@ def detalle_jugador(jugador_id):
         WHERE jugador_id = %s
           AND pagado = 0
           AND COALESCE(anulada, 0) = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (jugador_id,)).fetchone()["total"]
 
@@ -15495,9 +15530,9 @@ def detalle_jugador(jugador_id):
         SELECT
             COUNT(*) AS total,
             COUNT(CASE WHEN pagado = 1 THEN 1 END) AS pagadas,
-            COUNT(CASE WHEN pagado = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS pendientes,
+            COUNT(CASE WHEN pagado = 0 AND COALESCE(incobrable, 0) = 0 AND COALESCE(importe, 0) > 0 THEN 1 END) AS pendientes,
             COALESCE(SUM(CASE WHEN pagado = 1 THEN importe ELSE 0 END), 0) AS total_pagado,
-            COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(importe, 0) > 0 THEN importe ELSE 0 END), 0) AS total_pendiente
+            COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(incobrable, 0) = 0 AND COALESCE(importe, 0) > 0 THEN importe ELSE 0 END), 0) AS total_pendiente
         FROM cuotas
         WHERE jugador_id = %s
     """, (jugador_id,)).fetchone()
@@ -15553,6 +15588,7 @@ def detalle_jugador(jugador_id):
         FROM cuotas
         WHERE jugador_id = %s
           AND pagado = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (jugador_id,)).fetchone()["total"]
 
@@ -17697,6 +17733,7 @@ def portal_jugador(token):
         SELECT id, periodo, importe, pagado, fecha_vencimiento, fecha_pago,
                metodo_pago, becada, beca_porcentaje, descuento_beca,
                plan_pago_monto, plan_pago_detalle, anulada, anulacion_motivo,
+               incobrable, incobrable_en, incobrable_por, incobrable_motivo,
                comprobante_drive_file_id, comprobante_nombre, comprobante_fecha,
                comprobante_mime_type,
                comprobante_estado, comprobante_observaciones
@@ -17712,6 +17749,7 @@ def portal_jugador(token):
         WHERE jugador_id = %s
           AND pagado = 0
           AND COALESCE(anulada, 0) = 0
+          AND COALESCE(incobrable, 0) = 0
           AND COALESCE(importe, 0) > 0
     """, (jugador["id"],)).fetchone()["total"]
 
@@ -18127,7 +18165,7 @@ def portal_confirmar_asistencia(token, evento_id):
             username=username_portal_jugador(jugador),
             rol="portal",
         )
-        flash("Confirmacion guardada.", "ok")
+        flash("Confirmación guardada.", "ok")
         return redirect(url_for("portal_jugador", token=token))
 
     conn.close()
@@ -18200,7 +18238,7 @@ def portal_bienestar_asistencia(token, evento_id):
                 username=username_portal_jugador(jugador),
                 rol="portal",
             )
-            flash("Confirmacion guardada.", "ok")
+            flash("Confirmación guardada.", "ok")
         elif es_evento_partido(evento):
             flash("Los partidos no requieren cuestionario de bienestar.", "ok")
         conn.close()
@@ -18283,7 +18321,7 @@ def portal_bienestar_asistencia(token, evento_id):
             username=username_portal_jugador(jugador),
             rol="portal",
         )
-        flash("Confirmacion y bienestar guardados.", "ok")
+        flash("Confirmación y bienestar guardados.", "ok")
         return redirect(url_for("portal_jugador", token=token))
 
     conn.close()
@@ -19479,6 +19517,7 @@ def exportar_datos_integral():
         FROM jugadores j
         JOIN cuotas c ON c.jugador_id = j.id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY j.id, j.apellido, j.nombre, j.dni, j.categoria, j.telefono, j.email
         HAVING COALESCE(SUM(c.importe), 0) > 0
@@ -20760,6 +20799,7 @@ def exportar_morosos():
         FROM jugadores j
         JOIN cuotas c ON j.id = c.jugador_id
         WHERE c.pagado = 0
+          AND COALESCE(c.incobrable, 0) = 0
           AND COALESCE(c.importe, 0) > 0
         GROUP BY j.id, j.apellido, j.nombre, j.dni, j.categoria, j.telefono, j.email
         HAVING COALESCE(SUM(c.importe), 0) > 0
@@ -22199,6 +22239,69 @@ def eliminar_usuario(usuario_id):
 
     flash("Usuario eliminado correctamente.", "ok")
     return redirect(url_for("listar_usuarios"))
+
+@app.route("/cuotas/<int:cuota_id>/incobrable", methods=["POST"])
+def actualizar_cuota_incobrable(cuota_id):
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+
+    marcar = request.form.get("accion") == "marcar"
+    motivo = request.form.get("motivo", "").strip()
+    conn = get_connection()
+    cuota = conn.execute("""
+        SELECT id, jugador_id, periodo, importe, pagado, anulada, incobrable
+        FROM cuotas
+        WHERE id = %s
+        FOR UPDATE
+    """, (cuota_id,)).fetchone()
+
+    if cuota is None:
+        conn.close()
+        flash("Cuota no encontrada.", "error")
+        return redirect(url_for("listar_jugadores"))
+
+    destino = url_for("ver_cuotas", jugador_id=cuota["jugador_id"])
+    if marcar and (cuota["pagado"] or cuota.get("anulada")):
+        conn.close()
+        flash("Solo se pueden declarar incobrables las cuotas pendientes vigentes.", "error")
+        return redirect(destino)
+    if marcar and not motivo:
+        conn.close()
+        flash("Indicá un motivo para declarar la deuda incobrable.", "error")
+        return redirect(destino)
+
+    incobrable_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S") if marcar else None
+    incobrable_por = session.get("username") if marcar else None
+    conn.execute("""
+        UPDATE cuotas
+        SET incobrable = %s,
+            incobrable_en = %s,
+            incobrable_por = %s,
+            incobrable_motivo = %s
+        WHERE id = %s
+    """, (1 if marcar else 0, incobrable_en, incobrable_por, motivo if marcar else None, cuota_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "marcar_incobrable" if marcar else "restaurar_deuda",
+        "cuota",
+        str(cuota_id),
+        {
+            "jugador_id": cuota["jugador_id"],
+            "periodo": cuota["periodo"],
+            "importe": cuota["importe"],
+            "motivo": motivo if marcar else None,
+        },
+    )
+    flash(
+        "La deuda fue declarada incobrable y se excluyó de los totales."
+        if marcar else "La deuda fue restaurada como pendiente.",
+        "ok",
+    )
+    return redirect(destino)
+
 
 @app.route("/cuotas/<int:cuota_id>/eliminar", methods=["POST"])
 def eliminar_cuota(cuota_id):

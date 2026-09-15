@@ -156,7 +156,12 @@ def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None, hoy=None
     if jugador is None:
         return {"revisadas": 0, "actualizadas": 0}
 
-    condiciones = ["jugador_id = %s", "pagado = 0", "COALESCE(anulada, 0) = 0"]
+    condiciones = [
+        "jugador_id = %s",
+        "pagado = 0",
+        "COALESCE(anulada, 0) = 0",
+        "COALESCE(incobrable, 0) = 0",
+    ]
     parametros = [jugador_id]
     if periodo_desde:
         condiciones.append("periodo >= %s")

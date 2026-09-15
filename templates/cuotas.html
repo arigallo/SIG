@@ -191,7 +191,15 @@
                     {% endif %}
                 </td>
                 <td data-label="Estado">
-                    {% if cuota['anulada'] %}
+                    {% if cuota['incobrable'] %}
+                        <span class="badge badge-muted">Incobrable</span>
+                        {% if cuota['incobrable_motivo'] %}
+                            <span class="muted-line">{{ cuota['incobrable_motivo'] }}</span>
+                        {% endif %}
+                        {% if cuota['incobrable_en'] %}
+                            <span class="muted-line">Desde {{ cuota['incobrable_en'] }}{% if cuota['incobrable_por'] %} · {{ cuota['incobrable_por'] }}{% endif %}</span>
+                        {% endif %}
+                    {% elif cuota['anulada'] %}
                         <span class="badge badge-muted">Anulada</span>
                         {% if cuota['anulacion_motivo'] %}
                             <span class="muted-line">{{ cuota['anulacion_motivo'] }}</span>
@@ -248,15 +256,35 @@
                     {% endif %}
                 </td>
                 <td data-label="Acción" class="actions">
-                    {% if cuota['anulada'] %}
+                    {% if cuota['incobrable'] %}
+                        {% if puede('cuotas_gestionar') %}
+                        <form method="post" action="{{ url_for('actualizar_cuota_incobrable', cuota_id=cuota['id']) }}" onsubmit="return confirm('¿Restaurar esta deuda como pendiente?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="accion" value="restaurar">
+                            <button class="button secondary" type="submit">Restaurar deuda</button>
+                        </form>
+                        {% endif %}
+                    {% elif cuota['anulada'] %}
                         -
                     {% elif not cuota['pagado'] %}
                         <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Marcar pago</a>
+                        {% if puede('cuotas_gestionar') %}
+                        <details class="embedded-preview-card top-gap">
+                            <summary>Declarar incobrable</summary>
+                            <form method="post" action="{{ url_for('actualizar_cuota_incobrable', cuota_id=cuota['id']) }}" class="stack-gap" onsubmit="return confirm('¿Declarar esta deuda incobrable? Dejará de integrar la deuda total del club.');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="accion" value="marcar">
+                                <label for="motivo-incobrable-{{ cuota['id'] }}">Motivo</label>
+                                <textarea id="motivo-incobrable-{{ cuota['id'] }}" name="motivo" rows="2" maxlength="500" required placeholder="Ej.: deuda sin posibilidad de recupero"></textarea>
+                                <button class="button danger" type="submit">Confirmar incobrable</button>
+                            </form>
+                        </details>
+                        {% endif %}
                     {% else %}
                         <a class="button secondary" href="{{ url_for('descargar_recibo', cuota_id=cuota['id']) }}">Recibo</a>
                     {% endif %}
 
-                    {% if not cuota['anulada'] %}
+                    {% if not cuota['anulada'] and not cuota['incobrable'] %}
                     <form method="post" action="{{ url_for('eliminar_cuota', cuota_id=cuota['id']) }}" onsubmit="return confirm('Eliminar esta cuota?');">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button class="button danger" type="submit">Eliminar</button>

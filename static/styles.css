@@ -5075,15 +5075,14 @@ tbody tr:hover {
     min-height: 330px;
     align-items: center;
     padding: 34px 38px;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid rgba(217, 236, 47, 0.24);
     background:
         linear-gradient(90deg, rgba(3, 24, 19, 0.98) 0%, rgba(4, 37, 29, 0.93) 52%, rgba(8, 77, 60, 0.78) 100%),
         radial-gradient(circle at 82% 30%, rgba(217, 236, 47, 0.22), transparent 18rem);
 }
 
-.portal-body .portal-hero::before,
-.portal-body .portal-hero::after {
+.portal-body .portal-hero::before {
     position: absolute;
     pointer-events: none;
     content: "";
@@ -5099,14 +5098,7 @@ tbody tr:hover {
 }
 
 .portal-body .portal-hero::after {
-    right: 10%;
-    bottom: -18px;
-    width: 190px;
-    height: 8px;
-    transform: rotate(-8deg);
-    border-radius: 999px;
-    background: var(--portal-lime);
-    box-shadow: 34px 14px 0 rgba(16, 163, 127, 0.72);
+    display: none;
 }
 
 .portal-brand-lockup {
@@ -5188,6 +5180,27 @@ tbody tr:hover {
 
 .portal-body .portal-event-item:hover {
     border-color: rgba(217, 236, 47, 0.3);
+}
+
+.portal-body .portal-event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: #dff6ff;
+    color: #176b87;
+    white-space: normal;
+}
+
+.portal-body .portal-event-badge strong {
+    color: #075b79;
+}
+
+.portal-body .portal-event-badge span {
+    color: #3c7182;
+    font-weight: 700;
 }
 
 .portal-body .portal-chip-row span {
@@ -5382,6 +5395,54 @@ tbody tr:hover {
     background: rgba(3, 28, 22, 0.97);
 }
 
+.portal-body .portal-utility-menu {
+    z-index: 200;
+}
+
+.portal-body .portal-utility-menu-panel {
+    z-index: 210;
+    border-color: rgba(217, 236, 47, 0.25);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.52);
+}
+
+.portal-body .portal-summary-grid {
+    margin-top: 38px;
+}
+
+.portal-body .page-section {
+    margin-top: 42px;
+}
+
+.portal-body .portal-today,
+.portal-body .portal-quick-section {
+    padding-top: 6px;
+}
+
+.portal-body .portal-health-feature,
+.portal-body .portal-season-grid,
+.portal-body .portal-overview-grid {
+    padding-top: 8px;
+    border-top: 1px solid rgba(126, 172, 154, 0.12);
+}
+
+.portal-wellness-body .portal-wellness-form {
+    gap: 26px;
+}
+
+.portal-wellness-body .wellness-grid-two {
+    gap: 22px 18px;
+}
+
+.portal-wellness-body .wellness-question {
+    gap: 8px;
+}
+
+.portal-wellness-body .wellness-question > select {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 12px;
+}
+
 .portal-mobile-nav a svg {
     color: var(--portal-lime);
 }
@@ -5394,6 +5455,16 @@ tbody tr:hover {
     .portal-body .portal-hero {
         min-height: 0;
         padding: 72px 20px 24px;
+    }
+
+    .portal-body .portal-hero::after {
+        display: none;
+    }
+
+    .portal-body .portal-utility-menu-panel {
+        top: 66px;
+        max-height: calc(100dvh - 92px);
+        overscroll-behavior: contain;
     }
 
     .portal-brand-lockup {
@@ -5434,6 +5505,14 @@ tbody tr:hover {
     .portal-body .portal-summary-card {
         min-height: 154px;
         padding: 18px;
+    }
+
+    .portal-body .page-section {
+        margin-top: 34px;
+    }
+
+    .portal-body .portal-summary-grid {
+        margin-top: 32px;
     }
 
     .portal-status-icon {
