@@ -1163,6 +1163,9 @@ class HotfixTests(unittest.TestCase):
         self.assertIn('class="portal-player-card"', portal)
         self.assertIn('id="portal-season-title"', portal)
         self.assertIn('name="accesos_rapidos"', portal)
+        self.assertIn('class="portal-brand-lockup"', portal)
+        self.assertIn('class="portal-body"', portal)
+        self.assertIn('viewBox="0 0 24 24"', portal)
         self.assertIn('data-portal-onboarding-progress', javascript)
 
     def test_satisfaction_survey_availability_honors_status_and_dates(self):

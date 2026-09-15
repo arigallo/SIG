@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
-<body data-endpoint="{{ request.endpoint or '' }}" data-username="" data-portal-token="{{ token }}">
+<body class="portal-body" data-endpoint="{{ request.endpoint or '' }}" data-username="" data-portal-token="{{ token }}">
     <main class="container portal-page">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -28,15 +28,18 @@
 
         <section class="portal-hero">
             <div class="portal-hero-copy">
-                <span class="badge badge-info">Portal del jugador</span>
-                <h1>{{ jugador['nombre'] }}, {{ jugador['apellido'] }}</h1>
+                <div class="portal-brand-lockup">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Ruda Macho Rugby">
+                    <span>Portal del jugador</span>
+                </div>
+                <h1>Hola, {{ jugador['nombre'] }} {{ jugador['apellido'] }}</h1>
                 <p class="portal-hero-text">
                     Tu espacio personal para seguir entrenamientos, pagos, salud y evolucion deportiva en un solo lugar.
                 </p>
                 <div class="portal-hero-meta">
-                    <span><strong>Categor&iacute;a:</strong> {{ jugador['categoria'] or '-' }}</span>
-                    <span><strong>Estado:</strong> {{ jugador['estado'] or '-' }}</span>
-                    <span><strong>Socio club:</strong> {{ jugador['numero_socio'] or '-' }}</span>
+                    <span class="portal-meta-category"><strong>Categor&iacute;a</strong>{{ jugador['categoria'] or '-' }}</span>
+                    <span class="portal-meta-status"><strong>Estado</strong>{{ jugador['estado'] or '-' }}</span>
+                    <span class="portal-meta-member"><strong>Socio club</strong>{{ jugador['numero_socio'] or '-' }}</span>
                 </div>
             </div>
             <details class="portal-utility-menu">
@@ -148,21 +151,25 @@
 
         <section class="portal-summary-grid" aria-label="Estados importantes">
             <article class="card portal-summary-card portal-status-info">
+                <span class="portal-status-icon" aria-hidden="true">&#9679;</span>
                 <span class="portal-summary-label">Pr&oacute;ximo evento</span>
                 <strong class="portal-summary-value">{% if proximo_evento %}{{ proximo_evento['titulo'] }}{% else %}Sin agenda cercana{% endif %}</strong>
                 <span class="muted-line">{% if proximo_evento %}{{ proximo_evento['fecha'] }}{% if proximo_evento['hora_inicio'] %} {{ proximo_evento['hora_inicio'] }}{% endif %}{% else %}Todav&iacute;a no hay eventos publicados.{% endif %}</span>
             </article>
             <article class="card portal-summary-card portal-status-{{ ficha_portal['nivel'] }}">
+                <span class="portal-status-icon portal-status-shield" aria-hidden="true">&#10003;</span>
                 <span class="portal-summary-label">Ficha m&eacute;dica</span>
                 <strong class="portal-summary-value">{{ ficha_portal['label'] }}</strong>
                 <span class="muted-line">{% if ficha and ficha['fecha_vencimiento'] %}Vence: {{ ficha['fecha_vencimiento'] }}{% else %}Revis&aacute; el estado de tu documentaci&oacute;n.{% endif %}</span>
             </article>
             <article class="card portal-summary-card {% if deuda > 0 %}portal-status-danger{% else %}portal-status-success{% endif %}">
+                <span class="portal-status-icon" aria-hidden="true">$</span>
                 <span class="portal-summary-label">Estado de cuenta</span>
                 <strong class="portal-summary-value {% if deuda > 0 %}text-danger{% endif %}">{% if deuda > 0 %}{{ deuda | moneda }}{% else %}Al d&iacute;a{% endif %}</strong>
                 <span class="muted-line">{% if deuda > 0 %}Cuotas: {{ deuda_cuotas | moneda }} · Gastos: {{ gasto_pendiente_total | moneda }}{% else %}No hay deuda pendiente.{% endif %}</span>
             </article>
             <article class="card portal-summary-card {% if documentos_por_vencer > 0 %}portal-status-warning{% else %}portal-status-success{% endif %}">
+                <span class="portal-status-icon portal-status-document" aria-hidden="true"></span>
                 <span class="portal-summary-label">Documentaci&oacute;n</span>
                 <strong class="portal-summary-value">{% if documentos_por_vencer > 0 %}{{ documentos_por_vencer }} por revisar{% else %}Todo en orden{% endif %}</strong>
                 <span class="muted-line">{{ documentos | length }} documento(s) disponible(s)</span>
@@ -180,7 +187,21 @@
             <div class="portal-quick-grid">
                 {% for acceso in accesos_rapidos %}
                     <a class="portal-quick-card portal-quick-{{ acceso['clave'] }}" href="{{ acceso['href'] }}">
-                        <span class="portal-quick-symbol" aria-hidden="true"></span>
+                        <span class="portal-quick-symbol" aria-hidden="true">
+                            {% if acceso['clave'] == 'entrenamientos' %}
+                                <svg viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M3 9v6M21 9v6M6 12h12"/></svg>
+                            {% elif acceso['clave'] == 'pagos' %}
+                                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
+                            {% elif acceso['clave'] == 'salud' %}
+                                <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+                            {% elif acceso['clave'] == 'calendario' %}
+                                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                            {% elif acceso['clave'] == 'documentos' %}
+                                <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM14 2v6h6M9 13h6M9 17h6"/></svg>
+                            {% else %}
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>
+                            {% endif %}
+                        </span>
                         <strong>{{ acceso['label'] }}</strong>
                         <small>{{ acceso['hint'] }}</small>
                     </a>
@@ -960,11 +981,11 @@
         </div>
 
         <nav class="portal-mobile-nav" aria-label="Secciones del portal">
-            <a href="#inicio"><span aria-hidden="true">&#8962;</span>Inicio</a>
-            <a href="#equipo"><span aria-hidden="true">&#9679;</span>Equipo</a>
-            <a href="#documentos"><span aria-hidden="true">&#9633;</span>Documentos</a>
-            <a href="#pagos"><span aria-hidden="true">$</span>Pagos</a>
-            <a href="#perfil"><span aria-hidden="true">&#9675;</span>Perfil</a>
+            <a href="#inicio"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v10h-6v-6H9v6H3z"/></svg>Inicio</a>
+            <a href="#equipo"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M3 9v6M21 9v6M6 12h12"/></svg>Equipo</a>
+            <a href="#documentos"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM14 2v6h6"/></svg>Documentos</a>
+            <a href="#pagos"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Pagos</a>
+            <a href="#perfil"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>Perfil</a>
         </nav>
     </main>
     <script src="{{ static_asset('app.js') }}" defer></script>
