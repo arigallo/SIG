@@ -13,17 +13,25 @@ from flask import render_template, session, request, redirect
 def seed_preview_session():
     if request.method != "GET":
         return "Vista de diseño: los cambios están deshabilitados.", 405
-    destinations = {"/": "/preview/admin", "/ahijadxs": "/preview/ahijadxs", "/ahijadxs/nuevo": "/preview/ahijadxs/nuevo", "/ahijadxs/1": "/preview/ahijadxs/1", "/ahijadxs/2": "/preview/ahijadxs/1", "/ahijadxs/1/editar": "/preview/ahijadxs/nuevo", "/ahijadxs/2/editar": "/preview/ahijadxs/nuevo"}
+    destinations = {"/": "/preview/admin", "/operacion": "/preview/operacion", "/ahijadxs": "/preview/ahijadxs", "/ahijadxs/nuevo": "/preview/ahijadxs/nuevo", "/ahijadxs/1": "/preview/ahijadxs/1", "/ahijadxs/2": "/preview/ahijadxs/1", "/ahijadxs/1/editar": "/preview/ahijadxs/nuevo", "/ahijadxs/2/editar": "/preview/ahijadxs/nuevo"}
     if request.path in destinations:
         return redirect(destinations[request.path])
     if not (request.path.startswith("/preview/") or request.path.startswith("/static/") or request.path == "/postulate"):
         return "Sección fuera de esta vista de diseño. Volvé al panel de demostración.", 404
     session["user_id"] = 1
     session["username"] = ""
-    if request.args.get("rol") in {"admin", "madrinas"}:
+    if request.args.get("rol") in {"admin", "madrinas", "tesorero", "medico", "entrenador", "secretaria"}:
         session["preview_rol"] = request.args["rol"]
     session["rol"] = session.get("preview_rol", "admin")
-    session["permisos"] = ["aspirantes_ver", "aspirantes_gestionar"] if session["rol"] == "madrinas" else []
+    preview_permissions = {
+        "admin": [],
+        "madrinas": ["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"],
+        "tesorero": sig.ROLE_PRESETS["tesorero"],
+        "medico": sig.ROLE_PRESETS["medico"],
+        "entrenador": sig.ROLE_PRESETS["entrenador"],
+        "secretaria": ["secretaria_ver", "secretaria_gestionar", "tareas_ver", "tareas_gestionar"],
+    }
+    session["permisos"] = preview_permissions[session["rol"]]
     session["onboarding_visto"] = True
     session["debe_cambiar_password"] = False
 
@@ -51,6 +59,8 @@ def preview_form():
 
 @sig.app.route("/preview/admin")
 def preview_admin():
+    puede_ver_finanzas = sig.tiene_permiso("cuotas_ver", "cuotas_gestionar")
+    puede_ver_salud = sig.tiene_permiso("salud_ver")
     return render_template(
         "dashboard.html",
         total_jugadores=86,
@@ -68,11 +78,30 @@ def preview_admin():
         comprobantes_pendientes_count=3,
         comprobantes_pendientes_lista=[],
         mes_actual="2026-09",
-        resumen_notificaciones={"cuotas_vencidas": 5, "fichas": 1, "comprobantes": 3, "cambios_portal": 2, "asistencia_baja": 4},
-        sistema_resumen={"db_ok": True, "integraciones": {"smtp_ok": True}},
-        puede_ver_jugadores=True,
-        puede_ver_finanzas=True,
-        puede_ver_salud=True,
+        resumen_notificaciones={"cuotas_vencidas": 5, "fichas": 1, "comprobantes": 3, "cambios_portal": 2, "asistencia_baja": 4, "whatsapp": 2, "ahijadxs": 3},
+        sistema_resumen={"db_ok": True, "integraciones": {"smtp_ok": True}} if session.get("rol") == "admin" else None,
+        puede_ver_jugadores=sig.tiene_permiso("jugadores_ver"),
+        puede_ver_finanzas=puede_ver_finanzas,
+        puede_ver_salud=puede_ver_salud,
+    )
+
+
+@sig.app.route("/preview/operacion")
+def preview_operacion():
+    if not sig.puede_ver_operacion():
+        return redirect("/preview/admin")
+    modulos = sig.ordenar_modulos_tareas()
+    tareas_demo = [
+        {"id": 1, "titulo": "Revisar documentación pendiente", "descripcion": "Validar el archivo recibido.", "modulo": modulos[0], "prioridad": "media", "responsable": "Equipo demo", "fecha_vencimiento": "2026-09-18", "estado": "pendiente", "apellido": "Pérez", "nombre": "Alex", "categoria": "Plantel superior"}
+    ] if modulos else []
+    return render_template(
+        "operacion.html",
+        revision={"whatsapp": 2, "comprobantes": 3, "cambios_portal": 2, "cuotas": 5, "fichas": 1, "asistencia_baja": 4, "secretaria": 2, "ahijadxs": 3, "proximos_eventos": [{"id": 1, "fecha": "2026-09-18", "hora_inicio": "20:30", "tipo": "Entrenamiento", "descripcion": "Entrenamiento plantel superior"}], "tareas_vencidas": 1},
+        tareas=tareas_demo,
+        estado="pendiente",
+        puede_gestionar_tareas=sig.puede_gestionar_tareas_sig(),
+        puede_ver_tareas=bool(modulos) and sig.tiene_permiso("tareas_ver", "tareas_gestionar"),
+        modulos_tareas=modulos,
     )
 
 
@@ -86,4 +115,4 @@ def preview_ahijadxs():
 
 
 if __name__ == "__main__":
-    sig.app.run(host="127.0.0.1", port=5072, debug=False, use_reloader=False)
+    sig.app.run(host="127.0.0.1", port=int(os.environ.get("PREVIEW_PORT", "5073")), debug=False, use_reloader=False)

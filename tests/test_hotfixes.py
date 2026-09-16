@@ -2,6 +2,7 @@ import os
 import json
 import tempfile
 import unittest
+from html import unescape
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -9,7 +10,7 @@ from unittest.mock import patch, MagicMock
 os.environ["INIT_DB"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-only-secret-key")
 
-from flask import render_template
+from flask import render_template, render_template_string, session
 from openpyxl import Workbook, load_workbook
 
 import app
@@ -882,6 +883,7 @@ class HotfixTests(unittest.TestCase):
 
     def test_operacion_template_renders_daily_review_and_tasks(self):
         with app.app.test_request_context("/operacion"):
+            session.update(rol="admin", permisos=app.TODOS_LOS_PERMISOS)
             with patch.object(app, "obtener_contador_notificaciones", return_value=0):
                 with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=0):
                     html = render_template(
@@ -913,6 +915,8 @@ class HotfixTests(unittest.TestCase):
                         }],
                         estado="pendiente",
                         puede_gestionar_tareas=True,
+                        puede_ver_tareas=True,
+                        modulos_tareas=["general", "finanzas", "salud", "deportivo", "secretaria"],
                     )
 
         self.assertIn("Operaci", html)
@@ -1329,7 +1333,9 @@ class HotfixTests(unittest.TestCase):
         with app.app.test_client() as client:
             response = client.get("/postulate")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Enviar postulaci", response.data)
+        self.assertIn("Vení a Jugar a Ruda Macho", response.get_data(as_text=True))
+        self.assertIn(b"Quiero sumarme", response.data)
+        self.assertNotIn(b"Postulate", response.data)
         self.assertIn(b'name="consentimiento_contacto"', response.data)
 
     def test_aspirante_followup_schema_and_workflow_are_present(self):
@@ -1350,6 +1356,98 @@ class HotfixTests(unittest.TestCase):
         self.assertIn('class="admin-nav-toggle"', base)
         self.assertIn('id="admin-main-nav"', base)
         self.assertIn("setupAdminNavigation", javascript)
+
+    def test_task_permissions_are_explicit_and_scoped_by_role(self):
+        cases = (
+            ("madrinas", ["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"], False, set()),
+            ("tesorero", app.ROLE_PRESETS["tesorero"], True, {"finanzas", "deportivo"}),
+            ("medico", app.ROLE_PRESETS["medico"], True, {"salud"}),
+            ("entrenador", app.ROLE_PRESETS["entrenador"], True, {"deportivo"}),
+        )
+        for role, permissions, can_manage, modules in cases:
+            with self.subTest(role=role), app.app.test_request_context("/operacion"):
+                session.update(rol=role, permisos=permissions)
+                self.assertEqual(app.puede_gestionar_tareas_sig(), can_manage)
+                self.assertEqual(app.modulos_tareas_permitidos(), modules)
+
+    def test_madrinas_role_does_not_see_operation_or_task_center(self):
+        with app.app.test_request_context("/operacion"):
+            session.update(rol="madrinas", permisos=["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"])
+            self.assertFalse(app.puede_ver_operacion())
+            html = render_template(
+                "operacion.html",
+                revision={"whatsapp": 2, "comprobantes": 2, "cambios_portal": 2, "cuotas": 2, "fichas": 2, "asistencia_baja": 0, "secretaria": 0, "ahijadxs": 2, "proximos_eventos": [], "tareas_vencidas": 2},
+                tareas=[], estado="pendiente", puede_gestionar_tareas=False,
+                puede_ver_tareas=False, modulos_tareas=[],
+            )
+        self.assertNotIn("Centro de tareas", html)
+        self.assertNotIn("Verificar comprobantes", html)
+        self.assertIn("Seguimiento de ahijadxs", html)
+
+    def test_task_update_rejects_another_module(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"id": 9, "modulo": "salud"}
+        with app.app.test_request_context("/tareas/9/estado", method="POST", data={"estado": "hecha"}), patch.object(app, "get_connection", return_value=conn):
+            session.update(rol="tesorero", permisos=["tareas_ver", "tareas_gestionar", "cuotas_gestionar"])
+            response = app.actualizar_estado_tarea_sig(9)
+        self.assertEqual(response.status_code, 302)
+        conn.commit.assert_not_called()
+        self.assertFalse(any("UPDATE tareas_sig" in call.args[0] for call in conn.execute.call_args_list))
+
+    def test_navigation_is_trimmed_for_each_role(self):
+        scenarios = (
+            ("madrinas", ["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"], ("Ahijadxs", "Formulario Vení a jugar", "Comunicación"), ("Operación", "Finanzas", "Salud", "Admin", "Circulares URBA")),
+            ("tesorero", app.ROLE_PRESETS["tesorero"], ("Operación", "Finanzas", "Alertas financieras"), ("Salud", "Admin")),
+            ("medico", app.ROLE_PRESETS["medico"], ("Operación", "Salud", "Alertas de salud"), ("Finanzas", "Comunicación", "Admin")),
+            ("entrenador", app.ROLE_PRESETS["entrenador"], ("Operación", "Club", "Asistencia", "Calendario"), ("Finanzas", "Salud", "Comunicación", "Admin")),
+        )
+        template = "{% extends 'base.html' %}{% block content %}<p>contenido</p>{% endblock %}"
+        for role, permissions, expected, forbidden in scenarios:
+            with self.subTest(role=role), app.app.test_request_context("/"):
+                session.update(user_id=1, rol=role, permisos=permissions, onboarding_visto=True)
+                html = unescape(render_template_string(template))
+            for label in expected:
+                self.assertIn(label, html)
+            for label in forbidden:
+                self.assertNotIn(label, html)
+
+    def test_madrinas_dashboard_only_shows_its_own_operational_summary(self):
+        with app.app.test_request_context("/"):
+            session.update(
+                user_id=1,
+                rol="madrinas",
+                permisos=["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"],
+                onboarding_visto=True,
+            )
+            html = unescape(render_template(
+                "dashboard.html",
+                total_jugadores=0,
+                jugadores_con_deuda=[],
+                fichas_vencidas=[],
+                lesiones_activas=[],
+                total_recaudado_mes=0,
+                deuda_total=0,
+                deuda_vencida_total=0,
+                cuotas_pagadas_mes=0,
+                cuotas_pendientes=0,
+                cobranza_ratio=None,
+                fichas_por_vencer_count=0,
+                cuotas_pendientes_lista=[],
+                comprobantes_pendientes_count=0,
+                comprobantes_pendientes_lista=[],
+                mes_actual="2026-09",
+                resumen_notificaciones={"cuotas_vencidas": 5, "fichas": 4, "comprobantes": 3, "cambios_portal": 2, "asistencia_baja": 6, "whatsapp": 2, "ahijadxs": 3},
+                sistema_resumen=None,
+                puede_ver_jugadores=False,
+                puede_ver_finanzas=False,
+                puede_ver_salud=False,
+            ))
+        self.assertIn("Seguimiento de ahijadxs", html)
+        self.assertIn("WhatsApp", html)
+        self.assertNotIn("Pendientes financieros", html)
+        self.assertNotIn("Cambios recientes desde jugadores", html)
+        self.assertNotIn("Asistencia baja", html)
+        self.assertNotIn("DB activa", html)
 
 
 if __name__ == "__main__":

@@ -4348,6 +4348,11 @@ tbody tr:hover {
 }
 
 .admin-body .admin-hero .page-intro { color: #586d65; }
+.admin-body .admin-hero-meta span {
+    border-color: #dbe7e3;
+    background: #f3f7f6;
+    color: #304c43;
+}
 .admin-body [hidden] { display: none !important; }
 @media (max-width: 640px) {
     .admin-body .admin-hero-actions { grid-template-columns: 1fr; }
@@ -4647,6 +4652,36 @@ tbody tr:hover {
     .application-form-grid .full { grid-column: auto; }
     .aspirante-form { padding: 19px; }
     .followup-meta { align-items: flex-start; flex-direction: column; gap: 3px; }
+    .aspirantes-page .table-wrapper { overflow: visible; }
+    .aspirantes-page table,
+    .aspirantes-page tbody,
+    .aspirantes-page tr,
+    .aspirantes-page td { display: block; width: 100%; }
+    .aspirantes-page thead { display: none; }
+    .aspirantes-page tbody { display: grid; gap: 12px; }
+    .aspirantes-page tbody tr {
+        padding: 15px;
+        border: 1px solid #dfe8e5;
+        border-radius: 12px;
+        background: #fff;
+    }
+    .aspirantes-page tbody td {
+        display: grid;
+        grid-template-columns: minmax(105px, 0.42fr) 1fr;
+        gap: 10px;
+        padding: 8px 0;
+        border: 0;
+    }
+    .aspirantes-page tbody td::before {
+        content: attr(data-label);
+        color: #65786f;
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .aspirantes-page tbody td.actions { display: flex; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e4ebe8; }
+    .aspirantes-page tbody td.actions::before { width: 100%; }
 }
 
 .portal-utility-menu {

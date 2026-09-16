@@ -68,7 +68,7 @@
         <h3 class="spaced-small">Ingreso al club</h3>
         {% if aspirante['estado'] == 'Ingresado' %}
             <p><strong>Fecha de ingreso:</strong> {{ aspirante['fecha_ingreso_club'] or '-' }}</p>
-            {% if aspirante['jugador_id'] %}
+            {% if aspirante['jugador_id'] and puede('jugadores_ver') %}
                 <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=aspirante['jugador_id']) }}">Ver jugador</a>
             {% endif %}
         {% elif aspirante['listo_para_ingresar'] and puede('aspirantes_gestionar') %}

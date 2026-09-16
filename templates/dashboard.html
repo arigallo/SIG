@@ -11,7 +11,7 @@
         <p class="page-intro">Todo lo importante del club, ordenado para decidir qu&eacute; atender primero.</p>
     </div>
     <div class="admin-hero-actions actions">
-        {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
+        {% if puede_ver_operacion() %}
         <a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisi&oacute;n diaria</a>
         {% endif %}
         {% if puede('jugadores_gestionar') %}
@@ -32,6 +32,13 @@
             <span class="quick-module-icon" aria-hidden="true">C</span>
             <strong>Club</strong>
             <span>Jugadores, asistencia y calendario</span>
+        </a>
+    {% endif %}
+    {% if puede('aspirantes_ver') %}
+        <a class="quick-module-card quick-module-club" href="{{ url_for('listar_aspirantes') }}">
+            <span class="quick-module-icon" aria-hidden="true">A</span>
+            <strong>Madrinas</strong>
+            <span>Ahijadxs, contactos y pr&oacute;ximas acciones</span>
         </a>
     {% endif %}
     {% if puede_ver_finanzas %}
@@ -63,12 +70,12 @@
             <span class="admin-eyebrow">Prioridades</span>
             <h3 id="dashboard-priority-title">Para revisar hoy</h3>
         </div>
-        {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
+        {% if puede_ver_operacion() %}
         <a class="dashboard-text-link" href="{{ url_for('ver_operacion_diaria') }}">Ver operaci&oacute;n diaria &rarr;</a>
         {% endif %}
     </div>
 <div class="dashboard-cards dashboard-priority-grid">
-    {% if puede_ver_finanzas %}
+    {% if puede('cuotas_gestionar') %}
     <a class="card stat-card stat-card-link alert-card-info" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">
         <h3>Comprobantes por revisar</h3>
         <p class="stat-number">{{ comprobantes_pendientes_count }}</p>
@@ -165,7 +172,8 @@
 </section>
 {% endif %}
 
-{% if puede_ver_salud or resumen_notificaciones or sistema_resumen %}
+{% set puede_ver_resumen_operativo = puede_ver_salud or puede('cuotas_ver', 'cuotas_gestionar', 'alertas_portal', 'auditoria_ver', 'portal_jugador_gestionar', 'asistencia_ver', 'aspirantes_ver', 'comunicaciones_ver') %}
+{% if puede_ver_resumen_operativo or sistema_resumen %}
 <section class="page-section">
     <div class="section-header">
         <div>
@@ -185,21 +193,39 @@
             <span class="muted-line">Pr&oacute;ximos 30 d&iacute;as</span>
         </div>
         {% endif %}
-        {% if resumen_notificaciones %}
+        {% if resumen_notificaciones and puede('cuotas_ver', 'cuotas_gestionar') %}
         <div class="card stat-card alert-card-warning">
-            <h3>Notificaciones</h3>
-            <p class="stat-number">{{ resumen_notificaciones['cuotas_vencidas'] + resumen_notificaciones['fichas'] + resumen_notificaciones['comprobantes'] }}</p>
-            <span class="muted-line">Cuotas, fichas y comprobantes pendientes</span>
+            <h3>Pendientes financieros</h3>
+            <p class="stat-number">{{ resumen_notificaciones['cuotas_vencidas'] + resumen_notificaciones['comprobantes'] }}</p>
+            <span class="muted-line">Cuotas y comprobantes por revisar</span>
         </div>
+        {% endif %}
+        {% if resumen_notificaciones and puede('alertas_portal', 'auditoria_ver', 'portal_jugador_gestionar') %}
         <div class="card stat-card alert-card-info">
             <h3>Portal</h3>
             <p class="stat-number">{{ resumen_notificaciones['cambios_portal'] }}</p>
             <span class="muted-line">Cambios recientes desde jugadores</span>
         </div>
+        {% endif %}
+        {% if resumen_notificaciones and puede('asistencia_ver') %}
         <div class="card stat-card alert-card-warning">
             <h3>Asistencia baja</h3>
             <p class="stat-number">{{ resumen_notificaciones['asistencia_baja'] }}</p>
             <span class="muted-line">Jugadores para seguir</span>
+        </div>
+        {% endif %}
+        {% if resumen_notificaciones and puede('aspirantes_ver') %}
+        <div class="card stat-card alert-card-info">
+            <h3>Seguimiento de ahijadxs</h3>
+            <p class="stat-number">{{ resumen_notificaciones.get('ahijadxs', 0) }}</p>
+            <span class="muted-line">Contactos y pr&oacute;ximas acciones</span>
+        </div>
+        {% endif %}
+        {% if resumen_notificaciones and puede('comunicaciones_ver') %}
+        <div class="card stat-card alert-card-info">
+            <h3>WhatsApp</h3>
+            <p class="stat-number">{{ resumen_notificaciones.get('whatsapp', 0) }}</p>
+            <span class="muted-line">Conversaciones pendientes</span>
         </div>
         {% endif %}
         {% if sistema_resumen %}

@@ -9,7 +9,7 @@
         <p class="page-intro">Checklist de trabajo del staff, tareas asignables y accesos r&aacute;pidos a lo urgente.</p>
     </div>
     <div class="actions">
-        <a class="button secondary" href="{{ url_for('ver_notificaciones') }}">Notificaciones</a>
+        {% if puede('comunicaciones_ver') %}<a class="button secondary" href="{{ url_for('ver_notificaciones') }}">Notificaciones</a>{% endif %}
         {% if puede('cuotas_ver', 'cuotas_gestionar') %}
             <a class="button secondary" href="{{ url_for('ver_panel_cobranzas') }}">Cobranzas</a>
         {% endif %}
@@ -17,26 +17,26 @@
 </div>
 
 <div class="dashboard-cards report-cards">
-    <div class="card stat-card alert-card-info">
+    {% if puede('comunicaciones_ver') %}<div class="card stat-card alert-card-info">
         <h3>WhatsApp</h3>
         <p class="stat-number">{{ revision['whatsapp'] }}</p>
         <span class="muted-line">Mensajes sin leer</span>
-    </div>
-    <div class="card stat-card alert-card-critical">
+    </div>{% endif %}
+    {% if puede('cuotas_gestionar') %}<div class="card stat-card alert-card-critical">
         <h3>Comprobantes</h3>
         <p class="stat-number">{{ revision['comprobantes'] }}</p>
         <span class="muted-line">Por verificar</span>
-    </div>
-    <div class="card stat-card alert-card-warning">
+    </div>{% endif %}
+    {% if puede('alertas_portal', 'auditoria_ver', 'portal_jugador_gestionar') and puede('comunicaciones_ver') %}<div class="card stat-card alert-card-warning">
         <h3>Portal</h3>
         <p class="stat-number">{{ revision['cambios_portal'] }}</p>
         <span class="muted-line">Datos modificados</span>
-    </div>
-    <div class="card stat-card">
+    </div>{% endif %}
+    {% if puede_ver_tareas %}<div class="card stat-card">
         <h3>Tareas vencidas</h3>
         <p class="stat-number">{{ revision['tareas_vencidas'] }}</p>
         <span class="muted-line">Pendientes con fecha pasada</span>
-    </div>
+    </div>{% endif %}
 </div>
 
 <div class="detail-grid page-section">
@@ -45,17 +45,21 @@
             <h3>Checklist</h3>
         </div>
         <ul class="operation-checklist">
-            <li><a href="{{ url_for('ver_whatsapp_inbox') }}">Leer WhatsApp</a><span class="badge badge-info">{{ revision['whatsapp'] }}</span></li>
-            <li><a href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar comprobantes</a><span class="badge badge-danger">{{ revision['comprobantes'] }}</span></li>
-            <li><a href="{{ url_for('ver_notificaciones') }}">Revisar cambios del portal</a><span class="badge badge-warning">{{ revision['cambios_portal'] }}</span></li>
-            <li><a href="{{ url_for('ver_notificaciones') }}">Gestionar cuotas y fichas</a><span class="badge badge-muted">{{ revision['cuotas'] + revision['fichas'] }}</span></li>
+            {% if puede('cuotas_ver', 'cuotas_gestionar') %}<li><a href="{{ url_for('ver_panel_cobranzas') }}">Revisar cobranzas</a><span class="badge badge-muted">{{ revision['cuotas'] }}</span></li>{% endif %}
+            {% if puede('salud_ver', 'salud_gestionar') %}<li><a href="{{ url_for('panel_salud') }}">Revisar salud y fichas</a><span class="badge badge-muted">{{ revision['fichas'] }}</span></li>{% endif %}
+            {% if puede('asistencia_ver') %}<li><a href="{{ url_for('listar_eventos_asistencia') }}">Revisar asistencia</a><span class="badge badge-muted">{{ revision['asistencia_baja'] }}</span></li>{% endif %}
+            {% if puede('calendario_ver') %}<li><a href="{{ url_for('ver_calendario') }}">Revisar calendario</a></li>{% endif %}
+            {% if puede('comunicaciones_ver') %}<li><a href="{{ url_for('ver_whatsapp_inbox') }}">Leer WhatsApp</a><span class="badge badge-info">{{ revision['whatsapp'] }}</span></li>{% endif %}
+            {% if puede('cuotas_gestionar') %}<li><a href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Verificar comprobantes</a><span class="badge badge-danger">{{ revision['comprobantes'] }}</span></li>{% endif %}
+            {% if puede('alertas_portal', 'auditoria_ver', 'portal_jugador_gestionar') and puede('comunicaciones_ver') %}<li><a href="{{ url_for('ver_notificaciones') }}">Revisar cambios del portal</a><span class="badge badge-warning">{{ revision['cambios_portal'] }}</span></li>{% endif %}
+            {% if puede('aspirantes_ver') %}<li><a href="{{ url_for('listar_aspirantes') }}">Seguimiento de ahijadxs</a><span class="badge badge-info">{{ revision['ahijadxs'] }}</span></li>{% endif %}
             {% if puede('secretaria_ver', 'secretaria_gestionar') %}
                 <li><a href="{{ url_for('listar_documentos_secretaria', vencimiento='por_vencer') }}">Documentos de Secretar&iacute;a</a><span class="badge badge-muted">{{ revision['secretaria'] }}</span></li>
             {% endif %}
         </ul>
     </div>
 
-    <div class="card">
+    {% if puede('calendario_ver', 'asistencia_ver') %}<div class="card">
         <div class="section-header compact">
             <h3>Pr&oacute;ximos eventos</h3>
         </div>
@@ -64,9 +68,10 @@
         {% else %}
             <p>No hay eventos pr&oacute;ximos cargados.</p>
         {% endfor %}
-    </div>
+    </div>{% endif %}
 </div>
 
+{% if puede_ver_tareas %}
 <div class="page-section">
     <div class="section-header">
         <div>
@@ -94,11 +99,7 @@
             <div class="field">
                 <label>M&oacute;dulo</label>
                 <select name="modulo">
-                    <option value="general">General</option>
-                    <option value="finanzas">Finanzas</option>
-                    <option value="salud">Salud</option>
-                    <option value="deportivo">Deportivo</option>
-                    <option value="secretaria">Secretar&iacute;a</option>
+                    {% for modulo in modulos_tareas %}<option value="{{ modulo }}">{{ modulo|capitalize }}</option>{% endfor %}
                 </select>
             </div>
             <div class="field">
@@ -176,4 +177,5 @@
         </table>
     </div>
 </div>
+{% endif %}
 {% endblock %}

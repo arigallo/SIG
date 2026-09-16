@@ -41,7 +41,7 @@
             <nav class="main-nav" id="admin-main-nav" aria-label="Navegaci&oacute;n principal">
                 {% set endpoint = request.endpoint or '' %}
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
-                {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
+                {% if puede_ver_operacion() %}
                     <a class="nav-link {% if endpoint == 'ver_operacion_diaria' %}active{% endif %}" href="{{ url_for('ver_operacion_diaria') }}">Operaci&oacute;n</a>
                 {% endif %}
                 {% if puede('comunicaciones_ver') %}
@@ -53,7 +53,7 @@
                 {% endif %}
 
                 {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
-                {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_circulares_urba'] %}
+                {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'nuevo_aspirante', 'editar_aspirante', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_circulares_urba'] %}
                 {% if mostrar_club %}
                 <details class="nav-group {% if club_actual %}current{% endif %}" {% if club_actual %}open{% endif %}>
                     <summary>Club</summary>
@@ -62,8 +62,8 @@
                             <a class="{% if endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador'] %}active{% endif %}" href="{{ url_for('listar_jugadores') }}">Jugadores</a>
                         {% endif %}
                         {% if puede('aspirantes_ver') %}
-                            <a class="{% if endpoint in ['listar_aspirantes', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
-                            <a href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Formulario de postulaci&oacute;n</a>
+                            <a class="{% if endpoint in ['listar_aspirantes', 'nuevo_aspirante', 'editar_aspirante', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+                            <a href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Formulario Ven&iacute; a jugar</a>
                         {% endif %}
                         {% if puede('asistencia_ver') %}
                             <a class="{% if endpoint in ['listar_eventos_asistencia', 'tomar_asistencia', 'nuevo_evento_asistencia', 'editar_evento_asistencia'] %}active{% endif %}" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
@@ -74,8 +74,8 @@
                         {% if puede('calendario_ver') %}
                             <a class="{% if endpoint in ['ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario'] %}active{% endif %}" href="{{ url_for('ver_calendario') }}">Calendario</a>
                         {% endif %}
-                        <a class="{% if endpoint == 'listar_circulares_urba' %}active{% endif %}" href="{{ url_for('listar_circulares_urba') }}">Circulares URBA</a>
-                        <a href="{{ url_for('static', filename='docs/instructivo_portal_del_jugador.pdf') }}" target="_blank" rel="noopener">Instructivo del portal (PDF)</a>
+                        {% if puede('calendario_ver', 'asistencia_ver') %}<a class="{% if endpoint == 'listar_circulares_urba' %}active{% endif %}" href="{{ url_for('listar_circulares_urba') }}">Circulares URBA</a>{% endif %}
+                        {% if puede('jugadores_ver', 'portal_jugador_gestionar') %}<a href="{{ url_for('static', filename='docs/instructivo_portal_del_jugador.pdf') }}" target="_blank" rel="noopener">Instructivo del portal (PDF)</a>{% endif %}
                         {% if puede('jugadores_gestionar') %}
                             <a href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
                             <a href="{{ url_for('importar_jugadores') }}">Importar</a>
@@ -85,7 +85,7 @@
                 {% endif %}
 
                 {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('facturas_recibidas_ver') or puede('presupuesto_ver') or puede('ventas_ver', 'ventas_gestionar') or puede('reportes_ver') %}
-                {% set finanzas_actual = endpoint in ['generar_cuotas', 'pagos_masivos_debito_automatico', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida', 'ver_presupuesto', 'ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'anular_venta_club', 'ver_reportes', 'ver_comunicaciones', 'ver_panel_cobranzas'] %}
+                {% set finanzas_actual = endpoint in ['generar_cuotas', 'pagos_masivos_debito_automatico', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida', 'ver_presupuesto', 'ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'anular_venta_club', 'ver_reportes', 'ver_comunicaciones', 'ver_panel_cobranzas'] or (endpoint == 'ver_alertas' and puede('alertas_finanzas')) %}
                 {% if mostrar_finanzas %}
                 <details class="nav-group {% if finanzas_actual %}current{% endif %}" {% if finanzas_actual %}open{% endif %}>
                     <summary>Finanzas</summary>
@@ -120,12 +120,15 @@
                         {% if puede('reportes_ver') %}
                             <a class="{% if endpoint == 'ver_reportes' %}active{% endif %}" href="{{ url_for('ver_reportes') }}">Reportes</a>
                         {% endif %}
+                        {% if puede('alertas_finanzas') %}
+                            <a class="{% if endpoint == 'ver_alertas' %}active{% endif %}" href="{{ url_for('ver_alertas') }}">Alertas financieras</a>
+                        {% endif %}
                     </div>
                 </details>
                 {% endif %}
 
-                {% set mostrar_salud = puede('salud_ver') or puede('salud_gestionar') or puede('documentos_ver') or puede('alertas_finanzas', 'alertas_salud') %}
-                {% set salud_actual = endpoint in ['panel_salud', 'ver_documentos_vencidos', 'ver_alertas', 'cargar_fichas_medicas_batch', 'ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] %}
+                {% set mostrar_salud = puede('salud_ver') or puede('salud_gestionar') or puede('documentos_ver') or puede('alertas_salud') %}
+                {% set salud_actual = endpoint in ['panel_salud', 'ver_documentos_vencidos', 'cargar_fichas_medicas_batch', 'ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] or (endpoint == 'ver_alertas' and puede('alertas_salud')) %}
                 {% if mostrar_salud %}
                 <details class="nav-group {% if salud_actual %}current{% endif %}" {% if salud_actual %}open{% endif %}>
                     <summary>Salud</summary>
@@ -139,8 +142,8 @@
                         {% if puede('documentos_ver', 'salud_ver') %}
                             <a class="{% if endpoint == 'ver_documentos_vencidos' %}active{% endif %}" href="{{ url_for('ver_documentos_vencidos') }}">Documentos</a>
                         {% endif %}
-                        {% if puede('alertas_finanzas', 'alertas_salud') %}
-                            <a class="{% if endpoint == 'ver_alertas' %}active{% endif %}" href="{{ url_for('ver_alertas') }}">Alertas</a>
+                        {% if puede('alertas_salud') %}
+                            <a class="{% if endpoint == 'ver_alertas' %}active{% endif %}" href="{{ url_for('ver_alertas') }}">Alertas de salud</a>
                         {% endif %}
                     </div>
                 </details>

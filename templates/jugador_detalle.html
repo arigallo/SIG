@@ -20,16 +20,20 @@
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar jugador</a>
         {% endif %}
-        {% if puede_ver_finanzas %}
+        {% if puede('cuotas_gestionar') %}
             <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
+        {% endif %}
+        {% if puede_ver_finanzas %}
             <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
         {% endif %}
         {% if puede_ver_tests %}
             <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Tests</a>
         {% endif %}
-        {% if puede_ver_salud %}
+        {% if puede('salud_gestionar') %}
             <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha médica</a>
             <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
+        {% endif %}
+        {% if puede_ver_salud %}
             <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver lesiones</a>
         {% endif %}
     </div>
@@ -226,7 +230,7 @@
     <div class="card {% if ficha_vencida %}card-alert{% endif %}">
         <div class="section-header compact">
             <h3>Ficha médica</h3>
-            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar</a>
+            {% if puede('salud_gestionar') %}<a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar</a>{% endif %}
         </div>
 
         {% if ficha %}
@@ -566,7 +570,9 @@
         <div class="section-header compact">
             <h3>Últimas cuotas</h3>
             <div class="actions">
+                {% if puede('cuotas_gestionar') %}
                 <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
+                {% endif %}
                 <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver todas</a>
             </div>
         </div>
@@ -612,7 +618,7 @@
                         <td>
                             {% if cuota['anulada'] %}
                                 -
-                            {% elif not cuota['pagado'] %}
+                            {% elif not cuota['pagado'] and puede('cuotas_gestionar') %}
                                 <a class="button secondary" href="{{ url_for('pagar_cuota', cuota_id=cuota['id']) }}">Registrar pago</a>
                             {% else %}
                                 -
@@ -645,7 +651,9 @@
                 <p class="alert-text">Hay {{ lesiones_activas_count }} lesión(es) activa(s) o en recuperación.</p>
             {% endif %}
             <div class="actions">
+                {% if puede('salud_gestionar') %}
                 <a class="button" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
+                {% endif %}
                 <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver todas</a>
             </div>
         </div>

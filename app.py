@@ -205,6 +205,7 @@ def inject_now():
         "now": ahora_sig,
         "csrf_token": csrf_token,
         "puede": tiene_permiso,
+        "puede_ver_operacion": puede_ver_operacion,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
         # Los contadores se actualizan asincronicamente desde app.js. Estas
         # consultas no deben bloquear el primer HTML util de cada pantalla.
@@ -651,6 +652,16 @@ PERMISOS = {
         "nombre": "Gestionar ahijadxs",
         "descripcion": "Alta, edicion, asistencia y conversion a jugador activo.",
     },
+    "tareas_ver": {
+        "grupo": "Operación",
+        "nombre": "Ver tareas internas",
+        "descripcion": "Consultar tareas del área correspondiente a los permisos del usuario.",
+    },
+    "tareas_gestionar": {
+        "grupo": "Operación",
+        "nombre": "Gestionar tareas internas",
+        "descripcion": "Crear y actualizar tareas del área correspondiente a los permisos del usuario.",
+    },
     "cuotas_ver": {
         "grupo": "Cuotas y caja",
         "nombre": "Ver cuotas",
@@ -877,6 +888,8 @@ ROLE_PRESETS = {
         "asistencia_gestionar",
         "alertas_finanzas",
         "alertas_portal",
+        "tareas_ver",
+        "tareas_gestionar",
     ],
     "medico": [
         "jugadores_ver",
@@ -885,6 +898,8 @@ ROLE_PRESETS = {
         "documentos_ver",
         "documentos_gestionar",
         "alertas_salud",
+        "tareas_ver",
+        "tareas_gestionar",
     ],
     "entrenador": [
         "jugadores_ver",
@@ -898,6 +913,8 @@ ROLE_PRESETS = {
         "tests_ver",
         "tests_gestionar",
         "alertas_portal",
+        "tareas_ver",
+        "tareas_gestionar",
     ],
 }
 
@@ -6017,6 +6034,23 @@ def obtener_notificaciones_operativas():
     for cambio in cambios_portal:
         cambio["detalle_resumen"] = resumen_auditoria_portal(cambio.get("detalle"))
 
+    # Comunicaciones habilita el centro de mensajes, no el acceso implícito a
+    # información financiera, médica, deportiva o de Secretaría.
+    if not tiene_permiso("cuotas_ver", "cuotas_gestionar"):
+        cuotas_vencidas = []
+        cuotas_por_vencer = []
+        comprobantes_pendientes = []
+    if not tiene_permiso("salud_ver", "salud_gestionar", "documentos_ver", "documentos_gestionar"):
+        fichas = []
+    if not tiene_permiso("asistencia_ver", "asistencia_gestionar"):
+        asistencia_baja = []
+    if not tiene_permiso("secretaria_ver", "secretaria_gestionar"):
+        secretaria_documentos = []
+    if not tiene_permiso("aspirantes_ver", "aspirantes_gestionar"):
+        ahijadxs_objetivo = []
+    if not tiene_permiso("alertas_portal", "auditoria_ver", "portal_jugador_gestionar"):
+        cambios_portal = []
+
     return {
         "cuotas_vencidas": cuotas_vencidas,
         "cuotas_por_vencer": cuotas_por_vencer,
@@ -6074,9 +6108,33 @@ def obtener_contador_notificaciones():
     return total
 
 
+def modulos_tareas_permitidos():
+    if session.get("rol") == "admin":
+        return {"general", "finanzas", "salud", "deportivo", "secretaria"}
+    modulos = set()
+    if tiene_permiso("cuotas_ver", "cuotas_gestionar", "caja_ver", "caja_gestionar"):
+        modulos.add("finanzas")
+    if tiene_permiso("salud_ver", "salud_gestionar", "documentos_ver", "documentos_gestionar"):
+        modulos.add("salud")
+    if tiene_permiso("asistencia_ver", "asistencia_gestionar", "calendario_ver", "calendario_gestionar", "tests_ver", "tests_gestionar"):
+        modulos.add("deportivo")
+    if tiene_permiso("secretaria_ver", "secretaria_gestionar"):
+        modulos.add("secretaria")
+    return modulos
+
+
+def ordenar_modulos_tareas(modulos=None):
+    orden = {"general": 0, "finanzas": 1, "salud": 2, "deportivo": 3, "secretaria": 4}
+    return sorted(modulos if modulos is not None else modulos_tareas_permitidos(), key=lambda modulo: orden.get(modulo, 99))
+
+
 def listar_tareas_sig(estado="pendiente", limite=80):
+    modulos = ordenar_modulos_tareas()
+    if not tiene_permiso("tareas_ver", "tareas_gestionar") or not modulos:
+        return []
     conn = get_connection()
-    tareas = conn.execute("""
+    placeholders = ", ".join(["%s"] * len(modulos))
+    tareas = conn.execute(f"""
         SELECT
             t.*,
             j.apellido,
@@ -6085,18 +6143,22 @@ def listar_tareas_sig(estado="pendiente", limite=80):
         FROM tareas_sig t
         LEFT JOIN jugadores j ON j.id = t.jugador_id
         WHERE (%s = 'todas' OR t.estado = %s)
+          AND t.modulo IN ({placeholders})
         ORDER BY
             CASE t.prioridad WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,
             NULLIF(t.fecha_vencimiento, '') ASC NULLS LAST,
             t.creado_en DESC
         LIMIT %s
-    """, (estado, estado, limite)).fetchall()
+    """, (estado, estado, *modulos, limite)).fetchall()
     conn.close()
     return tareas
 
 
 def obtener_revision_diaria():
-    notificaciones = obtener_notificaciones_operativas() if tiene_permiso("comunicaciones_ver") else {}
+    # El repositorio ya filtra cada grupo según los permisos del rol. La
+    # revisión diaria puede así mostrar salud, deporte o secretaría sin exigir
+    # además un permiso de comunicaciones que no corresponde a esas áreas.
+    notificaciones = obtener_notificaciones_operativas()
     conn = get_connection()
     proximos_eventos = []
     if tiene_permiso("calendario_ver", "asistencia_ver"):
@@ -6108,14 +6170,19 @@ def obtener_revision_diaria():
             LIMIT 5
         """).fetchall()
 
-    tareas_vencidas = conn.execute("""
-        SELECT COUNT(*) AS total
-        FROM tareas_sig
-        WHERE estado = 'pendiente'
-          AND NULLIF(fecha_vencimiento, '') IS NOT NULL
-          AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-          AND fecha_vencimiento::date < CURRENT_DATE
-    """).fetchone()
+    tareas_vencidas = {"total": 0}
+    modulos_tareas = ordenar_modulos_tareas()
+    if tiene_permiso("tareas_ver", "tareas_gestionar") and modulos_tareas:
+        placeholders = ", ".join(["%s"] * len(modulos_tareas))
+        tareas_vencidas = conn.execute(f"""
+            SELECT COUNT(*) AS total
+            FROM tareas_sig
+            WHERE estado = 'pendiente'
+              AND modulo IN ({placeholders})
+              AND NULLIF(fecha_vencimiento, '') IS NOT NULL
+              AND fecha_vencimiento::text ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+              AND fecha_vencimiento::date < CURRENT_DATE
+        """, tuple(modulos_tareas)).fetchone()
     conn.close()
 
     def cantidad(clave):
@@ -7980,11 +8047,24 @@ def init_db():
     admin_rol = conn.execute("SELECT permisos FROM roles WHERE nombre = 'admin'").fetchone()
     if admin_rol:
         permisos_admin = set(deserializar_permisos(admin_rol["permisos"], "admin"))
-        permisos_admin.update({"encuestas_ver", "encuestas_gestionar"})
+        permisos_admin.update(TODOS_LOS_PERMISOS)
         conn.execute(
             "UPDATE roles SET permisos = %s WHERE nombre = 'admin'",
             (serializar_permisos(permisos_admin),),
         )
+
+    # Conserva el acceso histórico de los roles base, ahora mediante permisos
+    # explícitos. Los roles personalizados (por ejemplo Madrinas) no heredan
+    # el centro de tareas por tener permisos de otro módulo.
+    for nombre_rol in ("tesorero", "medico", "entrenador"):
+        fila_rol = conn.execute("SELECT permisos FROM roles WHERE nombre = %s", (nombre_rol,)).fetchone()
+        if fila_rol:
+            permisos_rol = set(deserializar_permisos(fila_rol["permisos"], nombre_rol))
+            permisos_rol.update({"tareas_ver", "tareas_gestionar"})
+            conn.execute(
+                "UPDATE roles SET permisos = %s WHERE nombre = %s",
+                (serializar_permisos(permisos_rol), nombre_rol),
+            )
 
     columnas_usuarios = get_columns(conn, "usuarios")
     if "rol" not in columnas_usuarios:
@@ -9841,24 +9921,18 @@ def filtrar_bitacora_visible(items):
 
 def puede_ver_operacion():
     return tiene_permiso(
-        "jugadores_ver",
         "cuotas_ver",
         "salud_ver",
         "asistencia_ver",
-        "comunicaciones_ver",
+        "calendario_ver",
         "secretaria_ver",
+        "tareas_ver",
+        "tareas_gestionar",
     )
 
 
 def puede_gestionar_tareas_sig():
-    return tiene_permiso(
-        "jugadores_gestionar",
-        "cuotas_gestionar",
-        "salud_gestionar",
-        "asistencia_gestionar",
-        "comunicaciones_ver",
-        "secretaria_gestionar",
-    )
+    return tiene_permiso("tareas_gestionar") and bool(modulos_tareas_permitidos())
 
 
 def validar_password_nueva(password, confirmacion):
@@ -11402,6 +11476,8 @@ def index():
             "asistencia_baja": len(notificaciones["asistencia_baja"]),
             "comprobantes": len(notificaciones["comprobantes_pendientes"]),
             "cambios_portal": len(notificaciones["cambios_portal"]),
+            "whatsapp": len(notificaciones["whatsapp_conversaciones"]),
+            "ahijadxs": len(notificaciones["ahijadxs_objetivo"]),
         }
 
     sistema_resumen = obtener_estado_sistema_admin() if session.get("rol") == "admin" else None
@@ -11440,12 +11516,15 @@ def ver_operacion_diaria():
     estado = request.args.get("estado", "pendiente")
     if estado not in {"pendiente", "hecha", "cancelada", "todas"}:
         estado = "pendiente"
+    puede_ver_tareas = tiene_permiso("tareas_ver", "tareas_gestionar") and bool(modulos_tareas_permitidos())
     return render_template(
         "operacion.html",
         revision=obtener_revision_diaria(),
-        tareas=listar_tareas_sig(estado=estado),
+        tareas=listar_tareas_sig(estado=estado) if puede_ver_tareas else [],
         estado=estado,
         puede_gestionar_tareas=puede_gestionar_tareas_sig(),
+        puede_ver_tareas=puede_ver_tareas,
+        modulos_tareas=ordenar_modulos_tareas(),
     )
 
 
@@ -11463,6 +11542,9 @@ def crear_tarea_sig():
     jugador_id_raw = (request.form.get("jugador_id") or "").strip()
     jugador_id = int(jugador_id_raw) if jugador_id_raw.isdigit() else None
     modulo = (request.form.get("modulo") or "general").strip().lower()
+    if modulo not in modulos_tareas_permitidos():
+        flash("No tenés permiso para crear tareas en esa área.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
     prioridad = (request.form.get("prioridad") or "media").strip().lower()
     if prioridad not in {"alta", "media", "baja"}:
         prioridad = "media"
@@ -11502,6 +11584,15 @@ def actualizar_estado_tarea_sig(tarea_id):
     if estado not in {"pendiente", "hecha", "cancelada"}:
         estado = "hecha"
     conn = get_connection()
+    tarea = conn.execute("SELECT id, modulo FROM tareas_sig WHERE id = %s FOR UPDATE", (tarea_id,)).fetchone()
+    if not tarea:
+        conn.close()
+        flash("Tarea no encontrada.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
+    if tarea["modulo"] not in modulos_tareas_permitidos():
+        conn.close()
+        flash("No tenés permiso para actualizar tareas de esa área.", "error")
+        return redirect(url_for("ver_operacion_diaria"))
     conn.execute("""
         UPDATE tareas_sig
         SET estado = %s,
@@ -19363,6 +19454,9 @@ def ver_reportes():
 
 @app.route("/urba/circulares")
 def listar_circulares_urba():
+    check = permiso_requerido("calendario_ver", "asistencia_ver")
+    if check:
+        return check
     anios = anios_circulares_urba()
     anio = request.args.get("anio", str(ahora_sig().year)).strip()
     anio = int(anio) if anio.isdigit() and int(anio) in anios else ahora_sig().year
