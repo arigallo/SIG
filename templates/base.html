@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 
-<body data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
+<body class="{% if session.get('user_id') %}admin-body{% endif %}" data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
     {% set rol_guia = (session.get('rol') or '')|trim|lower %}
     {% set guias_roles = {'admin': 'Administrador', 'tesorero': 'Tesorero', 'medico': 'Médico', 'entrenador': 'Entrenador', 'madrinas': 'Madrinas'} %}
     {% if rol_guia in ['madrina', 'padrino', 'padrinos'] %}{% set rol_guia = 'madrinas' %}{% endif %}
@@ -33,7 +33,12 @@
                 </div>
             </div>
 
-            <nav class="main-nav" aria-label="Navegaci&oacute;n principal">
+            <button class="admin-nav-toggle" type="button" aria-expanded="false" aria-controls="admin-main-nav">
+                <span class="admin-nav-toggle-icon" aria-hidden="true"></span>
+                <span>Men&uacute;</span>
+            </button>
+
+            <nav class="main-nav" id="admin-main-nav" aria-label="Navegaci&oacute;n principal">
                 {% set endpoint = request.endpoint or '' %}
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
                 {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
@@ -58,6 +63,7 @@
                         {% endif %}
                         {% if puede('aspirantes_ver') %}
                             <a class="{% if endpoint in ['listar_aspirantes', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+                            <a href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Formulario de postulaci&oacute;n</a>
                         {% endif %}
                         {% if puede('asistencia_ver') %}
                             <a class="{% if endpoint in ['listar_eventos_asistencia', 'tomar_asistencia', 'nuevo_evento_asistencia', 'editar_evento_asistencia'] %}active{% endif %}" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
@@ -291,6 +297,12 @@
             </section>
         {% endif %}
 
+        {% if preview_mode|default(false) %}
+        <div class="flash warning" role="status">
+            Vista de dise&ntilde;o · datos ficticios · guardado deshabilitado.
+            <a href="/preview/admin">Panel</a> · <a href="/preview/ahijadxs">Madrinas</a> · <a href="/postulate">Formulario p&uacute;blico</a>
+        </div>
+        {% endif %}
         {% block content %}
         {% endblock %}
 

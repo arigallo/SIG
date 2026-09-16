@@ -3,15 +3,16 @@
 {% block title %}Detalle de ahijadx{% endblock %}
 
 {% block content %}
-<div class="section-header">
-    <h2>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</h2>
+<div class="admin-page aspirante-detail-page">
+<section class="admin-hero compact-admin-hero">
+    <div><span class="admin-eyebrow">Ficha de seguimiento</span><h2>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</h2><p class="page-intro">{{ etapas.get(aspirante['etapa_seguimiento'] or 'pendiente_contacto', 'Pendiente de contacto') }}{% if aspirante['proxima_accion_fecha'] %} &middot; Pr&oacute;xima acci&oacute;n {{ aspirante['proxima_accion_fecha'] }}{% endif %}</p></div>
     <div class="actions">
         {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
             <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Volver</a>
     </div>
-</div>
+</section>
 
 <div class="dashboard-cards spaced">
     <div class="card stat-card">
@@ -47,9 +48,11 @@
         <h3>Datos personales</h3>
         <p><strong>DNI:</strong> {{ aspirante['dni'] or '-' }}</p>
         <p><strong>Fecha de nacimiento:</strong> {{ aspirante['fecha_nacimiento'] or '-' }}</p>
-        <p><strong>Telefono:</strong> {{ aspirante['telefono'] or '-' }}</p>
+        <p><strong>Tel&eacute;fono:</strong> {{ aspirante['telefono'] or '-' }}</p>
         <p><strong>Email:</strong> {{ aspirante['email'] or '-' }}</p>
-        <p><strong>Fecha de postulacion:</strong> {{ aspirante['fecha_postulacion'] or '-' }}</p>
+        <p><strong>Fecha de postulaci&oacute;n:</strong> {{ aspirante['fecha_postulacion'] or '-' }}</p>
+        <p><strong>Experiencia previa:</strong> {{ aspirante['experiencia_previa'] or '-' }}</p>
+        <p><strong>Disponibilidad:</strong> {{ aspirante['disponibilidad'] or '-' }}</p>
         <p><strong>Observaciones:</strong> {{ aspirante['observaciones'] or '-' }}</p>
     </div>
 
@@ -80,6 +83,25 @@
         {% endif %}
     </div>
 </div>
+
+<section class="page-section followup-section">
+    <div class="section-header compact"><div><span class="admin-eyebrow">Madrinas</span><h3>Historial de seguimiento</h3></div></div>
+    {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
+    <form method="post" action="{{ url_for('registrar_seguimiento_aspirante', aspirante_id=aspirante['id']) }}" class="card followup-form form-grid">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div><label>Tipo de contacto</label><select name="tipo"><option value="contacto">Contacto</option><option value="whatsapp">WhatsApp</option><option value="llamada">Llamada</option><option value="entrenamiento">Entrenamiento</option><option value="nota">Nota interna</option></select></div>
+        <div><label>Etapa resultante</label><select name="etapa_seguimiento">{% for valor, etiqueta in etapas.items() %}<option value="{{ valor }}" {% if aspirante['etapa_seguimiento'] == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div><label>Pr&oacute;xima acci&oacute;n</label><input type="date" name="proxima_accion_fecha" value="{{ aspirante['proxima_accion_fecha'] or '' }}"></div>
+        <div class="full"><label>Detalle *</label><textarea name="detalle" rows="3" required placeholder="Qu&eacute; se convers&oacute;, respuesta y siguiente paso"></textarea></div>
+        <div class="full actions-row"><button class="button" type="submit">Registrar seguimiento</button></div>
+    </form>
+    {% endif %}
+    <div class="followup-timeline">
+        {% for seguimiento in seguimientos %}
+            <article class="followup-item"><span class="followup-dot" aria-hidden="true"></span><div><div class="followup-meta"><strong>{{ seguimiento['tipo']|capitalize }}</strong><time>{{ seguimiento['fecha']|fecha_hora }}</time></div><p>{{ seguimiento['detalle'] }}</p><span class="muted-line">{{ seguimiento['creado_por'] or 'Sistema' }}{% if seguimiento['proxima_accion_fecha'] %} &middot; Pr&oacute;xima acci&oacute;n: {{ seguimiento['proxima_accion_fecha'] }}{% endif %}</span></div></article>
+        {% else %}<p class="empty">Todav&iacute;a no hay contactos registrados.</p>{% endfor %}
+    </div>
+</section>
 
 <div class="page-section">
     <div class="section-header compact">
@@ -139,4 +161,5 @@
         <button class="button danger" type="submit">Dar de baja</button>
     </form>
 {% endif %}
+</div>
 {% endblock %}

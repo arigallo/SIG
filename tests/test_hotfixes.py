@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 os.environ["INIT_DB"] = "false"
 os.environ.setdefault("SECRET_KEY", "test-only-secret-key")
@@ -1258,6 +1258,98 @@ class HotfixTests(unittest.TestCase):
             {"texto": "Sin opciones", "tipo": "opcion_unica", "opciones": ["Una"]}
         ]))
         self.assertIn("entre 2 y 15 opciones", error)
+
+    def test_application_dates_and_contacts_are_validated(self):
+        for value in ("2026-02-30", "oops", "2026-1-1"):
+            self.assertIsNotNone(app.validar_datos_aspirante({"proxima_accion_fecha": value}))
+        self.assertIsNone(app.validar_datos_aspirante({"proxima_accion_fecha": None}))
+        self.assertIsNone(app.validar_datos_aspirante({"telefono": "+54 11 2345 6789", "fecha_nacimiento": "2000-01-01"}, publico=True))
+        self.assertIsNotNone(app.validar_datos_aspirante({"telefono": "abc", "fecha_nacimiento": "2000-01-01"}, publico=True))
+
+    def test_public_application_requires_birthdate(self):
+        data = {"nombre": "Ana", "apellido": "Prueba", "telefono": "1123456789", "consentimiento_contacto": "on"}
+        with app.app.test_request_context("/postulate", method="POST", data=data), patch.object(app, "get_connection") as connection:
+            result = app.postulacion_aspirante_publica()
+            self.assertIn("La fecha de nacimiento es obligatoria.", result)
+            connection.assert_not_called()
+
+    def test_public_application_creates_pending_record_and_redirects(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = None
+        data = {"nombre": "Ana", "apellido": "Prueba", "fecha_nacimiento": "2000-01-01", "telefono": "1123456789", "consentimiento_contacto": "on", "estado": "Ingresado", "madrina_jugador_id": "99", "categoria": "ignorar", "disponibilidad": "ignorar"}
+        with app.app.test_request_context("/postulate", method="POST", data=data), patch.object(app, "get_connection", return_value=conn), patch.object(app, "consumir_limite_publico", return_value=True):
+            response = app.postulacion_aspirante_publica()
+        self.assertEqual(response.status_code, 303)
+        inserts = [call for call in conn.execute.call_args_list if "INSERT INTO aspirantes" in call.args[0]]
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("'pendiente_contacto'", inserts[0].args[0])
+        self.assertNotIn("Ingresado", inserts[0].args[1])
+        self.assertNotIn("99", inserts[0].args[1])
+        self.assertNotIn("ignorar", inserts[0].args[1])
+        conn.commit.assert_called_once()
+        conn.close.assert_called_once()
+
+    def test_duplicate_application_does_not_insert_or_disclose_record(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"id": 7}
+        with app.app.test_request_context("/postulate", method="POST", data={"nombre": "Ana", "apellido": "Prueba", "fecha_nacimiento": "2000-01-01", "telefono": "1123456789", "consentimiento_contacto": "on"}), patch.object(app, "get_connection", return_value=conn), patch.object(app, "consumir_limite_publico", return_value=True):
+            response = app.postulacion_aspirante_publica()
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.location, "/postulate?enviado=1")
+        self.assertFalse(any("INSERT INTO aspirantes" in call.args[0] for call in conn.execute.call_args_list))
+
+    def test_public_application_requires_consent_and_csrf(self):
+        with app.app.test_request_context("/postulate", method="POST", data={"nombre": "Ana", "apellido": "Prueba", "telefono": "1123456789"}), patch.object(app, "get_connection") as connection:
+            app.postulacion_aspirante_publica()
+            connection.assert_not_called()
+        with app.app.test_client() as client:
+            response = client.post("/postulate", data={"nombre": "Ana"})
+        self.assertIn(response.status_code, (302, 400, 403))
+
+    def test_followup_saves_history_and_current_stage_together(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"id": 7, "estado": "Aspirante"}
+        with app.app.test_request_context("/ahijadxs/7/seguimiento", method="POST", data={"detalle": "Confirma asistencia", "tipo": "whatsapp", "etapa_seguimiento": "confirmo_asistencia", "proxima_accion_fecha": "2026-09-18"}), patch.object(app, "permiso_requerido", return_value=None), patch.object(app, "get_connection", return_value=conn), patch.object(app, "registrar_auditoria"):
+            response = app.registrar_seguimiento_aspirante(7)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(any("INSERT INTO aspirante_seguimientos" in call.args[0] for call in conn.execute.call_args_list))
+        self.assertTrue(any("UPDATE aspirantes" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_called_once()
+
+    def test_followup_rejects_invalid_date_closed_case_and_missing_permission(self):
+        for state, date, permission in (("Aspirante", "bad", None), ("Baja", "2026-09-18", None), ("Aspirante", "2026-09-18", "denied")):
+            conn = MagicMock()
+            conn.execute.return_value.fetchone.return_value = {"id": 7, "estado": state}
+            with self.subTest(state=state, date=date, permission=permission), app.app.test_request_context("/ahijadxs/7/seguimiento", method="POST", data={"detalle": "Contacto", "tipo": "whatsapp", "etapa_seguimiento": "contactado", "proxima_accion_fecha": date}), patch.object(app, "permiso_requerido", return_value=permission), patch.object(app, "get_connection", return_value=conn):
+                app.registrar_seguimiento_aspirante(7)
+            conn.commit.assert_not_called()
+            self.assertFalse(any("INSERT" in call.args[0] or "UPDATE aspirantes" in call.args[0] for call in conn.execute.call_args_list))
+
+    def test_public_player_application_is_available_without_login(self):
+        with app.app.test_client() as client:
+            response = client.get("/postulate")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Enviar postulaci", response.data)
+        self.assertIn(b'name="consentimiento_contacto"', response.data)
+
+    def test_aspirante_followup_schema_and_workflow_are_present(self):
+        root = Path(app.__file__).parent
+        source = (root / "app.py").read_text(encoding="utf-8-sig")
+        detail = (root / "templates" / "aspirante_detalle.html").read_text(encoding="utf-8-sig")
+        listing = (root / "templates" / "aspirantes.html").read_text(encoding="utf-8-sig")
+        self.assertIn("CREATE TABLE IF NOT EXISTS aspirante_seguimientos", source)
+        self.assertIn("def registrar_seguimiento_aspirante", source)
+        self.assertIn('name="proxima_accion_fecha"', detail)
+        self.assertIn("Historial de seguimiento", detail)
+        self.assertIn('name="asignacion"', listing)
+
+    def test_admin_navigation_has_responsive_toggle(self):
+        root = Path(app.__file__).parent
+        base = (root / "templates" / "base.html").read_text(encoding="utf-8-sig")
+        javascript = (root / "static" / "app.js").read_text(encoding="utf-8-sig")
+        self.assertIn('class="admin-nav-toggle"', base)
+        self.assertIn('id="admin-main-nav"', base)
+        self.assertIn("setupAdminNavigation", javascript)
 
 
 if __name__ == "__main__":

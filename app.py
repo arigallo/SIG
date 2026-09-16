@@ -220,6 +220,7 @@ def inject_now():
         "es_evento_partido": es_evento_partido,
         "estado_visual_gasto_compartido_item": estado_visual_gasto_compartido_item,
         "current_month": lambda: ahora_sig().strftime("%Y-%m"),
+        "aspirante_etapas": ASPIRANTE_ETAPAS,
     }
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -580,6 +581,15 @@ TESORERO_FIRMA_NOMBRE = os.environ.get("TESORERO_FIRMA_NOMBRE", "Ariel Gallo").s
 TESORERO_FIRMA_CARGO = os.environ.get("TESORERO_FIRMA_CARGO", "Tesorero").strip() or "Tesorero"
 ASPIRANTE_ENTRENAMIENTOS_OBJETIVO = int(os.environ.get("ASPIRANTE_ENTRENAMIENTOS_OBJETIVO", "8"))
 ASPIRANTE_ESTADOS = {"Aspirante", "Ingresado", "Baja"}
+ASPIRANTE_ETAPAS = {
+    "pendiente_contacto": "Pendiente de contacto",
+    "contactado": "Contactado",
+    "esperando_respuesta": "Esperando respuesta",
+    "confirmo_asistencia": "Confirmó que viene",
+    "en_seguimiento": "En seguimiento",
+    "listo_ingresar": "Listo para ingresar",
+    "no_interesado": "No interesado",
+}
 APP_VERSION = os.environ.get("APP_VERSION", "local")
 CLOUD_SQL_BACKUP_WINDOW = os.environ.get("CLOUD_SQL_BACKUP_WINDOW", "12:00 a.m. - 4:00 a.m.")
 CLOUD_SQL_BACKUP_RETENTION_DAYS = os.environ.get("CLOUD_SQL_BACKUP_RETENTION_DAYS", "7")
@@ -7123,6 +7133,12 @@ def init_db():
             fecha_ingreso_club TEXT,
             jugador_id INTEGER,
             observaciones TEXT,
+            etapa_seguimiento TEXT NOT NULL DEFAULT 'pendiente_contacto',
+            proxima_accion_fecha TEXT,
+            experiencia_previa TEXT,
+            disponibilidad TEXT,
+            origen TEXT NOT NULL DEFAULT 'manual',
+            consentimiento_contacto INTEGER DEFAULT 0,
             FOREIGN KEY (madrina_jugador_id) REFERENCES jugadores(id),
             FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
         )
@@ -7142,6 +7158,12 @@ def init_db():
         "fecha_ingreso_club": "TEXT",
         "jugador_id": "INTEGER",
         "observaciones": "TEXT",
+        "etapa_seguimiento": "TEXT NOT NULL DEFAULT 'pendiente_contacto'",
+        "proxima_accion_fecha": "TEXT",
+        "experiencia_previa": "TEXT",
+        "disponibilidad": "TEXT",
+        "origen": "TEXT NOT NULL DEFAULT 'manual'",
+        "consentimiento_contacto": "INTEGER DEFAULT 0",
     }
 
     for columna, tipo_columna in columnas_extra_aspirante.items():
@@ -7151,6 +7173,24 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_aspirantes_estado
         ON aspirantes (estado)
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS aspirante_seguimientos (
+            id SERIAL PRIMARY KEY,
+            aspirante_id INTEGER NOT NULL,
+            fecha TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            tipo TEXT NOT NULL DEFAULT 'contacto',
+            detalle TEXT NOT NULL,
+            proxima_accion_fecha TEXT,
+            creado_por TEXT,
+            FOREIGN KEY (aspirante_id) REFERENCES aspirantes(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_aspirante_seguimientos_aspirante
+        ON aspirante_seguimientos (aspirante_id, fecha DESC)
     """)
 
     conn.execute("""
@@ -9501,6 +9541,7 @@ def proteger_rutas():
         "sugerencias_recomendaciones",
         "sugerencias_denuncias_legacy",
         "responder_encuesta_satisfaccion",
+        "postulacion_aspirante_publica",
         "portal_buscar",
         "portal_jugador",
         "portal_actualizar_configuracion",
@@ -12745,6 +12786,12 @@ def aspirante_desde_formulario(aspirante=None):
     if estado not in ASPIRANTE_ESTADOS:
         estado = "Aspirante"
 
+    etapa_seguimiento = request.form.get("etapa_seguimiento", "").strip() or (
+        aspirante.get("etapa_seguimiento") if aspirante else "pendiente_contacto"
+    )
+    if etapa_seguimiento not in ASPIRANTE_ETAPAS:
+        etapa_seguimiento = "pendiente_contacto"
+
     return {
         "nombre": request.form.get("nombre", "").strip(),
         "apellido": request.form.get("apellido", "").strip(),
@@ -12758,6 +12805,10 @@ def aspirante_desde_formulario(aspirante=None):
         "madrina_jugador_id": madrina_jugador_id,
         "entrenamientos_objetivo": entrenamientos_objetivo,
         "observaciones": request.form.get("observaciones", "").strip(),
+        "etapa_seguimiento": etapa_seguimiento,
+        "proxima_accion_fecha": request.form.get("proxima_accion_fecha", "").strip() or None,
+        "experiencia_previa": request.form.get("experiencia_previa", "").strip(),
+        "disponibilidad": request.form.get("disponibilidad", "").strip(),
     }
 
 
@@ -12795,6 +12846,102 @@ def buscar_aspirante(conn, aspirante_id):
     """, (aspirante_id,)).fetchone()
 
 
+def validar_datos_aspirante(data, publico=False):
+    """Validate both browser submissions and direct HTTP requests."""
+    if publico and not data.get("fecha_nacimiento"):
+        return "La fecha de nacimiento es obligatoria."
+    for campo in ("fecha_nacimiento", "fecha_postulacion", "proxima_accion_fecha"):
+        valor = data.get(campo)
+        if valor:
+            try:
+                fecha = datetime.strptime(valor, "%Y-%m-%d")
+                if fecha.strftime("%Y-%m-%d") != valor:
+                    raise ValueError
+                if campo == "fecha_nacimiento" and fecha.date() > ahora_sig().date():
+                    raise ValueError
+            except ValueError:
+                return "Revisá las fechas: usá una fecha válida (AAAA-MM-DD), sin nacimiento futuro."
+    for campo in ("nombre", "apellido", "telefono", "email", "categoria", "disponibilidad"):
+        if len(data.get(campo) or "") > 250:
+            return "Los campos de contacto no pueden superar los 250 caracteres."
+    for campo in ("experiencia_previa", "observaciones"):
+        if len(data.get(campo) or "") > 3000:
+            return "La experiencia y las observaciones no pueden superar los 3000 caracteres."
+    if publico:
+        if not 8 <= len(re.sub(r"\D", "", data.get("telefono", ""))) <= 15:
+            return "Ingresá un WhatsApp válido, incluyendo código de área."
+        if data.get("email") and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", data["email"]):
+            return "Revisá el correo electrónico."
+    return None
+
+
+@app.route("/postulate", methods=["GET", "POST"])
+def postulacion_aspirante_publica():
+    data = {}
+    if request.method == "POST":
+        data = {
+            "nombre": request.form.get("nombre", "").strip(),
+            "apellido": request.form.get("apellido", "").strip(),
+            "fecha_nacimiento": request.form.get("fecha_nacimiento", "").strip(),
+            "telefono": request.form.get("telefono", "").strip(),
+            "email": request.form.get("email", "").strip(),
+            "categoria": request.form.get("categoria", "").strip(),
+            "experiencia_previa": request.form.get("experiencia_previa", "").strip(),
+            "disponibilidad": request.form.get("disponibilidad", "").strip(),
+            "observaciones": request.form.get("observaciones", "").strip(),
+            "consentimiento_contacto": request.form.get("consentimiento_contacto") == "on",
+        }
+        # Estos datos se completan internamente, no desde la postulación pública.
+        data["categoria"] = ""
+        data["disponibilidad"] = ""
+        if request.form.get("website", "").strip():
+            return render_template("aspirante_postulacion_publica.html", enviado=True, data={})
+        if not data["nombre"] or not data["apellido"] or not data["telefono"]:
+            flash("Nombre, apellido y WhatsApp son obligatorios.", "error")
+        elif not data["consentimiento_contacto"]:
+            flash("Necesitamos tu autorización para poder contactarte.", "error")
+        elif error := validar_datos_aspirante(data, publico=True):
+            flash(error, "error")
+        elif not consumir_limite_publico("postulacion_aspirante", max_intentos=5, minutos=60):
+            flash("Recibimos varios intentos. Volvé a probar más tarde.", "error")
+            return render_template("aspirante_postulacion_publica.html", enviado=False, data=data), 429
+        else:
+            conn = get_connection()
+            # Serialize duplicate checks for the same phone across workers.
+            telefono_normalizado = re.sub(r"\D", "", data["telefono"])
+            conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("postulacion:" + telefono_normalizado,))
+            existente = conn.execute("""
+                SELECT id FROM aspirantes
+                WHERE estado <> 'Baja'
+                  AND regexp_replace(COALESCE(telefono, ''), '[^0-9]', '', 'g') =
+                      regexp_replace(%s, '[^0-9]', '', 'g')
+                LIMIT 1
+            """, (data["telefono"],)).fetchone()
+            if existente:
+                conn.commit()
+                conn.close()
+                return redirect(url_for("postulacion_aspirante_publica", enviado=1), code=303)
+            else:
+                conn.execute("""
+                    INSERT INTO aspirantes (
+                        nombre, apellido, fecha_nacimiento, telefono, email, categoria,
+                        fecha_postulacion, estado, entrenamientos_objetivo, observaciones,
+                        etapa_seguimiento, experiencia_previa, disponibilidad, origen,
+                        consentimiento_contacto
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Aspirante', %s, %s,
+                              'pendiente_contacto', %s, %s, 'formulario_publico', 1)
+                """, (
+                    data["nombre"], data["apellido"], data["fecha_nacimiento"],
+                    data["telefono"], data["email"], data["categoria"],
+                    ahora_sig().strftime("%Y-%m-%d"), ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,
+                    data["observaciones"], data["experiencia_previa"], data["disponibilidad"],
+                ))
+                conn.commit()
+                conn.close()
+                return redirect(url_for("postulacion_aspirante_publica", enviado=1), code=303)
+    return render_template("aspirante_postulacion_publica.html", enviado=request.method == "GET" and request.args.get("enviado") == "1", data=data)
+
+
 @app.route("/ahijadxs")
 def listar_aspirantes():
     check = permiso_requerido("aspirantes_ver")
@@ -12803,14 +12950,27 @@ def listar_aspirantes():
 
     busqueda = request.args.get("q", "").strip()
     estado = request.args.get("estado", "Aspirante").strip()
+    etapa = request.args.get("etapa", "todas").strip()
+    asignacion = request.args.get("asignacion", "todas").strip()
     if estado not in ASPIRANTE_ESTADOS and estado != "todos":
         estado = "Aspirante"
+    if etapa not in ASPIRANTE_ETAPAS and etapa != "todas":
+        etapa = "todas"
+    if asignacion not in {"todas", "asignada", "sin_asignar"}:
+        asignacion = "todas"
 
     condiciones = []
     parametros = []
     if estado != "todos":
         condiciones.append("a.estado = %s")
         parametros.append(estado)
+    if etapa != "todas":
+        condiciones.append("COALESCE(a.etapa_seguimiento, 'pendiente_contacto') = %s")
+        parametros.append(etapa)
+    if asignacion == "asignada":
+        condiciones.append("a.madrina_jugador_id IS NOT NULL")
+    elif asignacion == "sin_asignar":
+        condiciones.append("a.madrina_jugador_id IS NULL")
 
     if busqueda:
         terminos = [termino for termino in re.split(r"\s+", busqueda) if termino]
@@ -12852,6 +13012,15 @@ def listar_aspirantes():
         {where_sql}
         ORDER BY a.estado, a.apellido, a.nombre
     """, parametros).fetchall()
+
+    resumen_aspirantes = conn.execute("""
+        SELECT
+            SUM(CASE WHEN estado = 'Aspirante' THEN 1 ELSE 0 END) AS en_seguimiento,
+            SUM(CASE WHEN estado = 'Aspirante' AND madrina_jugador_id IS NULL THEN 1 ELSE 0 END) AS sin_asignar,
+            SUM(CASE WHEN estado = 'Aspirante' AND COALESCE(etapa_seguimiento, 'pendiente_contacto') = 'pendiente_contacto' THEN 1 ELSE 0 END) AS pendientes_contacto,
+            SUM(CASE WHEN estado = 'Aspirante' AND NULLIF(proxima_accion_fecha, '') <= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') THEN 1 ELSE 0 END) AS acciones_vencidas
+        FROM aspirantes
+    """).fetchone()
     conn.close()
 
     aspirantes = [aspirante_con_progreso(aspirante) for aspirante in aspirantes]
@@ -12862,6 +13031,10 @@ def listar_aspirantes():
         busqueda=busqueda,
         estado=estado,
         estados=sorted(ASPIRANTE_ESTADOS),
+        etapas=ASPIRANTE_ETAPAS,
+        etapa=etapa,
+        asignacion=asignacion,
+        resumen_aspirantes=resumen_aspirantes,
     )
 
 
@@ -12876,6 +13049,10 @@ def nuevo_aspirante():
 
     if request.method == "POST":
         data = aspirante_desde_formulario()
+        if error := validar_datos_aspirante(data):
+            conn.close()
+            flash(error, "error")
+            return render_template("aspirante_form.html", aspirante=data, madrinas=madrinas, modo="nuevo")
         if not data["fecha_postulacion"]:
             data["fecha_postulacion"] = ahora_sig().strftime("%Y-%m-%d")
 
@@ -12902,14 +13079,16 @@ def nuevo_aspirante():
             INSERT INTO aspirantes (
                 nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                 fecha_postulacion, estado, madrina_jugador_id, entrenamientos_objetivo,
-                observaciones
+                observaciones, etapa_seguimiento, proxima_accion_fecha,
+                experiencia_previa, disponibilidad, origen
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual')
         """, (
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
             data["telefono"], data["email"], data["categoria"], data["fecha_postulacion"],
             data["estado"], data["madrina_jugador_id"], data["entrenamientos_objetivo"],
-            data["observaciones"],
+            data["observaciones"], data["etapa_seguimiento"], data["proxima_accion_fecha"],
+            data["experiencia_previa"], data["disponibilidad"],
         ))
         conn.commit()
         conn.close()
@@ -12950,12 +13129,19 @@ def detalle_aspirante(aspirante_id):
         WHERE aa.aspirante_id = %s
         ORDER BY e.fecha DESC, e.id DESC
     """, (aspirante_id,)).fetchall()
+    seguimientos = conn.execute("""
+        SELECT * FROM aspirante_seguimientos
+        WHERE aspirante_id = %s
+        ORDER BY fecha DESC, id DESC
+    """, (aspirante_id,)).fetchall()
     conn.close()
 
     return render_template(
         "aspirante_detalle.html",
         aspirante=aspirante_con_progreso(aspirante),
         asistencias=asistencias,
+        seguimientos=seguimientos,
+        etapas=ASPIRANTE_ETAPAS,
     )
 
 
@@ -12976,6 +13162,11 @@ def editar_aspirante(aspirante_id):
 
     if request.method == "POST":
         data = aspirante_desde_formulario(aspirante)
+        if error := validar_datos_aspirante(data):
+            conn.close()
+            flash(error, "error")
+            data["id"] = aspirante_id
+            return render_template("aspirante_form.html", aspirante=data, madrinas=madrinas, modo="editar")
         if not data["nombre"] or not data["apellido"]:
             conn.close()
             flash("Nombre y apellido son obligatorios.", "error")
@@ -13011,13 +13202,18 @@ def editar_aspirante(aspirante_id):
                 estado = %s,
                 madrina_jugador_id = %s,
                 entrenamientos_objetivo = %s,
-                observaciones = %s
+                observaciones = %s,
+                etapa_seguimiento = %s,
+                proxima_accion_fecha = %s,
+                experiencia_previa = %s,
+                disponibilidad = %s
             WHERE id = %s
         """, (
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
             data["telefono"], data["email"], data["categoria"], data["fecha_postulacion"],
             data["estado"], data["madrina_jugador_id"], data["entrenamientos_objetivo"],
-            data["observaciones"], aspirante_id,
+            data["observaciones"], data["etapa_seguimiento"], data["proxima_accion_fecha"],
+            data["experiencia_previa"], data["disponibilidad"], aspirante_id,
         ))
         conn.commit()
         conn.close()
@@ -13027,6 +13223,51 @@ def editar_aspirante(aspirante_id):
 
     conn.close()
     return render_template("aspirante_form.html", aspirante=aspirante, madrinas=madrinas, modo="editar")
+
+
+@app.route("/ahijadxs/<int:aspirante_id>/seguimiento", methods=["POST"])
+def registrar_seguimiento_aspirante(aspirante_id):
+    check = permiso_requerido("aspirantes_gestionar")
+    if check:
+        return check
+
+    detalle = request.form.get("detalle", "").strip()
+    tipo = request.form.get("tipo", "contacto").strip() or "contacto"
+    etapa = request.form.get("etapa_seguimiento", "").strip()
+    proxima_accion_fecha = request.form.get("proxima_accion_fecha", "").strip()
+    if not detalle:
+        flash("Escribí un detalle para registrar el seguimiento.", "error")
+        return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
+    error = validar_datos_aspirante({"proxima_accion_fecha": proxima_accion_fecha})
+    if error or etapa not in ASPIRANTE_ETAPAS or tipo not in {"contacto", "whatsapp", "llamada", "entrenamiento", "nota"} or len(detalle) > 3000:
+        flash(error or "Revisá la etapa, el tipo de contacto y el detalle (máximo 3000 caracteres).", "error")
+        return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
+
+    conn = get_connection()
+    existe = conn.execute("SELECT id, estado FROM aspirantes WHERE id = %s FOR UPDATE", (aspirante_id,)).fetchone()
+    if not existe:
+        conn.close()
+        flash("Ahijadx no encontrado.", "error")
+        return redirect(url_for("listar_aspirantes"))
+    if existe["estado"] != "Aspirante":
+        conn.close()
+        flash("Solo se pueden registrar contactos de ahijadxs en seguimiento.", "error")
+        return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
+    conn.execute("""
+        INSERT INTO aspirante_seguimientos (
+            aspirante_id, tipo, detalle, proxima_accion_fecha, creado_por
+        ) VALUES (%s, %s, %s, %s, %s)
+    """, (aspirante_id, tipo, detalle, proxima_accion_fecha or None, session.get("username")))
+    conn.execute("""
+        UPDATE aspirantes
+        SET etapa_seguimiento = %s, proxima_accion_fecha = %s
+        WHERE id = %s
+    """, (etapa, proxima_accion_fecha or None, aspirante_id))
+    conn.commit()
+    conn.close()
+    registrar_auditoria("seguimiento", "ahijadx", str(aspirante_id), {"etapa": etapa, "tipo": tipo})
+    flash("Seguimiento registrado.", "ok")
+    return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
 
 
 @app.route("/ahijadxs/<int:aspirante_id>/convertir", methods=["POST"])

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Postulate para jugar en Ruda Macho</title>
+    <meta name="theme-color" content="#10231e">
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+</head>
+<body class="public-application-body">
+    <main class="public-application-shell">
+        {% if preview_mode|default(false) %}<div class="flash warning">Vista de dise&ntilde;o: no se env&iacute;an postulaciones. <a href="/preview/ahijadxs">Volver a Madrinas</a></div>{% endif %}
+        <header class="public-application-brand">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Ruda Macho Rugby">
+            <div><strong>Ruda Macho Rugby</strong><span>Sumate al equipo</span></div>
+        </header>
+
+        {% if enviado %}
+            <section class="public-application-success">
+                <span aria-hidden="true">&#10003;</span>
+                <h1>¡Postulaci&oacute;n recibida!</h1>
+                <p>El equipo de Madrinas va a revisar tus datos y se comunicar&aacute; con vos por WhatsApp.</p>
+            </section>
+        {% else %}
+            <section class="public-application-card">
+                <span class="admin-eyebrow">Formulario de ingreso</span>
+                <h1>Postulate para jugar en Ruda Macho</h1>
+                <p class="page-intro">Dejanos tus datos y el equipo de Madrinas se comunicar&aacute; con vos.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+                {% endwith %}
+
+                <form method="post" class="application-form-grid">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <label class="application-honeypot" aria-hidden="true">Sitio web<input name="website" tabindex="-1" autocomplete="off"></label>
+                    <div><label for="postulacion-nombre">Nombre *</label><input id="postulacion-nombre" name="nombre" value="{{ data.get('nombre', '') }}" required autocomplete="given-name"></div>
+                    <div><label for="postulacion-apellido">Apellido *</label><input id="postulacion-apellido" name="apellido" value="{{ data.get('apellido', '') }}" required autocomplete="family-name"></div>
+                    <div><label for="postulacion-nacimiento">Fecha de nacimiento *</label><input id="postulacion-nacimiento" type="date" name="fecha_nacimiento" value="{{ data.get('fecha_nacimiento', '') }}" required></div>
+                    <div><label for="postulacion-telefono">WhatsApp *</label><input id="postulacion-telefono" type="tel" name="telefono" value="{{ data.get('telefono', '') }}" required autocomplete="tel" placeholder="Ej.: 11 2345 6789"></div>
+                    <div><label for="postulacion-email">Correo electr&oacute;nico</label><input id="postulacion-email" type="email" name="email" value="{{ data.get('email', '') }}" autocomplete="email"></div>
+                    <div class="full"><label for="postulacion-experiencia">Experiencia previa en rugby</label><textarea id="postulacion-experiencia" name="experiencia_previa" rows="3">{{ data.get('experiencia_previa', '') }}</textarea></div>
+                    <div class="full"><label for="postulacion-consultas">Dudas o consultas</label><textarea id="postulacion-consultas" name="observaciones" rows="4">{{ data.get('observaciones', '') }}</textarea></div>
+                    <label class="application-consent full"><input type="checkbox" name="consentimiento_contacto" {% if data.get('consentimiento_contacto') %}checked{% endif %} required><span>Autorizo al club a contactarme por los datos informados.</span></label>
+                    <div class="full"><button class="button application-submit" type="submit">Enviar postulaci&oacute;n</button></div>
+                </form>
+            </section>
+        {% endif %}
+    </main>
+</body>
+</html>

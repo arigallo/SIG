@@ -1,4 +1,39 @@
 (() => {
+    const setupAdminNavigation = () => {
+        const toggle = document.querySelector(".admin-nav-toggle");
+        const navigation = document.querySelector("#admin-main-nav");
+        if (!toggle || !navigation) {
+            return;
+        }
+
+        const setOpen = (open) => {
+            document.body.classList.toggle("admin-nav-open", open);
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        toggle.addEventListener("click", () => {
+            setOpen(!document.body.classList.contains("admin-nav-open"));
+        });
+
+        navigation.querySelectorAll("a").forEach((link) => {
+            link.addEventListener("click", () => setOpen(false));
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                setOpen(false);
+            }
+        });
+
+        window.addEventListener("resize", () => {
+            if (window.innerWidth > 1120) {
+                setOpen(false);
+            }
+        });
+    };
+
+    setupAdminNavigation();
+
     const setupNavigationGroups = () => {
         const groups = Array.from(document.querySelectorAll(".main-nav .nav-group"));
         if (!groups.length) {
@@ -14,9 +49,7 @@
         };
 
         groups.forEach((group) => {
-            if (!group.classList.contains("current")) {
-                group.removeAttribute("open");
-            }
+            group.removeAttribute("open");
         });
 
         groups.forEach((group) => {

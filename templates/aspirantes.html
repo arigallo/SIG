@@ -2,23 +2,45 @@
 {% block title %}Ahijadxs{% endblock %}
 
 {% block content %}
-<div class="section-header">
-    <h2>Ahijadxs</h2>
-    {% if puede('aspirantes_gestionar') %}
-        <a class="button" href="{{ url_for('nuevo_aspirante') }}">+ Nuevx ahijadx</a>
-    {% endif %}
+<div class="admin-page aspirantes-page">
+<section class="admin-hero compact-admin-hero">
+    <div>
+        <span class="admin-eyebrow">Madrinas</span>
+        <h2>Gesti&oacute;n de ahijadxs</h2>
+        <p class="page-intro">Postulaciones, responsables y pr&oacute;ximos contactos en un solo lugar.</p>
+    </div>
+    <div class="admin-hero-actions actions">
+        <a class="button secondary" href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Ver formulario p&uacute;blico</a>
+        {% if puede('aspirantes_gestionar') %}<a class="button" href="{{ url_for('nuevo_aspirante') }}">+ Nuevx ahijadx</a>{% endif %}
+    </div>
+</section>
+
+<div class="dashboard-cards report-cards aspirantes-summary">
+    <div class="card stat-card alert-card-info"><h3>En seguimiento</h3><p class="stat-number">{{ resumen_aspirantes['en_seguimiento'] or 0 }}</p></div>
+    <div class="card stat-card alert-card-critical"><h3>Sin asignar</h3><p class="stat-number">{{ resumen_aspirantes['sin_asignar'] or 0 }}</p></div>
+    <div class="card stat-card alert-card-warning"><h3>Contacto pendiente</h3><p class="stat-number">{{ resumen_aspirantes['pendientes_contacto'] or 0 }}</p></div>
+    <div class="card stat-card alert-card-warning"><h3>Acciones para hoy</h3><p class="stat-number">{{ resumen_aspirantes['acciones_vencidas'] or 0 }}</p></div>
 </div>
 
-<form method="get" class="search-form">
-    <input type="text" name="q" placeholder="Buscar por nombre, DNI, categoria o madrina" value="{{ busqueda }}">
+<form method="get" class="search-form aspirantes-filters">
+    <input type="text" name="q" placeholder="Buscar por nombre, DNI, categor&iacute;a o madrina" value="{{ busqueda }}">
     <select name="estado">
         <option value="Aspirante" {% if estado == 'Aspirante' %}selected{% endif %}>En seguimiento</option>
         <option value="Ingresado" {% if estado == 'Ingresado' %}selected{% endif %}>Ingresados</option>
         <option value="Baja" {% if estado == 'Baja' %}selected{% endif %}>Baja</option>
         <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
     </select>
-    <button type="submit">Buscar</button>
-    {% if busqueda or estado != 'Aspirante' %}
+    <select name="etapa" aria-label="Etapa de seguimiento">
+        <option value="todas">Todas las etapas</option>
+        {% for valor, etiqueta in etapas.items() %}<option value="{{ valor }}" {% if etapa == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <select name="asignacion" aria-label="Asignaci&oacute;n">
+        <option value="todas" {% if asignacion == 'todas' %}selected{% endif %}>Todas las asignaciones</option>
+        <option value="asignada" {% if asignacion == 'asignada' %}selected{% endif %}>Con responsable</option>
+        <option value="sin_asignar" {% if asignacion == 'sin_asignar' %}selected{% endif %}>Sin responsable</option>
+    </select>
+    <button type="submit">Aplicar filtros</button>
+    {% if busqueda or estado != 'Aspirante' or etapa != 'todas' or asignacion != 'todas' %}
         <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Limpiar</a>
     {% endif %}
 </form>
@@ -28,9 +50,10 @@
         <thead>
             <tr>
                 <th>Ahijadx</th>
-                <th>Categoria</th>
+                <th>Categor&iacute;a</th>
                 <th>Madrina/Padrino</th>
-                <th>Seguimiento</th>
+                <th>Etapa / pr&oacute;xima acci&oacute;n</th>
+                <th>Entrenamientos</th>
                 <th>Estado</th>
                 <th>Acciones</th>
             </tr>
@@ -38,25 +61,29 @@
         <tbody>
             {% for aspirante in aspirantes %}
             <tr>
-                <td>
+                <td data-label="Ahijadx">
                     {{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}
                     {% if aspirante['dni'] %}
                         <span class="muted-line">DNI {{ aspirante['dni'] }}</span>
                     {% endif %}
                 </td>
-                <td>{{ aspirante['categoria'] or '-' }}</td>
-                <td>
+                <td data-label="Categor&iacute;a">{{ aspirante['categoria'] or '-' }}</td>
+                <td data-label="Madrina/Padrino">
                     {% if aspirante['madrina_apellido'] %}
                         {{ aspirante['madrina_apellido'] }}, {{ aspirante['madrina_nombre'] }}
                     {% else %}
                         -
                     {% endif %}
                 </td>
-                <td>
+                <td data-label="Etapa">
+                    <strong>{{ etapas.get(aspirante['etapa_seguimiento'] or 'pendiente_contacto', 'Pendiente de contacto') }}</strong>
+                    {% if aspirante['proxima_accion_fecha'] %}<span class="muted-line">Pr&oacute;xima: {{ aspirante['proxima_accion_fecha'] }}</span>{% endif %}
+                </td>
+                <td data-label="Entrenamientos">
                     {{ aspirante['entrenamientos_realizados'] or 0 }} / {{ aspirante['entrenamientos_objetivo'] or 0 }}
                     <progress class="report-progress" max="100" value="{{ aspirante['progreso'] }}"></progress>
                 </td>
-                <td>
+                <td data-label="Estado">
                     {% if aspirante['estado'] == 'Ingresado' %}
                         <span class="status-paid">Ingresado</span>
                     {% elif aspirante['estado'] == 'Baja' %}
@@ -67,7 +94,7 @@
                         <span class="status-pending">Seguimiento</span>
                     {% endif %}
                 </td>
-                <td class="actions">
+                <td class="actions" data-label="Acciones">
                     <a class="button" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['id']) }}">Ver</a>
                     {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
                         <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
@@ -76,10 +103,11 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="empty">No hay ahijadxs cargadxs.</td>
+                <td colspan="7" class="empty">No hay ahijadxs que coincidan con los filtros.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+</div>
 </div>
 {% endblock %}

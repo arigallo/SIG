@@ -6,12 +6,14 @@
 <div class="admin-page dashboard-page">
 <section class="admin-hero dashboard-hero">
     <div>
-        <span class="badge badge-info">Resumen general</span>
+        <span class="admin-eyebrow">Resumen general</span>
         <h2>Panel de control</h2>
-        <p class="page-intro">Vista r&aacute;pida del estado deportivo, financiero y m&eacute;dico del club.</p>
+        <p class="page-intro">Todo lo importante del club, ordenado para decidir qu&eacute; atender primero.</p>
     </div>
     <div class="admin-hero-actions actions">
+        {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
         <a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisi&oacute;n diaria</a>
+        {% endif %}
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('nuevo_jugador') }}">Nuevo jugador</a>
         {% endif %}
@@ -26,67 +28,83 @@
 
 <div class="quick-module-grid">
     {% if puede_ver_jugadores %}
-        <a class="quick-module-card" href="{{ url_for('listar_jugadores') }}">
+        <a class="quick-module-card quick-module-club" href="{{ url_for('listar_jugadores') }}">
+            <span class="quick-module-icon" aria-hidden="true">C</span>
             <strong>Club</strong>
             <span>Jugadores, asistencia y calendario</span>
         </a>
     {% endif %}
     {% if puede_ver_finanzas %}
-        <a class="quick-module-card" href="{{ url_for('ver_panel_cobranzas') }}">
+        <a class="quick-module-card quick-module-finance" href="{{ url_for('ver_panel_cobranzas') }}">
+            <span class="quick-module-icon" aria-hidden="true">$</span>
             <strong>Finanzas</strong>
             <span>Cobranzas, cuotas y deuda</span>
         </a>
     {% endif %}
     {% if puede_ver_salud %}
-        <a class="quick-module-card" href="{{ url_for('panel_salud') }}">
+        <a class="quick-module-card quick-module-health" href="{{ url_for('panel_salud') }}">
+            <span class="quick-module-icon" aria-hidden="true">+</span>
             <strong>Salud</strong>
             <span>Fichas, lesiones y vencimientos</span>
         </a>
     {% endif %}
     {% if puede('comunicaciones_ver') %}
-        <a class="quick-module-card" href="{{ url_for('ver_comunicaciones') }}">
+        <a class="quick-module-card quick-module-comms" href="{{ url_for('ver_comunicaciones') }}">
+            <span class="quick-module-icon" aria-hidden="true">@</span>
             <strong>Comunicaci&oacute;n</strong>
             <span>Mensajes, avisos y seguimiento</span>
         </a>
     {% endif %}
 </div>
 
-<div class="dashboard-cards">
-    {% if puede_ver_jugadores %}
-    <div class="card stat-card alert-card-info">
-        <h3>Total de jugadores</h3>
-        <p class="stat-number">{{ total_jugadores }}</p>
-        <span class="muted-line">Miembros registrados</span>
+<section class="dashboard-priority-section" aria-labelledby="dashboard-priority-title">
+    <div class="dashboard-section-heading">
+        <div>
+            <span class="admin-eyebrow">Prioridades</span>
+            <h3 id="dashboard-priority-title">Para revisar hoy</h3>
+        </div>
+        {% if puede('jugadores_ver', 'cuotas_ver', 'salud_ver', 'asistencia_ver', 'comunicaciones_ver', 'secretaria_ver') %}
+        <a class="dashboard-text-link" href="{{ url_for('ver_operacion_diaria') }}">Ver operaci&oacute;n diaria &rarr;</a>
+        {% endif %}
     </div>
+<div class="dashboard-cards dashboard-priority-grid">
+    {% if puede_ver_finanzas %}
+    <a class="card stat-card stat-card-link alert-card-info" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">
+        <h3>Comprobantes por revisar</h3>
+        <p class="stat-number">{{ comprobantes_pendientes_count }}</p>
+        <span class="muted-line">Validar pagos recibidos</span>
+    </a>
     {% endif %}
 
     {% if puede_ver_finanzas %}
-    <div class="card stat-card alert-card-warning">
+    <a class="card stat-card stat-card-link alert-card-warning" href="{{ url_for('ver_panel_cobranzas') }}">
         <h3>Jugadores con deuda</h3>
         <p class="stat-number">{{ jugadores_con_deuda|length }}</p>
         <span class="muted-line">Con cuotas pendientes</span>
-    </div>
+    </a>
     {% endif %}
 
     {% if puede_ver_salud %}
-    <div class="card stat-card alert-card-critical">
+    <a class="card stat-card stat-card-link alert-card-critical" href="{{ url_for('ver_documentos_vencidos') }}">
         <h3>Fichas m&eacute;dicas vencidas</h3>
         <p class="stat-number">{{ fichas_vencidas|length }}</p>
         <span class="muted-line">Requieren revisi&oacute;n</span>
-    </div>
+    </a>
 
-    <div class="card stat-card alert-card-warning">
+    <a class="card stat-card stat-card-link alert-card-warning" href="{{ url_for('panel_salud') }}">
         <h3>Lesiones activas</h3>
         <p class="stat-number">{{ lesiones_activas|length }}</p>
         <span class="muted-line">En seguimiento</span>
-    </div>
+    </a>
     {% endif %}
 </div>
+</section>
 
 {% if puede_ver_finanzas %}
 <section class="page-section">
     <div class="section-header">
         <div>
+            <span class="admin-eyebrow">Situaci&oacute;n econ&oacute;mica</span>
             <h3>Finanzas</h3>
             <p class="page-intro">Resumen del mes seleccionado y deuda vigente.</p>
         </div>

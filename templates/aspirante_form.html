@@ -2,50 +2,68 @@
 {% block title %}{% if modo == 'editar' %}Editar ahijadx{% else %}Nuevx ahijadx{% endif %}{% endblock %}
 
 {% block content %}
-<h2>{% if modo == 'editar' %}Editar ahijadx{% else %}Nuevx ahijadx{% endif %}</h2>
+<div class="admin-page aspirante-form-page">
+<section class="admin-hero compact-admin-hero">
+    <div><span class="admin-eyebrow">Madrinas</span><h2>{% if modo == 'editar' %}Editar ahijadx{% else %}Nuevx ahijadx{% endif %}</h2><p class="page-intro">Datos de contacto, asignaci&oacute;n y estado del seguimiento.</p></div>
+    <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Volver</a>
+</section>
 
-<form method="post" class="card form-grid">
+<form method="post" class="card form-grid aspirante-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-section-title full"><span>1</span><div><h3>Datos personales</h3><p>Informaci&oacute;n principal para identificar y contactar a la persona.</p></div></div>
 
     <div>
         <label>Nombre *</label>
-        <input type="text" name="nombre" value="{{ aspirante['nombre'] if aspirante else '' }}" required>
+        <input type="text" name="nombre" value="{{ (aspirante['nombre'] or '') if aspirante else '' }}" required>
     </div>
 
     <div>
         <label>Apellido *</label>
-        <input type="text" name="apellido" value="{{ aspirante['apellido'] if aspirante else '' }}" required>
+        <input type="text" name="apellido" value="{{ (aspirante['apellido'] or '') if aspirante else '' }}" required>
     </div>
 
     <div>
         <label>DNI</label>
-        <input type="text" name="dni" value="{{ aspirante['dni'] if aspirante else '' }}">
+        <input type="text" name="dni" value="{{ (aspirante['dni'] or '') if aspirante else '' }}">
     </div>
 
     <div>
         <label>Fecha de nacimiento</label>
-        <input type="date" name="fecha_nacimiento" value="{{ aspirante['fecha_nacimiento'] if aspirante else '' }}">
+        <input type="date" name="fecha_nacimiento" value="{{ (aspirante['fecha_nacimiento'] or '') if aspirante else '' }}">
     </div>
 
     <div>
-        <label>Telefono</label>
-        <input type="text" name="telefono" value="{{ aspirante['telefono'] if aspirante else '' }}">
+        <label>Tel&eacute;fono / WhatsApp</label>
+        <input type="text" name="telefono" value="{{ (aspirante['telefono'] or '') if aspirante else '' }}">
     </div>
 
     <div>
         <label>Email</label>
-        <input type="email" name="email" value="{{ aspirante['email'] if aspirante else '' }}">
+        <input type="email" name="email" value="{{ (aspirante['email'] or '') if aspirante else '' }}">
     </div>
 
     <div>
-        <label>Categoria</label>
-        <input type="text" name="categoria" value="{{ aspirante['categoria'] if aspirante else '' }}" placeholder="Primera, Juveniles, etc.">
+        <label>Categor&iacute;a</label>
+        <input type="text" name="categoria" value="{{ (aspirante['categoria'] or '') if aspirante else '' }}" placeholder="Primera, Juveniles, etc.">
     </div>
 
     <div>
-        <label>Fecha de postulacion</label>
-        <input type="date" name="fecha_postulacion" value="{{ aspirante['fecha_postulacion'] if aspirante else '' }}">
+        <label>Fecha de postulaci&oacute;n</label>
+        <input type="date" name="fecha_postulacion" value="{{ (aspirante['fecha_postulacion'] or '') if aspirante else '' }}">
     </div>
+
+    <div class="full">
+        <label>Experiencia previa en rugby</label>
+        <textarea name="experiencia_previa" rows="3">{{ (aspirante['experiencia_previa'] or '') if aspirante else '' }}</textarea>
+    </div>
+
+    <div class="full">
+        <label>Disponibilidad</label>
+        <input type="text" name="disponibilidad" value="{{ (aspirante['disponibilidad'] or '') if aspirante else '' }}" placeholder="D&iacute;as y horarios posibles">
+    </div>
+
+    <div class="form-section-title full"><span>2</span><div><h3>Responsable y seguimiento</h3><p>Defin&iacute; qui&eacute;n acompa&ntilde;a el caso y cu&aacute;l es el pr&oacute;ximo paso.</p></div></div>
 
     <div>
         <label>Madrina/Padrino</label>
@@ -58,6 +76,19 @@
                 </option>
             {% endfor %}
         </select>
+    </div>
+
+    <div>
+        <label>Etapa de seguimiento</label>
+        {% set etapa_actual = aspirante['etapa_seguimiento'] if aspirante and aspirante['etapa_seguimiento'] else 'pendiente_contacto' %}
+        <select name="etapa_seguimiento">
+            {% for valor, etiqueta in aspirante_etapas.items() %}<option value="{{ valor }}" {% if etapa_actual == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label>Pr&oacute;xima acci&oacute;n</label>
+        <input type="date" name="proxima_accion_fecha" value="{{ (aspirante['proxima_accion_fecha'] or '') if aspirante else '' }}">
     </div>
 
     <div>
@@ -80,7 +111,7 @@
 
     <div class="full">
         <label>Observaciones</label>
-        <textarea name="observaciones" rows="4">{{ aspirante['observaciones'] if aspirante else '' }}</textarea>
+        <textarea name="observaciones" rows="4">{{ (aspirante['observaciones'] or '') if aspirante else '' }}</textarea>
     </div>
 
     <div class="full actions-row">
@@ -88,4 +119,5 @@
         <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Cancelar</a>
     </div>
 </form>
+</div>
 {% endblock %}
