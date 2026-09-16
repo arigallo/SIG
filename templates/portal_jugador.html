@@ -397,6 +397,56 @@
             </article>
         </section>
 
+        <section id="ayuda-pagos" class="page-section portal-payment-help">
+            <article class="card portal-panel portal-payment-help-card">
+                <div class="portal-payment-help-copy">
+                    <span class="portal-eyebrow">Estamos para ayudarte</span>
+                    <h3>¿Necesit&aacute;s ayuda con un pago?</h3>
+                    <p>Inform&aacute; una dificultad o ped&iacute; un plan de pagos. Tesorer&iacute;a revisar&aacute; tu caso y se comunicar&aacute; con vos.</p>
+                    {% if deuda > 0 %}
+                        <span class="portal-payment-help-debt">Deuda visible: <strong>{{ deuda | moneda }}</strong></span>
+                    {% endif %}
+                </div>
+                <form method="post" action="{{ url_for('portal_solicitar_asistencia_pago', token=token) }}" class="portal-payment-help-form">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <label for="solicitud-pago-detalle">Contanos brevemente tu situaci&oacute;n <span class="muted-line">(opcional)</span></label>
+                    <textarea id="solicitud-pago-detalle" name="detalle" rows="3" maxlength="1200" placeholder="Por ejemplo: este mes voy a poder pagar despu&eacute;s del d&iacute;a 20."></textarea>
+                    <div class="portal-payment-help-actions">
+                        <button class="button secondary" type="submit" name="tipo" value="dificultad">Comunicar dificultad o demora</button>
+                        <button class="button" type="submit" name="tipo" value="plan_pago">Solicitar plan de pagos</button>
+                    </div>
+                </form>
+            </article>
+
+            {% if solicitudes_pago_portal %}
+                <article class="card portal-panel portal-payment-request-history">
+                    <div class="section-header compact">
+                        <h3>Tus solicitudes</h3>
+                    </div>
+                    <div class="portal-payment-request-list">
+                        {% for solicitud in solicitudes_pago_portal %}
+                            <div class="portal-payment-request-item">
+                                <div>
+                                    <strong>{% if solicitud['tipo'] == 'plan_pago' %}Plan de pagos{% else %}Dificultad o demora de pago{% endif %}</strong>
+                                    <span class="muted-line">{{ solicitud['creado_en'] | fecha_hora }}</span>
+                                    {% if solicitud['detalle'] %}<span class="muted-line">{{ solicitud['detalle'] }}</span>{% endif %}
+                                </div>
+                                {% if solicitud['estado'] == 'pendiente' %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% elif solicitud['estado'] == 'contactada' %}
+                                    <span class="badge badge-info">En seguimiento</span>
+                                {% elif solicitud['estado'] == 'resuelta' %}
+                                    <span class="badge badge-success">Resuelta</span>
+                                {% else %}
+                                    <span class="badge">Cerrada</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </article>
+            {% endif %}
+        </section>
+
         <section class="page-section">
             <div class="section-header">
                 <h3>Planes de pago</h3>
@@ -422,7 +472,11 @@
                                     <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
                                 {% endif %}
                             </td>
-                            <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                            <td>
+                                {{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}
+                                <span class="muted-line">Cumplimiento: {{ plan['cuotas_pagadas'] or 0 }}/{{ plan['cantidad_cuotas'] }} cuotas</span>
+                                <span class="muted-line">Pagado: {{ (plan['monto_pagado'] or 0) | moneda }}</span>
+                            </td>
                             <td>{{ plan['estado'] }}</td>
                             <td>
                                 {{ plan['descripcion'] or '-' }}

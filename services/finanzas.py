@@ -93,7 +93,7 @@ def periodo_minimo(*periodos):
 def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
     periodo_idx = indice_periodo(periodo)
     if periodo_idx is None:
-        return {"monto": 0, "detalle": ""}
+        return {"monto": 0, "detalle": "", "plan_id": None}
 
     planes = conn.execute("""
         SELECT id, fecha_inicio, monto_total, cantidad_cuotas, monto_cuota,
@@ -108,6 +108,7 @@ def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
 
     monto_total_periodo = 0
     detalles = []
+    planes_aplicados = []
     for plan in planes:
         inicio = periodo_inicio_plan(plan)
         inicio_idx = indice_periodo(inicio)
@@ -127,6 +128,7 @@ def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
             continue
 
         monto_total_periodo = round(monto_total_periodo + monto_plan, 2)
+        planes_aplicados.append(plan["id"])
         etiqueta = f"Plan #{plan['id']} cuota {numero_cuota}/{cantidad}"
         if plan.get("descripcion"):
             etiqueta = f"{etiqueta} - {plan['descripcion']}"
@@ -135,6 +137,7 @@ def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
     return {
         "monto": monto_total_periodo,
         "detalle": "; ".join(detalles),
+        "plan_id": planes_aplicados[0] if len(planes_aplicados) == 1 else None,
     }
 
 
@@ -144,9 +147,22 @@ def calcular_importe_cuota_mensual(conn, jugador, periodo, importe_base):
     monto_plan = round(float(adicional_plan["monto"] or 0), 2)
     cuota["plan_pago_monto"] = monto_plan
     cuota["plan_pago_detalle"] = adicional_plan["detalle"]
+    cuota["plan_pago_id"] = adicional_plan.get("plan_id")
     if monto_plan:
-        cuota["importe_original"] = round(cuota["importe_original"] + monto_plan, 2)
-        cuota["importe"] = round(cuota["importe"] + monto_plan, 2)
+        importe_social = round(float(importe_base or 0), 2)
+        cuota["importe_original"] = round(importe_social + monto_plan, 2)
+        if beca_vigente(jugador, periodo):
+            # Una beca vigente junto con un plan evita que el jugador vuelva a
+            # acumular cuota social mientras regulariza la deuda anterior.
+            cuota["importe"] = monto_plan
+            cuota["descuento_beca"] = importe_social
+            cuota["becada"] = 1
+            detalle_exencion = "Cuota social cubierta por beca"
+            cuota["plan_pago_detalle"] = "; ".join(
+                item for item in (adicional_plan["detalle"], detalle_exencion) if item
+            )
+        else:
+            cuota["importe"] = round(cuota["importe"] + monto_plan, 2)
         cuota["beca_total"] = 1 if cuota["importe"] <= 0 else 0
     return cuota
 
@@ -205,7 +221,8 @@ def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None, hoy=None
                 metodo_pago = %s,
                 referencia_pago = %s,
                 plan_pago_monto = %s,
-                plan_pago_detalle = %s
+                plan_pago_detalle = %s,
+                plan_pago_id = %s
             WHERE id = %s
         """, (
             cuota_calculada["importe"],
@@ -220,6 +237,7 @@ def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None, hoy=None
             referencia_pago,
             cuota_calculada["plan_pago_monto"],
             cuota_calculada["plan_pago_detalle"] or None,
+            cuota_calculada["plan_pago_id"],
             cuota["id"],
         ))
         resultado["actualizadas"] += 1

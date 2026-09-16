@@ -85,7 +85,7 @@
                 {% endif %}
 
                 {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('facturas_recibidas_ver') or puede('presupuesto_ver') or puede('ventas_ver', 'ventas_gestionar') or puede('reportes_ver') %}
-                {% set finanzas_actual = endpoint in ['generar_cuotas', 'pagos_masivos_debito_automatico', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida', 'ver_presupuesto', 'ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'anular_venta_club', 'ver_reportes', 'ver_comunicaciones', 'ver_panel_cobranzas'] or (endpoint == 'ver_alertas' and puede('alertas_finanzas')) %}
+                {% set finanzas_actual = endpoint in ['generar_cuotas', 'pagos_masivos_debito_automatico', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida', 'ver_presupuesto', 'ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'comprobante_venta_club', 'anular_venta_club', 'ver_reportes', 'ver_comunicaciones', 'ver_panel_cobranzas'] or (endpoint == 'ver_alertas' and puede('alertas_finanzas')) %}
                 {% if mostrar_finanzas %}
                 <details class="nav-group {% if finanzas_actual %}current{% endif %}" {% if finanzas_actual %}open{% endif %}>
                     <summary>Finanzas</summary>
@@ -115,7 +115,7 @@
                             <a class="{% if endpoint == 'ver_presupuesto' %}active{% endif %}" href="{{ url_for('ver_presupuesto') }}">Presupuesto</a>
                         {% endif %}
                         {% if puede('ventas_ver', 'ventas_gestionar') %}
-                            <a class="{% if endpoint in ['ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'anular_venta_club'] %}active{% endif %}" href="{{ url_for('ver_ventas_club') }}">Ventas del club</a>
+                            <a class="{% if endpoint in ['ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'comprobante_venta_club', 'anular_venta_club'] %}active{% endif %}" href="{{ url_for('ver_ventas_club') }}">Ventas del club</a>
                         {% endif %}
                         {% if puede('reportes_ver') %}
                             <a class="{% if endpoint == 'ver_reportes' %}active{% endif %}" href="{{ url_for('ver_reportes') }}">Reportes</a>

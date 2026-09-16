@@ -97,7 +97,11 @@
                             <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
                         {% endif %}
                     </td>
-                    <td data-label="Cuotas">{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                    <td data-label="Cuotas">
+                        {{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}
+                        <span class="muted-line">Cumplimiento: {{ plan['cuotas_pagadas'] or 0 }}/{{ plan['cantidad_cuotas'] }} cuotas</span>
+                        <span class="muted-line">Pagado: {{ (plan['monto_pagado'] or 0) | moneda }}</span>
+                    </td>
                     <td data-label="Estado">{{ plan['estado'] }}</td>
                     <td data-label="Detalle">
                         {{ plan['descripcion'] or '-' }}

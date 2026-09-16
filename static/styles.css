@@ -2764,6 +2764,159 @@ tbody tr:hover {
     width: 100%;
 }
 
+.portal-payment-help {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.portal-payment-help-card {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+    gap: 28px;
+    align-items: center;
+    border-color: rgba(190, 224, 42, 0.32);
+    background: linear-gradient(135deg, rgba(190, 224, 42, 0.08), rgba(12, 77, 60, 0.12));
+}
+
+.portal-payment-help-copy h3 {
+    margin: 6px 0 8px;
+}
+
+.portal-payment-help-copy p {
+    margin: 0;
+}
+
+.portal-payment-help-debt {
+    display: inline-flex;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 8px 12px;
+    border: 1px solid rgba(190, 224, 42, 0.28);
+    border-radius: 999px;
+}
+
+.portal-payment-help-form {
+    display: grid;
+    gap: 10px;
+}
+
+.portal-payment-help-form label {
+    margin: 0;
+}
+
+.portal-payment-help-form textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.portal-payment-help-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.portal-payment-help-actions .button {
+    min-height: 46px;
+    white-space: normal;
+}
+
+.portal-payment-request-history {
+    grid-column: 1 / -1;
+}
+
+.portal-payment-request-list {
+    display: grid;
+    gap: 10px;
+}
+
+.portal-payment-request-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.portal-payment-request-item > div {
+    display: grid;
+    gap: 3px;
+}
+
+.payment-request-admin {
+    margin-bottom: 18px;
+}
+
+.payment-request-admin-list {
+    display: grid;
+    gap: 12px;
+}
+
+.payment-request-admin-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-soft);
+}
+
+.payment-request-admin-main {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.payment-request-admin-main p {
+    margin: 4px 0;
+}
+
+.payment-request-admin-title,
+.payment-request-admin-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+.payment-request-admin-actions {
+    align-content: flex-start;
+    justify-content: flex-end;
+    min-width: 230px;
+}
+
+@media (max-width: 768px) {
+    .portal-payment-help,
+    .portal-payment-help-card {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-payment-help-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-payment-request-item,
+    .payment-request-admin-item {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .payment-request-admin-actions {
+        justify-content: stretch;
+        min-width: 0;
+    }
+
+    .payment-request-admin-actions > *,
+    .payment-request-admin-actions .button {
+        width: 100%;
+    }
+}
+
 .admin-page {
     display: grid;
     gap: 24px;
@@ -4191,6 +4344,32 @@ tbody tr:hover {
 .portal-hero {
     position: relative;
     overflow: visible;
+}
+
+.sales-receipt-cell {
+    min-width: 210px;
+}
+
+.sales-receipt-upload {
+    margin-top: 8px;
+}
+
+.sales-receipt-upload summary {
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.sales-receipt-upload form {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.sales-receipt-upload input[type="file"] {
+    max-width: 240px;
+    font-size: 12px;
 }
 
 /* Administrative workspace refresh: restrained, clear and task-oriented. */

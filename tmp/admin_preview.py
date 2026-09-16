@@ -13,7 +13,7 @@ from flask import render_template, session, request, redirect
 def seed_preview_session():
     if request.method != "GET":
         return "Vista de diseño: los cambios están deshabilitados.", 405
-    destinations = {"/": "/preview/admin", "/operacion": "/preview/operacion", "/ahijadxs": "/preview/ahijadxs", "/ahijadxs/nuevo": "/preview/ahijadxs/nuevo", "/ahijadxs/1": "/preview/ahijadxs/1", "/ahijadxs/2": "/preview/ahijadxs/1", "/ahijadxs/1/editar": "/preview/ahijadxs/nuevo", "/ahijadxs/2/editar": "/preview/ahijadxs/nuevo"}
+    destinations = {"/": "/preview/admin", "/operacion": "/preview/operacion", "/finanzas/ventas": "/preview/ventas", "/ahijadxs": "/preview/ahijadxs", "/ahijadxs/nuevo": "/preview/ahijadxs/nuevo", "/ahijadxs/1": "/preview/ahijadxs/1", "/ahijadxs/2": "/preview/ahijadxs/1", "/ahijadxs/1/editar": "/preview/ahijadxs/nuevo", "/ahijadxs/2/editar": "/preview/ahijadxs/nuevo"}
     if request.path in destinations:
         return redirect(destinations[request.path])
     if not (request.path.startswith("/preview/") or request.path.startswith("/static/") or request.path == "/postulate"):
@@ -102,6 +102,30 @@ def preview_operacion():
         puede_gestionar_tareas=sig.puede_gestionar_tareas_sig(),
         puede_ver_tareas=bool(modulos) and sig.tiene_permiso("tareas_ver", "tareas_gestionar"),
         modulos_tareas=modulos,
+    )
+
+
+@sig.app.route("/preview/ventas")
+def preview_ventas():
+    if not sig.tiene_permiso("ventas_ver", "ventas_gestionar"):
+        session["preview_rol"] = "tesorero"
+        session["rol"] = "tesorero"
+        session["permisos"] = sig.ROLE_PRESETS["tesorero"]
+    productos = [
+        {"id": 1, "nombre": "Remera oficial", "descripcion": "Modelo 2026", "precio": 25000, "stock": 8, "activo": 1},
+        {"id": 2, "nombre": "Gorra del club", "descripcion": "Negra y verde", "precio": 12000, "stock": 4, "activo": 1},
+    ]
+    ventas = [
+        {"id": 21, "fecha": "2026-09-16", "comprador": "Juan Pérez", "detalle": "Remera oficial x1", "notas": "", "medio_pago": "Transferencia", "total": 25000, "estado": "confirmada", "comprobante_drive_file_id": "demo-drive", "comprobante_fecha": "2026-09-16 15:40", "comprobante_usuario": "tesoreria"},
+        {"id": 20, "fecha": "2026-09-15", "comprador": "María López", "detalle": "Gorra del club x1", "notas": "Entrega en entrenamiento", "medio_pago": "Efectivo", "total": 12000, "estado": "confirmada", "comprobante_drive_file_id": None, "comprobante_fecha": None, "comprobante_usuario": None},
+    ]
+    return render_template(
+        "ventas.html",
+        productos=productos,
+        ventas=ventas,
+        resumen={"operaciones": 2, "total": 37000},
+        mes="2026-09",
+        fecha_hoy="2026-09-16",
     )
 
 

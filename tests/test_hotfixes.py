@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import tempfile
 import unittest
@@ -1034,6 +1035,77 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("Cuenta corriente", portal)
         self.assertIn("Automatizaciones", sistema)
 
+    def test_scholarship_with_active_payment_plan_only_charges_plan_installment(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchall.return_value = [{
+            "id": 9,
+            "fecha_inicio": "2026-09-01",
+            "monto_total": 36000,
+            "cantidad_cuotas": 3,
+            "monto_cuota": 12000,
+            "descripcion": "Regularización",
+            "creado_en": "2026-09-01",
+        }]
+        jugador = {
+            "id": 7,
+            "beca_activa": 1,
+            "beca_porcentaje": 50,
+            "beca_desde": "2026-09",
+            "beca_hasta": "",
+            "beca_motivo": "Evitar nueva deuda durante el plan",
+        }
+
+        cuota = app.calcular_importe_cuota_mensual(conn, jugador, "2026-09", 35000)
+
+        self.assertEqual(cuota["importe"], 12000)
+        self.assertEqual(cuota["descuento_beca"], 35000)
+        self.assertEqual(cuota["plan_pago_monto"], 12000)
+        self.assertEqual(cuota["plan_pago_id"], 9)
+        self.assertIn("Cuota social cubierta por beca", cuota["plan_pago_detalle"])
+
+    def test_payment_plan_without_scholarship_still_adds_monthly_fee(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchall.return_value = [{
+            "id": 9,
+            "fecha_inicio": "2026-09-01",
+            "monto_total": 36000,
+            "cantidad_cuotas": 3,
+            "monto_cuota": 12000,
+            "descripcion": "Regularización",
+            "creado_en": "2026-09-01",
+        }]
+        jugador = {"id": 7, "beca_activa": 0, "beca_porcentaje": 0}
+
+        cuota = app.calcular_importe_cuota_mensual(conn, jugador, "2026-09", 35000)
+
+        self.assertEqual(cuota["importe"], 47000)
+        self.assertEqual(cuota["descuento_beca"], 0)
+        self.assertEqual(cuota["plan_pago_monto"], 12000)
+        self.assertEqual(cuota["plan_pago_id"], 9)
+
+    def test_paid_installment_can_complete_payment_plan(self):
+        conn = MagicMock()
+
+        def execute(sql, params=None):
+            result = MagicMock()
+            if "JOIN planes_pago" in sql:
+                result.fetchone.return_value = {
+                    "id": 9,
+                    "monto_total": 36000,
+                    "cantidad_cuotas": 3,
+                    "estado": "Activo",
+                }
+            elif "COUNT(*) FILTER" in sql:
+                result.fetchone.return_value = {"cuotas_pagadas": 3, "monto_pagado": 36000}
+            return result
+
+        conn.execute.side_effect = execute
+        avance = app.actualizar_cumplimiento_plan_por_cuota(conn, 44, "tesoreria")
+
+        self.assertTrue(avance["cumplido"])
+        self.assertEqual(avance["cuotas_pagadas"], 3)
+        self.assertTrue(any("SET estado = 'Cumplido'" in call.args[0] for call in conn.execute.call_args_list))
+
     def test_pwa_install_and_push_infrastructure_is_present(self):
         source = Path(app.__file__).read_text(encoding="utf-8-sig")
         base = (Path(app.__file__).parent / "templates" / "base.html").read_text(encoding="utf-8-sig")
@@ -1448,6 +1520,172 @@ class HotfixTests(unittest.TestCase):
         self.assertNotIn("Cambios recientes desde jugadores", html)
         self.assertNotIn("Asistencia baja", html)
         self.assertNotIn("DB activa", html)
+
+    def test_sales_template_supports_drive_receipts(self):
+        template = Path("templates/ventas.html").read_text(encoding="utf-8")
+        self.assertIn('enctype="multipart/form-data"', template)
+        self.assertIn('name="comprobante_pago"', template)
+        self.assertIn("comprobante_venta_club", template)
+        self.assertIn("Se guarda junto con los comprobantes de Caja en Google Drive", template)
+
+    def test_register_sale_saves_attached_receipt_on_cash_movement(self):
+        conn = MagicMock()
+
+        def execute(sql, params=None):
+            result = MagicMock()
+            if "FROM cierres_mensuales" in sql:
+                result.fetchone.return_value = None
+            elif "FROM venta_productos" in sql and "FOR UPDATE" in sql:
+                result.fetchone.return_value = {"id": 4, "nombre": "Remera", "precio": 12000, "stock": 5, "activo": 1}
+            elif "INSERT INTO ventas_club" in sql:
+                result.fetchone.return_value = {"id": 21}
+            elif "INSERT INTO movimientos" in sql:
+                result.fetchone.return_value = {"id": 33}
+            return result
+
+        conn.execute.side_effect = execute
+        uploaded = ({"file_id": "drive-sale", "nombre": "venta.pdf", "mime_type": "application/pdf", "tamano": 123, "web_url": "https://drive.test/venta"}, "OP-9", 12000, "ocr")
+        data = {
+            "fecha": "2026-09-16",
+            "comprador": "Socio",
+            "medio_pago": "Transferencia",
+            "notas": "",
+            "producto_id": "4",
+            "cantidad": "1",
+            "comprobante_pago": (io.BytesIO(b"pdf"), "venta.pdf"),
+        }
+        with app.app.test_request_context("/finanzas/ventas/registrar", method="POST", data=data, content_type="multipart/form-data"), \
+                patch.object(app, "get_connection", return_value=conn), \
+                patch.object(app, "procesar_comprobante_movimiento", return_value=uploaded) as procesar, \
+                patch.object(app, "registrar_auditoria"):
+            session.update(rol="tesorero", permisos=["ventas_gestionar"], username="tesoreria")
+            response = app.registrar_venta_club()
+
+        self.assertEqual(response.status_code, 302)
+        procesar.assert_called_once()
+        self.assertEqual(procesar.call_args.args[1]["id"], 33)
+        self.assertTrue(any("comprobante_drive_file_id" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_called_once()
+
+    def test_sale_receipt_can_be_replaced_from_history(self):
+        conn = MagicMock()
+
+        def execute(sql, params=None):
+            result = MagicMock()
+            if "FROM ventas_club" in sql:
+                result.fetchone.return_value = {"id": 21, "fecha": "2026-09-16", "estado": "confirmada", "movimiento_id": 33}
+            elif "FROM movimientos" in sql:
+                result.fetchone.return_value = {
+                    "id": 33,
+                    "fecha": "2026-09-16",
+                    "tipo": "ingreso",
+                    "concepto": "Venta del club #21",
+                    "comprobante_drive_file_id": "drive-old",
+                }
+            return result
+
+        conn.execute.side_effect = execute
+        uploaded = ({"file_id": "drive-old", "nombre": "reemplazo.png", "mime_type": "image/png", "tamano": 321, "web_url": "https://drive.test/reemplazo"}, "OP-10", 12000, "ocr nuevo")
+        data = {"comprobante_pago": (io.BytesIO(b"png"), "reemplazo.png")}
+        with app.app.test_request_context("/finanzas/ventas/21/comprobante", method="POST", data=data, content_type="multipart/form-data"), \
+                patch.object(app, "get_connection", return_value=conn), \
+                patch.object(app, "procesar_comprobante_movimiento", return_value=uploaded) as procesar, \
+                patch.object(app, "registrar_auditoria"):
+            session.update(rol="tesorero", permisos=["ventas_gestionar"], username="tesoreria")
+            response = app.comprobante_venta_club(21)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(procesar.call_args.kwargs["existing_file_id"], "drive-old")
+        self.assertTrue(any("UPDATE movimientos" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_called_once()
+
+    def test_portal_payment_help_is_visible_and_reaches_treasury(self):
+        portal_template = Path("templates/portal_jugador.html").read_text(encoding="utf-8")
+        plans_template = Path("templates/planes_pago.html").read_text(encoding="utf-8")
+
+        self.assertIn("Comunicar dificultad o demora", portal_template)
+        self.assertIn("Solicitar plan de pagos", portal_template)
+        self.assertIn("portal_solicitar_asistencia_pago", portal_template)
+        self.assertIn("Solicitudes de ayuda con pagos", plans_template)
+        self.assertIn("actualizar_solicitud_pago_portal", plans_template)
+
+    def test_player_can_request_a_payment_plan_from_portal(self):
+        conn = MagicMock()
+
+        def execute(sql, params=None):
+            result = MagicMock()
+            if "FROM jugadores" in sql:
+                result.fetchone.return_value = {
+                    "id": 7,
+                    "nombre": "Ana",
+                    "apellido": "Prueba",
+                }
+            elif "FROM solicitudes_pago_portal" in sql:
+                result.fetchone.return_value = None
+            elif "INSERT INTO solicitudes_pago_portal" in sql:
+                result.fetchone.return_value = {"id": 12}
+            return result
+
+        conn.execute.side_effect = execute
+        with app.app.test_request_context(
+            "/portal/portal-token/pagos/solicitud",
+            method="POST",
+            data={"tipo": "plan_pago", "detalle": "Necesito dividir la deuda en cuotas."},
+        ), patch.object(app, "get_connection", return_value=conn), patch.object(app, "registrar_auditoria") as audit:
+            response = app.portal_solicitar_asistencia_pago("portal-token")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith("#ayuda-pagos"))
+        self.assertTrue(any("INSERT INTO solicitudes_pago_portal" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_called_once()
+        audit.assert_called_once()
+
+    def test_open_payment_request_prevents_duplicate_portal_request(self):
+        conn = MagicMock()
+
+        def execute(sql, params=None):
+            result = MagicMock()
+            if "FROM jugadores" in sql:
+                result.fetchone.return_value = {"id": 7, "nombre": "Ana", "apellido": "Prueba"}
+            elif "FROM solicitudes_pago_portal" in sql:
+                result.fetchone.return_value = {"id": 12}
+            return result
+
+        conn.execute.side_effect = execute
+        with app.app.test_request_context(
+            "/portal/portal-token/pagos/solicitud",
+            method="POST",
+            data={"tipo": "dificultad", "detalle": "Voy a pagar después del día 20."},
+        ), patch.object(app, "get_connection", return_value=conn), patch.object(app, "registrar_auditoria") as audit:
+            response = app.portal_solicitar_asistencia_pago("portal-token")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(any("INSERT INTO solicitudes_pago_portal" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_not_called()
+        audit.assert_not_called()
+
+    def test_treasury_can_mark_portal_payment_request_as_contacted(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {
+            "id": 12,
+            "jugador_id": 7,
+            "tipo": "plan_pago",
+            "estado": "pendiente",
+        }
+
+        with app.app.test_request_context(
+            "/planes-pago/solicitudes/12/estado",
+            method="POST",
+            data={"estado": "contactada"},
+        ), patch.object(app, "permiso_requerido", return_value=None), patch.object(app, "get_connection", return_value=conn), patch.object(app, "registrar_auditoria") as audit:
+            session["username"] = "tesoreria"
+            response = app.actualizar_solicitud_pago_portal(12)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith("#solicitudes-portal"))
+        self.assertTrue(any("UPDATE solicitudes_pago_portal" in call.args[0] for call in conn.execute.call_args_list))
+        conn.commit.assert_called_once()
+        audit.assert_called_once()
 
 
 if __name__ == "__main__":

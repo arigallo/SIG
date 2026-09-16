@@ -502,7 +502,11 @@
                         <tr>
                             <td>{{ plan['fecha_inicio'] or '-' }}</td>
                             <td>{{ plan['monto_total'] | moneda }}</td>
-                            <td>{{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}</td>
+                            <td>
+                                {{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}
+                                <span class="muted-line">Cumplimiento: {{ plan['cuotas_pagadas'] or 0 }}/{{ plan['cantidad_cuotas'] }}</span>
+                                <span class="muted-line">{{ (plan['monto_pagado'] or 0) | moneda }} pagados</span>
+                            </td>
                             <td>{{ plan['estado'] }}</td>
                             <td>
                                 {% if puede('planes_pago_gestionar') %}

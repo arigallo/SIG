@@ -29,7 +29,7 @@
 {% if puede('ventas_gestionar') %}
 <div class="page-section">
     <div class="section-header"><h3>Registrar venta</h3></div>
-    <form method="post" action="{{ url_for('registrar_venta_club') }}" class="card form-card form-card-wide" id="venta-form">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('registrar_venta_club') }}" class="card form-card form-card-wide" id="venta-form">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <div class="form-grid">
             <div>
@@ -68,6 +68,19 @@
             <div class="full">
                 <label>Notas</label>
                 <textarea name="notas" rows="2" maxlength="500"></textarea>
+            </div>
+            <div class="full">
+                <label>Comprobante de pago (opcional)</label>
+                <label id="comprobante-venta-dropzone" class="upload-dropzone compact-upload" data-upload-dropzone tabindex="0">
+                    <input class="upload-input"
+                           type="file"
+                           name="comprobante_pago"
+                           accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                    <span class="upload-title">Adjunt&aacute; el comprobante de transferencia o pago</span>
+                    <span class="upload-hint">PDF, JPG o PNG. Se guarda junto con los comprobantes de Caja en Google Drive.</span>
+                    <span class="upload-file" data-upload-file-name>Ning&uacute;n archivo seleccionado</span>
+                </label>
+                <button class="button secondary" type="button" data-upload-paste="#comprobante-venta-dropzone">Pegar desde portapapeles</button>
             </div>
         </div>
         <div class="actions-row stack-gap">
@@ -134,19 +147,37 @@
     </form>
     <div class="table-wrapper spaced-small">
         <table>
-            <thead><tr><th>Fecha</th><th>Venta</th><th>Comprador</th><th>Detalle</th><th>Pago</th><th>Total</th><th>Accion</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Venta</th><th>Comprador</th><th>Detalle</th><th>Pago</th><th>Total</th><th>Comprobante</th><th>Acci&oacute;n</th></tr></thead>
             <tbody>
             {% for venta in ventas %}
                 <tr class="{% if venta['estado'] == 'anulada' %}movement-cancelled{% endif %}">
                     <td>{{ venta['fecha'] }}</td><td>#{{ venta['id'] }}</td><td>{{ venta['comprador'] or '-' }}</td>
                     <td>{{ venta['detalle'] }}{% if venta['notas'] %}<span class="muted-line">{{ venta['notas'] }}</span>{% endif %}</td>
                     <td>{{ venta['medio_pago'] }}</td><td>{{ venta['total'] | moneda }}</td>
+                    <td class="sales-receipt-cell">
+                        {% if venta['comprobante_drive_file_id'] %}
+                            <a class="button secondary" href="{{ url_for('comprobante_venta_club', venta_id=venta['id']) }}" target="_blank" rel="noopener">Ver</a>
+                            <span class="muted-line">{{ venta['comprobante_fecha'] or '' }}{% if venta['comprobante_usuario'] %} · {{ venta['comprobante_usuario'] }}{% endif %}</span>
+                        {% else %}
+                            <span class="badge badge-muted">Sin comprobante</span>
+                        {% endif %}
+                        {% if venta['estado'] == 'confirmada' and puede('ventas_gestionar') %}
+                        <details class="sales-receipt-upload">
+                            <summary>{{ 'Reemplazar' if venta['comprobante_drive_file_id'] else 'Adjuntar' }}</summary>
+                            <form method="post" enctype="multipart/form-data" action="{{ url_for('comprobante_venta_club', venta_id=venta['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="file" name="comprobante_pago" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+                                <button class="button secondary" type="submit">Guardar</button>
+                            </form>
+                        </details>
+                        {% endif %}
+                    </td>
                     <td>{% if venta['estado'] == 'confirmada' and puede('ventas_gestionar') %}
                         <form method="post" action="{{ url_for('anular_venta_club', venta_id=venta['id']) }}" onsubmit="return confirm('¿Anular esta venta? Se repondra el stock y se anulara el ingreso en Caja.');">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button danger" type="submit">Anular</button>
                         </form>{% else %}<span>{{ venta['estado'] | capitalize }}</span>{% endif %}</td>
                 </tr>
-            {% else %}<tr><td colspan="7" class="empty">No hay ventas en este mes.</td></tr>{% endfor %}
+            {% else %}<tr><td colspan="8" class="empty">No hay ventas en este mes.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

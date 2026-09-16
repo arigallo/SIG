@@ -3415,6 +3415,59 @@ def recalcular_cuotas_planes_pago(conn, jugador_id, periodo_desde=None):
     )
 
 
+def actualizar_cumplimiento_plan_por_cuota(conn, cuota_id, usuario=None):
+    plan = conn.execute("""
+        SELECT p.id, p.monto_total, p.cantidad_cuotas, p.estado
+        FROM cuotas c
+        JOIN planes_pago p ON p.id = c.plan_pago_id
+        WHERE c.id = %s
+          AND COALESCE(c.anulada, 0) = 0
+          AND COALESCE(c.plan_pago_monto, 0) > 0
+        FOR UPDATE OF p
+    """, (cuota_id,)).fetchone()
+    if plan is None:
+        return None
+
+    avance = conn.execute("""
+        SELECT
+            COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,
+            COALESCE(SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END), 0) AS monto_pagado
+        FROM cuotas
+        WHERE plan_pago_id = %s
+          AND COALESCE(anulada, 0) = 0
+          AND COALESCE(plan_pago_monto, 0) > 0
+    """, (plan["id"],)).fetchone()
+    cuotas_pagadas = int(avance["cuotas_pagadas"] or 0)
+    monto_pagado = round(float(avance["monto_pagado"] or 0), 2)
+    monto_total = round(float(plan["monto_total"] or 0), 2)
+    cantidad_cuotas = int(plan["cantidad_cuotas"] or 0)
+    cumplido = (
+        cantidad_cuotas > 0
+        and cuotas_pagadas >= cantidad_cuotas
+        and monto_pagado >= max(0, monto_total - 0.01)
+    )
+    if cumplido and plan["estado"] == "Activo":
+        conn.execute("""
+            UPDATE planes_pago
+            SET estado = 'Cumplido',
+                cerrado_en = %s,
+                cerrado_por = %s
+            WHERE id = %s
+        """, (
+            ahora_sig().strftime("%Y-%m-%d"),
+            usuario or (session.get("username") if has_request_context() else "sistema"),
+            plan["id"],
+        ))
+    return {
+        "plan_id": plan["id"],
+        "cuotas_pagadas": cuotas_pagadas,
+        "cantidad_cuotas": cantidad_cuotas,
+        "monto_pagado": monto_pagado,
+        "monto_total": monto_total,
+        "cumplido": cumplido,
+    }
+
+
 def snapshot_beca(jugador):
     if not jugador:
         return {
@@ -3494,11 +3547,12 @@ def recalcular_cuotas_becadas(conn, jugador, periodo_desde="", periodo_hasta="")
             importe_base = cuota.get("importe") or 0
         importe_base = max(0, round(float(importe_base or 0) - plan_pago_monto, 2))
 
-        cuota_calculada = calcular_importe_con_beca(jugador, cuota["periodo"], importe_base)
-        if plan_pago_monto:
-            cuota_calculada["importe_original"] = round(cuota_calculada["importe_original"] + plan_pago_monto, 2)
-            cuota_calculada["importe"] = round(cuota_calculada["importe"] + plan_pago_monto, 2)
-            cuota_calculada["beca_total"] = 1 if cuota_calculada["importe"] <= 0 else 0
+        cuota_calculada = calcular_importe_cuota_mensual(
+            conn,
+            jugador,
+            cuota["periodo"],
+            importe_base,
+        )
         pagado = 1 if cuota_calculada["beca_total"] else 0
         fecha_pago = hoy if pagado else None
         metodo_pago = "Beca" if pagado else None
@@ -3518,7 +3572,10 @@ def recalcular_cuotas_becadas(conn, jugador, periodo_desde="", periodo_hasta="")
                 pagado = %s,
                 fecha_pago = %s,
                 metodo_pago = %s,
-                referencia_pago = %s
+                referencia_pago = %s,
+                plan_pago_monto = %s,
+                plan_pago_detalle = %s,
+                plan_pago_id = %s
             WHERE id = %s
         """, (
             cuota_calculada["importe"],
@@ -3531,6 +3588,9 @@ def recalcular_cuotas_becadas(conn, jugador, periodo_desde="", periodo_hasta="")
             fecha_pago,
             metodo_pago,
             referencia_pago,
+            cuota_calculada["plan_pago_monto"],
+            cuota_calculada["plan_pago_detalle"] or None,
+            cuota_calculada["plan_pago_id"],
             cuota["id"],
         ))
 
@@ -6585,6 +6645,7 @@ def aplicar_matches_conciliacion(conn, matches):
                 referencia_pago = %s
             WHERE id = %s
         """, (fecha_pago, numero_recibo, referencia, cuota["id"]))
+        actualizar_cumplimiento_plan_por_cuota(conn, cuota["id"], "conciliacion")
 
         conn.execute("""
             INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
@@ -7845,6 +7906,30 @@ def init_db():
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS solicitudes_pago_portal (
+            id SERIAL PRIMARY KEY,
+            jugador_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL,
+            detalle TEXT,
+            estado TEXT NOT NULL DEFAULT 'pendiente',
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_por TEXT,
+            FOREIGN KEY (jugador_id) REFERENCES jugadores(id)
+        )
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_solicitudes_pago_portal_estado
+        ON solicitudes_pago_portal (estado, creado_en DESC)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_solicitudes_pago_portal_jugador
+        ON solicitudes_pago_portal (jugador_id, creado_en DESC)
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS documentos_jugadores (
             id SERIAL PRIMARY KEY,
             jugador_id INTEGER NOT NULL,
@@ -8992,11 +9077,17 @@ def ver_ventas_club():
     """).fetchall()
     ventas = conn.execute("""
         SELECT v.*,
+               m.comprobante_drive_file_id,
+               m.comprobante_nombre,
+               m.comprobante_mime_type,
+               m.comprobante_fecha,
+               m.comprobante_usuario,
                COALESCE(string_agg(i.producto_nombre || ' x' || i.cantidad, ', ' ORDER BY i.id), '') AS detalle
         FROM ventas_club v
         LEFT JOIN venta_items i ON i.venta_id = v.id
+        LEFT JOIN movimientos m ON m.id = v.movimiento_id
         WHERE substring(v.fecha from 1 for 7) = %s
-        GROUP BY v.id
+        GROUP BY v.id, m.id
         ORDER BY v.fecha DESC, v.id DESC
     """, (mes,)).fetchall()
     resumen = conn.execute("""
@@ -9108,6 +9199,7 @@ def registrar_venta_club():
     comprador = request.form.get("comprador", "").strip()
     medio_pago = request.form.get("medio_pago", "").strip()
     notas = request.form.get("notas", "").strip()
+    comprobante_pago = request.files.get("comprobante_pago")
     if not fecha or medio_pago not in {"Efectivo", "Transferencia", "Tarjeta", "Otro"}:
         flash("Revisa la fecha y el medio de pago.", "error")
         return redirect(url_for("ver_ventas_club"))
@@ -9152,6 +9244,47 @@ def registrar_venta_club():
             RETURNING id
         """, (f"Venta del club #{venta['id']}", total, fecha, medio_pago)).fetchone()
         conn.execute("UPDATE ventas_club SET movimiento_id = %s WHERE id = %s", (movimiento["id"], venta["id"]))
+        comprobante_info = None
+        if comprobante_pago and comprobante_pago.filename:
+            try:
+                comprobante_info, numero_operacion, _, ocr_texto = procesar_comprobante_movimiento(
+                    comprobante_pago,
+                    {
+                        "id": movimiento["id"],
+                        "tipo": "ingreso",
+                        "concepto": f"Venta del club #{venta['id']}",
+                        "fecha": fecha,
+                    },
+                )
+            except ValueError:
+                raise
+            except Exception as error:
+                app.logger.exception("No se pudo guardar el comprobante de la venta %s.", venta["id"])
+                raise ValueError(mensaje_error_drive(error, carpeta="Caja", accion="subir el comprobante de la venta")) from error
+            conn.execute("""
+                UPDATE movimientos
+                SET comprobante_drive_file_id = %s,
+                    comprobante_nombre = %s,
+                    comprobante_mime_type = %s,
+                    comprobante_tamano = %s,
+                    comprobante_fecha = %s,
+                    comprobante_usuario = %s,
+                    comprobante_web_url = %s,
+                    comprobante_operacion = %s,
+                    comprobante_ocr_texto = %s
+                WHERE id = %s
+            """, (
+                comprobante_info["file_id"],
+                comprobante_info["nombre"],
+                comprobante_info["mime_type"],
+                comprobante_info["tamano"],
+                ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
+                session.get("username"),
+                comprobante_info["web_url"],
+                numero_operacion,
+                ocr_texto,
+                movimiento["id"],
+            ))
         for producto, cantidad, subtotal in productos:
             conn.execute("""
                 INSERT INTO venta_items (venta_id, producto_id, producto_nombre, cantidad, precio_unitario, subtotal)
@@ -9170,10 +9303,126 @@ def registrar_venta_club():
         raise
     conn.close()
     registrar_auditoria("crear", "venta_club", str(venta["id"]), {
-        "total": total, "fecha": fecha, "medio_pago": medio_pago, "movimiento_id": movimiento["id"],
+        "total": total,
+        "fecha": fecha,
+        "medio_pago": medio_pago,
+        "movimiento_id": movimiento["id"],
+        "comprobante": bool(comprobante_info),
     })
-    flash(f"Venta #{venta['id']} registrada e ingreso agregado a Caja.", "ok")
+    if comprobante_info:
+        flash(f"Venta #{venta['id']} registrada con comprobante en Drive e ingreso agregado a Caja.", "ok")
+    else:
+        flash(f"Venta #{venta['id']} registrada e ingreso agregado a Caja.", "ok")
     return redirect(url_for("ver_ventas_club", mes=fecha[:7]))
+
+
+@app.route("/finanzas/ventas/<int:venta_id>/comprobante", methods=["GET", "POST"])
+def comprobante_venta_club(venta_id):
+    permisos = ("ventas_gestionar",) if request.method == "POST" else ("ventas_ver", "ventas_gestionar")
+    check = permiso_requerido(*permisos)
+    if check:
+        return check
+
+    conn = get_connection()
+    venta = conn.execute("SELECT * FROM ventas_club WHERE id = %s", (venta_id,)).fetchone()
+    if not venta or not venta.get("movimiento_id"):
+        conn.close()
+        flash("La venta no existe o no tiene un movimiento de Caja asociado.", "error")
+        return redirect(url_for("ver_ventas_club"))
+    movimiento = conn.execute("SELECT * FROM movimientos WHERE id = %s", (venta["movimiento_id"],)).fetchone()
+    if not movimiento:
+        conn.close()
+        flash("No se encontró el movimiento de Caja de la venta.", "error")
+        return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+
+    if request.method == "GET":
+        conn.close()
+        if not movimiento.get("comprobante_drive_file_id"):
+            flash("La venta no tiene un comprobante adjunto.", "error")
+            return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+        try:
+            archivo = descargar_drive_file(movimiento["comprobante_drive_file_id"])
+        except RuntimeError as error:
+            flash(str(error), "error")
+            return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+        except Exception as error:
+            app.logger.exception("No se pudo descargar el comprobante de la venta %s.", venta_id)
+            flash(mensaje_error_drive(error, carpeta="Caja", accion="descargar el comprobante de la venta"), "error")
+            return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+        registrar_auditoria(
+            "descargar_ok",
+            "comprobante_venta_club",
+            str(venta_id),
+            {"archivo": movimiento.get("comprobante_nombre"), "drive_file_id": movimiento.get("comprobante_drive_file_id")},
+        )
+        return send_file(
+            archivo,
+            mimetype=movimiento.get("comprobante_mime_type") or "application/octet-stream",
+            as_attachment=False,
+            download_name=movimiento.get("comprobante_nombre") or f"comprobante_venta_{venta_id}",
+        )
+
+    if venta.get("estado") != "confirmada":
+        conn.close()
+        flash("No se puede modificar el comprobante de una venta anulada.", "error")
+        return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+    comprobante_pago = request.files.get("comprobante_pago")
+    if not comprobante_pago or not comprobante_pago.filename:
+        conn.close()
+        flash("Seleccioná un comprobante PDF, JPG o PNG.", "error")
+        return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+
+    try:
+        comprobante_info, numero_operacion, _, ocr_texto = procesar_comprobante_movimiento(
+            comprobante_pago,
+            movimiento,
+            existing_file_id=movimiento.get("comprobante_drive_file_id"),
+        )
+        conn.execute("""
+            UPDATE movimientos
+            SET comprobante_drive_file_id = %s,
+                comprobante_nombre = %s,
+                comprobante_mime_type = %s,
+                comprobante_tamano = %s,
+                comprobante_fecha = %s,
+                comprobante_usuario = %s,
+                comprobante_web_url = %s,
+                comprobante_operacion = %s,
+                comprobante_ocr_texto = %s
+            WHERE id = %s
+        """, (
+            comprobante_info["file_id"],
+            comprobante_info["nombre"],
+            comprobante_info["mime_type"],
+            comprobante_info["tamano"],
+            ahora_sig().strftime("%Y-%m-%d %H:%M:%S"),
+            session.get("username"),
+            comprobante_info["web_url"],
+            numero_operacion,
+            ocr_texto,
+            movimiento["id"],
+        ))
+        conn.commit()
+    except ValueError as error:
+        conn.rollback()
+        conn.close()
+        flash(str(error), "error")
+        return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+    except Exception as error:
+        conn.rollback()
+        conn.close()
+        app.logger.exception("No se pudo actualizar el comprobante de la venta %s.", venta_id)
+        flash(mensaje_error_drive(error, carpeta="Caja", accion="subir el comprobante de la venta"), "error")
+        return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
+    conn.close()
+    registrar_auditoria(
+        "subir",
+        "comprobante_venta_club",
+        str(venta_id),
+        {"archivo": comprobante_info["nombre"], "drive_file_id": comprobante_info["file_id"]},
+    )
+    flash("Comprobante de la venta guardado en Google Drive.", "ok")
+    return redirect(url_for("ver_ventas_club", mes=venta["fecha"][:7]))
 
 
 @app.route("/finanzas/ventas/<int:venta_id>/anular", methods=["POST"])
@@ -9627,6 +9876,7 @@ def proteger_rutas():
         "portal_actualizar_configuracion",
         "portal_omitir_notificaciones",
         "portal_actualizar_contacto",
+        "portal_solicitar_asistencia_pago",
         "portal_subir_comprobante",
         "portal_ver_comprobante",
         "portal_subir_comprobante_gasto_compartido",
@@ -11666,6 +11916,7 @@ def pagos_masivos_debito_automatico():
                     metodo_pago = 'Débito automático', referencia_pago = %s
                 WHERE id = %s
             """, (numero_recibo, f"Pago masivo {periodo}", cuota["id"]))
+            actualizar_cumplimiento_plan_por_cuota(conn, cuota["id"], session.get("username"))
             conn.execute("""
                 INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
                 VALUES ('ingreso', %s, %s, CURRENT_DATE, 'Cuota Social (Débito automático)')
@@ -13984,7 +14235,10 @@ def ver_cuotas(jugador_id):
         SELECT
             p.*,
             COALESCE(incluidas.cuotas_incluidas, 0) AS cuotas_incluidas,
-            COALESCE(incluidas.monto_incluido, 0) AS monto_incluido
+            COALESCE(incluidas.monto_incluido, 0) AS monto_incluido,
+            COALESCE(avance.cuotas_generadas, 0) AS cuotas_generadas,
+            COALESCE(avance.cuotas_pagadas, 0) AS cuotas_pagadas,
+            COALESCE(avance.monto_pagado, 0) AS monto_pagado
         FROM planes_pago p
         LEFT JOIN (
             SELECT plan_pago_id, COUNT(*) AS cuotas_incluidas, SUM(COALESCE(NULLIF(importe_anulado, 0), NULLIF(importe, 0), importe_original, 0)) AS monto_incluido
@@ -13993,6 +14247,18 @@ def ver_cuotas(jugador_id):
               AND plan_pago_id IS NOT NULL
             GROUP BY plan_pago_id
         ) incluidas ON incluidas.plan_pago_id = p.id
+        LEFT JOIN (
+            SELECT
+                plan_pago_id,
+                COUNT(*) AS cuotas_generadas,
+                COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,
+                SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END) AS monto_pagado
+            FROM cuotas
+            WHERE COALESCE(anulada, 0) = 0
+              AND COALESCE(plan_pago_monto, 0) > 0
+              AND plan_pago_id IS NOT NULL
+            GROUP BY plan_pago_id
+        ) avance ON avance.plan_pago_id = p.id
         WHERE p.jugador_id = %s
         ORDER BY
             CASE WHEN estado = 'Activo' THEN 0 ELSE 1 END,
@@ -14090,7 +14356,10 @@ def listar_planes_pago():
             j.categoria,
             COALESCE(deuda.deuda, 0) AS deuda_actual,
             COALESCE(incluidas.cuotas_incluidas, 0) AS cuotas_incluidas,
-            COALESCE(incluidas.monto_incluido, 0) AS monto_incluido
+            COALESCE(incluidas.monto_incluido, 0) AS monto_incluido,
+            COALESCE(avance.cuotas_generadas, 0) AS cuotas_generadas,
+            COALESCE(avance.cuotas_pagadas, 0) AS cuotas_pagadas,
+            COALESCE(avance.monto_pagado, 0) AS monto_pagado
         FROM planes_pago p
         JOIN jugadores j ON j.id = p.jugador_id
         LEFT JOIN (
@@ -14109,6 +14378,18 @@ def listar_planes_pago():
               AND plan_pago_id IS NOT NULL
             GROUP BY plan_pago_id
         ) incluidas ON incluidas.plan_pago_id = p.id
+        LEFT JOIN (
+            SELECT
+                plan_pago_id,
+                COUNT(*) AS cuotas_generadas,
+                COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,
+                SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END) AS monto_pagado
+            FROM cuotas
+            WHERE COALESCE(anulada, 0) = 0
+              AND COALESCE(plan_pago_monto, 0) > 0
+              AND plan_pago_id IS NOT NULL
+            GROUP BY plan_pago_id
+        ) avance ON avance.plan_pago_id = p.id
         {where_sql}
         ORDER BY
             CASE WHEN p.estado = 'Activo' THEN 0 ELSE 1 END,
@@ -14116,9 +14397,87 @@ def listar_planes_pago():
             j.apellido,
             j.nombre
     """, parametros).fetchall()
+    solicitudes_portal = conn.execute("""
+        SELECT
+            s.*,
+            j.apellido,
+            j.nombre,
+            j.categoria,
+            COALESCE(deuda.deuda, 0) AS deuda_actual
+        FROM solicitudes_pago_portal s
+        JOIN jugadores j ON j.id = s.jugador_id
+        LEFT JOIN (
+            SELECT jugador_id, SUM(importe) AS deuda
+            FROM cuotas
+            WHERE pagado = 0
+              AND COALESCE(anulada, 0) = 0
+              AND COALESCE(incobrable, 0) = 0
+              AND COALESCE(importe, 0) > 0
+            GROUP BY jugador_id
+        ) deuda ON deuda.jugador_id = j.id
+        WHERE s.estado IN ('pendiente', 'contactada')
+        ORDER BY
+            CASE WHEN s.estado = 'pendiente' THEN 0 ELSE 1 END,
+            s.creado_en DESC,
+            s.id DESC
+        LIMIT 100
+    """).fetchall()
     conn.close()
 
-    return render_template("planes_pago.html", planes=planes, estado=estado)
+    return render_template(
+        "planes_pago.html",
+        planes=planes,
+        estado=estado,
+        solicitudes_portal=solicitudes_portal,
+    )
+
+
+@app.route("/planes-pago/solicitudes/<int:solicitud_id>/estado", methods=["POST"])
+def actualizar_solicitud_pago_portal(solicitud_id):
+    check = permiso_requerido("planes_pago_gestionar")
+    if check:
+        return check
+
+    estado = request.form.get("estado", "").strip()
+    if estado not in {"contactada", "resuelta", "rechazada"}:
+        flash("El estado seleccionado no es válido.", "error")
+        return redirect(url_for("listar_planes_pago"))
+
+    conn = get_connection()
+    solicitud = conn.execute("""
+        SELECT id, jugador_id, tipo, estado
+        FROM solicitudes_pago_portal
+        WHERE id = %s
+        FOR UPDATE
+    """, (solicitud_id,)).fetchone()
+    if solicitud is None:
+        conn.close()
+        flash("La solicitud ya no existe.", "error")
+        return redirect(url_for("listar_planes_pago"))
+
+    conn.execute("""
+        UPDATE solicitudes_pago_portal
+        SET estado = %s,
+            actualizado_en = CURRENT_TIMESTAMP,
+            actualizado_por = %s
+        WHERE id = %s
+    """, (estado, session.get("username"), solicitud_id))
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "actualizar_estado",
+        "solicitud_pago_portal",
+        str(solicitud_id),
+        {
+            "jugador_id": solicitud["jugador_id"],
+            "tipo": solicitud["tipo"],
+            "estado_anterior": solicitud["estado"],
+            "estado": estado,
+        },
+    )
+    flash("Solicitud actualizada.", "ok")
+    return redirect(url_for("listar_planes_pago") + "#solicitudes-portal")
 
 
 def datos_plan_pago_form(require_monto=True):
@@ -14522,9 +14881,10 @@ def nueva_cuota(jugador_id):
             INSERT INTO cuotas (
                 jugador_id, periodo, importe, pagado, fecha_pago, fecha_vencimiento,
                 importe_original, descuento_beca, beca_porcentaje, beca_motivo,
-                becada, metodo_pago, referencia_pago, plan_pago_monto, plan_pago_detalle
+                becada, metodo_pago, referencia_pago, plan_pago_monto, plan_pago_detalle,
+                plan_pago_id
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             jugador_id,
             periodo,
@@ -14541,6 +14901,7 @@ def nueva_cuota(jugador_id):
             referencia_inicial,
             cuota_calculada["plan_pago_monto"],
             cuota_calculada["plan_pago_detalle"] or None,
+            cuota_calculada["plan_pago_id"],
         ))
 
         conn.commit()
@@ -14676,6 +15037,7 @@ def pagar_cuota(cuota_id):
             comprobante_info["file_id"] if comprobante_info else None,
             cuota_id,
         ))
+        actualizar_cumplimiento_plan_por_cuota(conn, cuota_id, session.get("username"))
 
         conn.execute("""
             INSERT INTO movimientos (tipo, concepto, monto, fecha, referencia)
@@ -14977,6 +15339,7 @@ def revisar_comprobante_cuota(cuota_id):
         observaciones or None,
         cuota_id,
     ))
+    actualizar_cumplimiento_plan_por_cuota(conn, cuota_id, revisado_por)
 
     try:
         importe = float(cuota["importe"] or 0)
@@ -15586,9 +15949,10 @@ def generar_cuotas():
                 INSERT INTO cuotas (
                     jugador_id, periodo, importe, pagado, fecha_pago, fecha_vencimiento,
                     importe_original, descuento_beca, beca_porcentaje, beca_motivo,
-                    becada, metodo_pago, referencia_pago, plan_pago_monto, plan_pago_detalle
+                    becada, metodo_pago, referencia_pago, plan_pago_monto, plan_pago_detalle,
+                    plan_pago_id
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 jugador["id"],
                 periodo,
@@ -15605,6 +15969,7 @@ def generar_cuotas():
                 referencia_inicial,
                 cuota_calculada["plan_pago_monto"],
                 cuota_calculada["plan_pago_detalle"] or None,
+                cuota_calculada["plan_pago_id"],
             ))
             creadas += 1
             if cuota_calculada["beca_total"]:
@@ -15971,13 +16336,29 @@ def detalle_jugador(jugador_id):
     """, (jugador_id,)).fetchall()
 
     planes_pago = conn.execute("""
-        SELECT *
-        FROM planes_pago
-        WHERE jugador_id = %s
+        SELECT
+            p.*,
+            COALESCE(avance.cuotas_generadas, 0) AS cuotas_generadas,
+            COALESCE(avance.cuotas_pagadas, 0) AS cuotas_pagadas,
+            COALESCE(avance.monto_pagado, 0) AS monto_pagado
+        FROM planes_pago p
+        LEFT JOIN (
+            SELECT
+                plan_pago_id,
+                COUNT(*) AS cuotas_generadas,
+                COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,
+                SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END) AS monto_pagado
+            FROM cuotas
+            WHERE COALESCE(anulada, 0) = 0
+              AND COALESCE(plan_pago_monto, 0) > 0
+              AND plan_pago_id IS NOT NULL
+            GROUP BY plan_pago_id
+        ) avance ON avance.plan_pago_id = p.id
+        WHERE p.jugador_id = %s
         ORDER BY
-            CASE WHEN estado = 'Activo' THEN 0 ELSE 1 END,
-            fecha_inicio DESC,
-            id DESC
+            CASE WHEN p.estado = 'Activo' THEN 0 ELSE 1 END,
+            p.fecha_inicio DESC,
+            p.id DESC
         LIMIT 5
     """, (jugador_id,)).fetchall()
 
@@ -18172,13 +18553,29 @@ def portal_jugador(token):
     """, (jugador["id"],)).fetchall()
 
     planes_pago = conn.execute("""
-        SELECT *
-        FROM planes_pago
-        WHERE jugador_id = %s
+        SELECT
+            p.*,
+            COALESCE(avance.cuotas_generadas, 0) AS cuotas_generadas,
+            COALESCE(avance.cuotas_pagadas, 0) AS cuotas_pagadas,
+            COALESCE(avance.monto_pagado, 0) AS monto_pagado
+        FROM planes_pago p
+        LEFT JOIN (
+            SELECT
+                plan_pago_id,
+                COUNT(*) AS cuotas_generadas,
+                COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,
+                SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END) AS monto_pagado
+            FROM cuotas
+            WHERE COALESCE(anulada, 0) = 0
+              AND COALESCE(plan_pago_monto, 0) > 0
+              AND plan_pago_id IS NOT NULL
+            GROUP BY plan_pago_id
+        ) avance ON avance.plan_pago_id = p.id
+        WHERE p.jugador_id = %s
         ORDER BY
-            CASE WHEN estado = 'Activo' THEN 0 ELSE 1 END,
-            fecha_inicio DESC,
-            id DESC
+            CASE WHEN p.estado = 'Activo' THEN 0 ELSE 1 END,
+            p.fecha_inicio DESC,
+            p.id DESC
         LIMIT 12
     """, (jugador["id"],)).fetchall()
 
@@ -18247,6 +18644,13 @@ def portal_jugador(token):
         confirmaciones_portal = obtener_confirmaciones_portal(conn, evento_ids_confirmables, jugador["id"])
     cuenta_corriente = obtener_cuenta_corriente_jugador(conn, jugador["id"], limite=20)
     comunicaciones_portal = obtener_comunicaciones_portal_dia(conn, jugador)
+    solicitudes_pago_portal = conn.execute("""
+        SELECT id, tipo, detalle, estado, creado_en, actualizado_en
+        FROM solicitudes_pago_portal
+        WHERE jugador_id = %s
+        ORDER BY creado_en DESC, id DESC
+        LIMIT 6
+    """, (jugador["id"],)).fetchall()
     conn.close()
 
     documentos_por_vencer = 0
@@ -18390,8 +18794,75 @@ def portal_jugador(token):
         calendario_android_url=calendario_android_url,
         cuenta_corriente=cuenta_corriente,
         comunicaciones_portal=comunicaciones_portal,
+        solicitudes_pago_portal=solicitudes_pago_portal,
         token=token,
     )
+
+
+@app.route("/portal/<token>/pagos/solicitud", methods=["POST"])
+def portal_solicitar_asistencia_pago(token):
+    tipo = request.form.get("tipo", "").strip()
+    detalle = request.form.get("detalle", "").strip()
+    tipos_validos = {
+        "dificultad": "Dificultad o demora de pago",
+        "plan_pago": "Solicitud de plan de pagos",
+    }
+    if tipo not in tipos_validos:
+        flash("Elegí el tipo de ayuda que necesitás.", "error")
+        return redirect(url_for("portal_jugador", token=token) + "#ayuda-pagos")
+    if len(detalle) > 1200:
+        flash("El detalle no puede superar los 1200 caracteres.", "error")
+        return redirect(url_for("portal_jugador", token=token) + "#ayuda-pagos")
+
+    conn = get_connection()
+    jugador = conn.execute("""
+        SELECT id, nombre, apellido
+        FROM jugadores
+        WHERE portal_token = %s
+          AND COALESCE(portal_activo, 0) = 1
+    """, (token,)).fetchone()
+    if jugador is None:
+        conn.close()
+        abort(404)
+
+    existente = conn.execute("""
+        SELECT id
+        FROM solicitudes_pago_portal
+        WHERE jugador_id = %s
+          AND tipo = %s
+          AND estado IN ('pendiente', 'contactada')
+        ORDER BY creado_en DESC
+        LIMIT 1
+    """, (jugador["id"], tipo)).fetchone()
+    if existente:
+        conn.close()
+        flash("Ya tenés una solicitud de este tipo en seguimiento.", "info")
+        return redirect(url_for("portal_jugador", token=token) + "#ayuda-pagos")
+
+    solicitud = conn.execute("""
+        INSERT INTO solicitudes_pago_portal (jugador_id, tipo, detalle)
+        VALUES (%s, %s, %s)
+        RETURNING id
+    """, (jugador["id"], tipo, detalle or None)).fetchone()
+    solicitud_id = solicitud["id"]
+    conn.commit()
+    conn.close()
+
+    registrar_auditoria(
+        "crear",
+        "solicitud_pago_portal",
+        str(solicitud_id),
+        {
+            **detalle_actor_portal(jugador),
+            "tipo": tipo,
+            "tipo_label": tipos_validos[tipo],
+            "detalle": detalle,
+        },
+        username=username_portal_jugador(jugador),
+        rol="portal",
+    )
+    flash("Recibimos tu solicitud. Tesorería se va a comunicar con vos.", "ok")
+    return redirect(url_for("portal_jugador", token=token) + "#ayuda-pagos")
 
 
 @app.route("/portal/<token>/configuracion", methods=["POST"])
