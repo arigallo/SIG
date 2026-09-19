@@ -17,5 +17,9 @@ recibos/
 *.tar.gz
 cloud-sql-proxy.exe
 
+# Local preview exports and PDF build intermediates
+output/pdf/
+tmp/pdfs/
+
 .env
 *.env
