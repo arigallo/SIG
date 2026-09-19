@@ -9857,7 +9857,15 @@ def descartar_factura_recibida(factura_id):
 @app.before_request
 def proteger_rutas():
 
+    # El dominio institucional comparte servicio con SIG, pero no su portada.
+    if (request.path == "/" and request.method in {"GET", "HEAD"}
+            and request.host.split(":", 1)[0].lower() in {
+                "rudamachorugby.com", "www.rudamachorugby.com",
+            }):
+        return institucional()
+
     rutas_publicas = {
+        "institucional",
         "login",
         "solicitar_recuperacion_password",
         "restablecer_password",
@@ -9872,6 +9880,7 @@ def proteger_rutas():
         "responder_encuesta_satisfaccion",
         "postulacion_aspirante_publica",
         "portal_buscar",
+        "portal_comisiones",
         "portal_jugador",
         "portal_actualizar_configuracion",
         "portal_omitir_notificaciones",
@@ -11525,6 +11534,11 @@ def descartar_onboarding():
     conn.close()
     session["onboarding_visto"] = True
     return redirect(destino_interno(request.form.get("next")))
+
+
+@app.route("/club")
+def institucional():
+    return render_template("institucional.html")
 
 
 @app.route("/")
@@ -18415,6 +18429,11 @@ def portal_omitir_notificaciones(token):
             "vence_en": int(datetime.now().timestamp()) + PORTAL_PUSH_OMISION_SEGUNDOS,
         }
     return redirect(url_for("portal_jugador", token=token))
+
+
+@app.route("/portal/comisiones")
+def portal_comisiones():
+    return render_template("portal_comisiones.html")
 
 
 @app.route("/portal/<token>")

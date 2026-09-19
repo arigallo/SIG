@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Comisiones y funciones | Ruda Macho Rugby</title>
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+    <link rel="stylesheet" href="{{ static_asset('portal_comisiones.css') }}">
+</head>
+<body class="portal-body">
+    <main class="container portal-page comisiones-page">
+        <header class="portal-hero compact-hero">
+            <div class="portal-hero-copy">
+                <div class="portal-brand-lockup">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Ruda Macho Rugby">
+                    <span>Información del club</span>
+                </div>
+                <h1>Comisiones y funciones</h1>
+                <p class="portal-hero-text">Conocé a quienes acompañan la organización y la vida del club.</p>
+            </div>
+            <div class="portal-hero-actions"><a class="button secondary" href="{{ url_for('portal_buscar') }}">Ir al portal</a></div>
+        </header>
+
+        <nav class="comisiones-nav" aria-label="Comisiones">
+            <a class="button secondary" href="#directiva">Comisión Directiva</a>
+            <a class="button secondary" href="#disciplina">Disciplina</a>
+            <a class="button secondary" href="#madrinas">Madrinas</a>
+            <a class="button secondary" href="#marketing">Marketing</a>
+        </nav>
+        <p class="muted-line">Integrantes según la información institucional disponible. Las funciones que se describen son orientativas y están pendientes de validación por el club.</p>
+
+        {% from '_comision_miembros.html' import miembros %}
+        <section id="directiva" class="card page-section" aria-labelledby="directiva-title">
+            <span class="portal-eyebrow">Organización institucional</span>
+            <h2 id="directiva-title">Comisión Directiva</h2>
+            <h3>Funciones</h3>
+            <p>Coordinar la gestión del club, planificar sus actividades, administrar los recursos y acompañar el trabajo de las subcomisiones.</p>
+            <h3>Integrantes</h3>
+            <div class="comisiones-miembros">
+                {% for miembro in miembros %}
+                <article class="comisiones-miembro">
+                    {% if miembro.foto %}<img src="{{ static_asset(miembro.foto) }}" alt="" width="72" height="72" loading="lazy">{% endif %}
+                    <div><h4>{{ miembro.nombre }}{% if miembro.apodo %} ({{ miembro.apodo }}){% endif %}</h4><p>{{ miembro.cargo }}</p></div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card page-section" aria-labelledby="capitania-title">
+            <h2 id="capitania-title">Capitanía</h2>
+            <div class="comisiones-miembros">
+                <article class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/mateo-bonzano.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <div><h3>Capitán</h3><p>Mateo Bonzano</p></div>
+                </article>
+                <article class="comisiones-miembro">
+                    <div><h3>Subcapitán</h3><p>Fernando Fernandez</p></div>
+                </article>
+            </div>
+        </section>
+
+        {% set subcomisiones = [
+            {'id': 'disciplina', 'titulo': 'Sub-comisión de Disciplina', 'funciones': 'Promover el respeto y la convivencia, recibir situaciones vinculadas con la conducta y colaborar en su evaluación conforme a las normas del club.', 'indice': 3, 'rol': 'Miembro'},
+            {'id': 'madrinas', 'titulo': 'Sub-comisión de Madrinas', 'funciones': 'Acompañar a quienes se incorporan al club, facilitar su integración y orientar sobre entrenamientos, actividades y canales de consulta.', 'indice': 4, 'rol': 'Líder'},
+            {'id': 'marketing', 'titulo': 'Sub-comisión de Marketing', 'funciones': 'Colaborar en la comunicación y difusión de las actividades del club, cuidar su identidad y apoyar acciones de promoción y vinculación.', 'indice': 5, 'rol': 'Líder'}
+        ] %}
+        <div class="comisiones-grid">
+            {% for comision in subcomisiones %}
+            <section id="{{ comision.id }}" class="card" aria-labelledby="{{ comision.id }}-title">
+                <h2 id="{{ comision.id }}-title">{{ comision.titulo }}</h2>
+                <h3>Funciones</h3><p>{{ comision.funciones }}</p>
+                <h3>Integrantes</h3>
+                {% set miembro = miembros[comision.indice] %}
+                <p><strong>{{ miembro.nombre }}{% if miembro.apodo %} ({{ miembro.apodo }}){% endif %}</strong><br>{{ comision.rol }}</p>
+                {% if comision.id == 'madrinas' %}
+                <ul>
+                    <li>Sol Aymarà Sueldo</li>
+                    <li>Fernando Barrios (Thor)</li>
+                    <li>Gustavo Yaquers</li>
+                    <li class="comisiones-miembro">
+                        <img src="{{ static_asset('img/comision/mateo-bonzano.png') }}" alt="" width="72" height="72" loading="lazy">
+                        <span>Mateo Bonzano</span>
+                    </li>
+                    <li>Bruno Resano</li>
+                    <li class="comisiones-miembro">
+                        <img src="{{ static_asset('img/comision/eduardo-araque.png') }}" alt="" width="72" height="72" loading="lazy">
+                        <span>Eduardo Araque</span>
+                    </li>
+                </ul>
+                {% else %}
+                <p class="muted-line">Nómina completa pendiente de confirmación.</p>
+                {% endif %}
+            </section>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

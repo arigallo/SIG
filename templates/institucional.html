@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ruda Macho Rugby Club | Nuestra lucha es jugando</title>
+    <meta name="description" content="Ruda Macho es un club de rugby LGBTIQ+. Diversidad, respeto y compañerismo dentro y fuera de la cancha. Nuestra lucha es jugando. Sumate al equipo.">
+    <meta name="theme-color" content="#10231e">
+    <link rel="canonical" href="https://rudamachorugby.com/">
+    <meta property="og:title" content="Ruda Macho Rugby Club">
+    <meta property="og:description" content="Nuestra lucha es jugando. Somos un club de rugby LGBTIQ+: diversidad, respeto y orgullo de ser parte. Sumate a Ruda Macho.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rudamachorugby.com/">
+    <meta property="og:image" content="https://rudamachorugby.com/static/img/pwa-icon-512.png">
+    <link rel="icon" href="{{ url_for('static', filename='img/pwa-icon-192.png') }}">
+    <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+    <link rel="stylesheet" href="{{ static_asset('institucional.css') }}">
+</head>
+<body class="club-page">
+    <a class="club-skip" href="#contenido">Saltar al contenido</a>
+    <header class="club-header">
+        <div class="club-wrap club-header-inner">
+            <a class="club-brand" href="#inicio" aria-label="Ruda Macho Rugby Club, inicio">
+                <img src="{{ url_for('static', filename='img/logo-login.webp') }}" width="58" height="58" alt="">
+                <span>RUDA MACHO<small>RUGBY CLUB</small></span>
+            </a>
+            <nav aria-label="Navegación principal">
+                <a href="#club">El club</a><a href="#historia">Historia</a><a href="#valores">Valores</a><a href="#comision">Comisión Directiva</a><a href="#sumate">Sumate</a>
+            </nav>
+            <a class="club-access" href="https://sig.rudamachorugby.com/login">Ingresar al SIG <span aria-hidden="true">↗</span></a>
+        </div>
+    </header>
+    <main id="contenido">
+        <section class="club-hero" id="inicio" aria-labelledby="hero-title">
+            <div class="club-wrap club-hero-grid">
+                <div class="club-hero-copy">
+                    <p class="club-eyebrow">Ruda Macho Rugby Club</p>
+                    <h1 id="hero-title">Nuestra lucha<br>es <em>jugando.</em></h1>
+                    <p class="club-lead">Somos un club de rugby LGBTIQ+. Compartimos la pasión por el juego y el orgullo de ser quienes somos, dentro y fuera de la cancha.</p>
+                    <div class="club-actions"><a class="club-button club-button-gold" href="{{ url_for('postulacion_aspirante_publica') }}">Quiero sumarme <span aria-hidden="true">↗</span></a><a class="club-text-link" href="#club">Conocé el club <span aria-hidden="true">↓</span></a></div>
+                </div>
+                <div class="club-crest">
+                    <span class="club-crest-label">NUESTRA CAMISETA. NUESTRO ORGULLO.</span>
+                    <img src="{{ url_for('static', filename='img/logo-login.webp') }}" width="360" height="360" alt="Escudo de Ruda Macho Rugby">
+                    <span class="club-crest-footer">COMPROMISO · RESPETO · EQUIPO</span>
+                </div>
+            </div>
+            <div class="club-wrap club-hero-bottom"><span>Adentro de la cancha, damos todo.</span><span>Afuera, seguimos siendo equipo.</span></div>
+        </section>
+        <section class="club-wrap club-about club-section" id="club" aria-labelledby="club-title">
+            <div><p class="club-eyebrow">Nuestro club</p><h2 id="club-title">Mucho más que<br>jugar al rugby.</h2></div>
+            <div class="club-about-copy"><p>Ruda Macho es un club LGBTIQ+ que encuentra en el rugby una forma de compartir, crecer y construir comunidad. La diversidad es parte de nuestra identidad y de la manera en que hacemos equipo.</p><p>Queremos que cada persona pueda disfrutar del deporte con libertad, sin tener que ocultar quién es. Nos une el compromiso de construir un club donde las distintas orientaciones sexuales, identidades y expresiones de género sean respetadas.</p><a class="club-inline-link" href="#diversidad">Conocé lo que nos mueve <span aria-hidden="true">↓</span></a></div>
+        </section>
+        <section class="club-history" id="historia" aria-labelledby="history-title">
+            <div class="club-wrap club-section club-history-grid">
+                <div><p class="club-eyebrow">De dónde venimos</p><h2 id="history-title">Una historia que<br>nació con ganas<br>de dar pelea.</h2><p class="club-history-lead">Ruda Macho Rugby nació de una conversación, de una amistad y de la convicción de que no queríamos simplemente ocupar un espacio.</p></div>
+                <div class="club-history-copy">
+                    <div class="club-history-cards">
+                        <article><span class="club-number">01 / EL COMIENZO</span><p>Ruda Macho Rugby fue ideado por Eduardo “Gusa” Alejandro del Valle y su amigo, cofundador Emiliano Rodríguez, durante los dos meses de recuperación de una operación de rodilla.</p></article>
+                        <article><span class="club-number">02 / EL SUEÑO</span><p>Entre charlas nació una certeza: querían un equipo competitivo, capaz de dar pelea en la cancha y hacerse respetar por sus jugadores, colores y valores.</p></article>
+                    </div>
+                    <blockquote class="club-history-quote">“Queríamos que, cuando nos vieran venir, sintieran respeto: por sus jugadores, por sus colores y por sus valores. No queríamos simplemente ocupar un espacio; queríamos construir una identidad.”<cite>Eduardo “Gusa” del Valle, fundador</cite></blockquote>
+                    <div class="club-history-cards">
+                        <article><span class="club-number">03 / EL NOMBRE</span><p>El nombre surgió de RUDA MACHO, la productora de contenidos donde trabajaba Gusa. RUDA evoca nuestro lado femenino, desde la fuerza, y MACHO nuestro lado masculino: dos dimensiones que pueden convivir y fluir.</p></article>
+                        <article><span class="club-number">04 / LA RUDA</span><p>Después descubrimos que la ruda es una planta hermafrodita: sus flores tienen órganos masculinos y femeninos al mismo tiempo. Ese hallazgo terminó de darle sentido a nuestro nombre.</p></article>
+                    </div>
+                    <div class="club-history-ritual"><span class="club-number">01 / RITUAL</span><h3>La Pachamama también es parte de nuestro juego.</h3><p>Adoptamos el día de la Pachamama para bautizar a nuestros nuevos jugadores compartiendo caña con ruda. Un ritual para recibir, celebrar los comienzos y recordar de dónde venimos.</p></div>
+                </div>
+            </div>
+        </section>
+        <section class="club-diversity" id="diversidad" aria-labelledby="diversity-title">
+            <div class="club-wrap club-section club-diversity-grid">
+                <div><p class="club-eyebrow">Diversidad y orgullo</p><h2 id="diversity-title">Ser vos también<br>es parte del juego.</h2><p>“Nuestra lucha es jugando” expresa nuestra forma de ocupar la cancha: con orgullo, en equipo y abriendo espacio para la diversidad en el deporte.</p></div>
+                <div class="club-diversity-copy"><h3>Un equipo que te respeta</h3><p>Promovemos un trato digno, el respeto por el nombre y la identidad de cada persona, y vínculos sin discriminación ni violencia.</p><h3>La inclusión se construye entre todos</h3><p>Dentro y fuera de la comunidad LGBTIQ+, invitamos a quienes compartan estos valores a acercarse al club. Escuchar, acompañar y aprender también es hacer equipo.</p><a class="club-inline-link" href="#sumate">Sumate a nuestra comunidad <span aria-hidden="true">↗</span></a></div>
+            </div>
+        </section>
+        <section class="club-values-section" id="valores" aria-labelledby="values-title">
+            <div class="club-wrap club-section">
+                <p class="club-eyebrow">Lo que nos une</p><h2 id="values-title">Nuestros valores se juegan.</h2>
+                <div class="club-values">
+                    <article><span class="club-number">01 /</span><h3>Respeto y diversidad</h3><p>Valoramos a cada persona, su identidad y su historia. El respeto se expresa en cómo nos tratamos, en el vestuario, en la cancha y fuera de ella.</p></article>
+                    <article><span class="club-number">02 /</span><h3>Compromiso</h3><p>Estar, aprender y dar lo mejor. El club crece con el aporte de cada persona que se pone la camiseta.</p></article>
+                    <article><span class="club-number">03 /</span><h3>Compañerismo e inclusión</h3><p>Recibir a quienes llegan, escucharnos y acompañarnos en cada desafío. Hacer lugar para que cada persona pueda sentirse parte del equipo.</p></article>
+                </div>
+            </div>
+        </section>
+        <section class="club-wrap club-section club-board-section" id="comision" aria-labelledby="board-title">
+            <p class="club-eyebrow">Quienes construyen el club</p>
+            <h2 id="board-title">Comisión Directiva</h2>
+            <p class="club-board-intro">El compromiso con Ruda Macho también se juega fuera de la cancha.</p>
+            {# Las fotos se completan con rutas relativas a static. #}
+            {% from "_comision_miembros.html" import miembros %}
+            <div class="club-board-grid">
+                {% for miembro in miembros %}
+                <article class="club-board-card">
+                    {% if miembro.foto %}
+                    <img class="club-board-photo" src="{{ static_asset(miembro.foto) }}" alt="{{ miembro.nombre }}" width="480" height="540" loading="lazy">
+                    {% else %}
+                    <div class="club-board-photo club-board-photo-empty" aria-hidden="true">
+                        <svg viewBox="0 0 120 140" fill="none"><circle cx="60" cy="43" r="23"/><path d="M19 124v-13a41 41 0 0 1 82 0v13"/></svg>
+                        <span>Foto pendiente</span>
+                    </div>
+                    {% endif %}
+                    <div class="club-board-caption">
+                        <h3>{{ miembro.nombre }}</h3>
+                        {% if miembro.apodo %}<p class="club-board-nickname">({{ miembro.apodo }})</p>{% endif %}
+                        <p class="club-board-role">{{ miembro.cargo }}</p>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        <section class="club-wrap club-section" id="sumate" aria-labelledby="join-title">
+            <div class="club-join">
+                <div><p class="club-eyebrow">Hay un lugar para vos</p><h2 id="join-title">El primer paso<br>es animarte.</h2><p>¿Querés conocer el equipo? Dejanos tus datos y contanos sobre vos. Desde el club nos pondremos en contacto para acompañarte en los próximos pasos.</p><a class="club-button club-button-gold" href="{{ url_for('postulacion_aspirante_publica') }}">Quiero ser parte <span aria-hidden="true">↗</span></a></div>
+                <ol class="club-steps"><li><span>01</span><div><h3>Presentate</h3><p>Completá el formulario de postulación.</p></div></li><li><span>02</span><div><h3>Conversemos</h3><p>Contanos tu experiencia y disponibilidad.</p></div></li><li><span>03</span><div><h3>Conocé al equipo</h3><p>Coordinamos juntos cómo empezar.</p></div></li></ol>
+            </div>
+        </section>
+        <aside class="club-wrap club-member" aria-label="Accesos para integrantes"><div><h2>¿Ya sos parte del club?</h2><p>Encontrá tus datos, cuotas y asistencia en el Portal del Jugador.</p></div><a class="club-button club-button-outline" href="{{ url_for('portal_buscar') }}">Ir al portal <span aria-hidden="true">↗</span></a></aside>
+    </main>
+    <footer class="club-footer"><div class="club-wrap"><a class="club-brand" href="#inicio">RUDA MACHO <span>RUGBY CLUB</span></a><p>Nuestra lucha es jugando.</p><div class="club-footer-links"><a href="https://www.instagram.com/rudamachorugby/" target="_blank" rel="noopener noreferrer">Instagram @rudamachorugby <span aria-hidden="true">↗</span></a><a href="{{ url_for('sugerencias_recomendaciones') }}">Sugerencias y recomendaciones <span aria-hidden="true">↗</span></a></div></div></footer>
+</body>
+</html>

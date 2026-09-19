@@ -44,7 +44,19 @@ Despues abri en tu navegador:
 http://127.0.0.1:5000
 ```
 
-## Automatizaciones
+## Página institucional
+
+La portada pública puede revisarse localmente en `/club`. Cuando el servicio
+recibe una solicitud a `/` desde `rudamachorugby.com` o
+`www.rudamachorugby.com`, muestra esa misma página sin requerir sesión.
+El inicio de SIG en `sig.rudamachorugby.com` conserva su comportamiento.
+
+Para publicar, configurar ambos dominios institucionales con DNS y HTTPS
+hacia el servicio que ejecute esta versión. Este cambio de código no modifica
+DNS ni despliega el servicio. Los botones usan la postulación y el portal
+existentes; el acceso administrativo apunta al subdominio SIG.
+
+## Automatizaciones del SIG
 
 Desde `Admin > Sistema` se pueden habilitar:
 
