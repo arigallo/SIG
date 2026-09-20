@@ -15,6 +15,7 @@ c.setAuthor('SIG')
 navy=HexColor('#10231e'); teal=HexColor('#0f766e'); gray=HexColor('#17212f')
 style=ParagraphStyle('body',fontName='Segoe',fontSize=11,leading=16,textColor=gray)
 y=0
+total_pages=6
 
 def p(text,size=11,color=gray,space=12):
  global y
@@ -32,7 +33,7 @@ def title(n,t,sub):
  c.setFillColor(HexColor('#FFFFFF'));c.setFont('SegoeB',22);c.drawString(52,774,t)
  y=717;p(sub,12)
  c.setFillColor(teal);c.rect(52,49,491,1,fill=1,stroke=0)
- c.setFont('Segoe',9);c.setFillColor(gray);c.drawString(52,32,'Guía para nuevos jugadores · Septiembre 2026');c.drawRightString(543,32,f'{n} / 5')
+ c.setFont('Segoe',9);c.setFillColor(gray);c.drawString(52,32,'Guía para nuevos jugadores · Septiembre 2026');c.drawRightString(543,32,f'{n} / {total_pages}')
 
 def h(t): p('<b>'+t+'</b>',15,navy,8)
 def step(n,t,body): h(f'{n}. {t}');p(body)
@@ -93,5 +94,19 @@ p('<b>El enlace no abre:</b> solicitá a administración que verifique que tu po
 p('<b>No recibís avisos:</b> revisá los permisos del navegador o teléfono y volvé a abrir el portal. Seguí la ayuda de activación que aparece en pantalla y usá <b>Enviar prueba</b>.')
 p('<b>El pago sigue pendiente o un dato está mal:</b> revisá el estado del comprobante y las observaciones. Contactá a administración indicando el período o concepto; para datos deportivos, consultá al cuerpo técnico.')
 note('<b>Tu rutina:</b> leé los avisos, revisá el próximo evento, confirmá asistencia y bienestar cuando corresponda, y controlá pagos y vencimientos.')
+c.showPage()
+
+title(6,'Comisiones y funciones','Conocé cómo se organiza el club y qué función cumple cada comisión.')
+h('Dónde encontrar esta información')
+p('Desde el ingreso al portal o dentro del Portal del Jugador, abrí <b>Comisiones: integrantes y funciones</b>. La pantalla se abre en una nueva pestaña y permite ir directamente a cada sección.')
+h('Comisión Directiva')
+p('Coordina la gestión del club, planifica sus actividades, administra los recursos y acompaña el trabajo de las subcomisiones.')
+h('Sub-comisión de Disciplina')
+p('Promueve el respeto y la convivencia, recibe situaciones vinculadas con la conducta y colabora en su evaluación conforme a las normas del club.')
+h('Sub-comisión de Madrinas')
+p('Acompaña a quienes se incorporan al club, facilita su integración y orienta sobre entrenamientos, actividades y canales de consulta.')
+h('Sub-comisión de Comunicación')
+p('Colabora en la comunicación y difusión de las actividades del club, cuida su identidad y apoya acciones de promoción y vinculación.')
+note('La composición de los equipos puede cambiar. Consultá la pantalla del portal para ver la información institucional vigente.')
 c.save()
 print(out.resolve())
