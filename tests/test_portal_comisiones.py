@@ -12,7 +12,7 @@ class PortalComisionesTests(unittest.TestCase):
                 response = client.get('/portal/comisiones')
                 self.assertEqual(response.status_code, 200)
                 html = response.get_data(as_text=True)
-                for value in ['Comisión Directiva', 'Sub-comisión de Disciplina', 'Sub-comisión de Madrinas', 'Sub-comisión de Marketing', 'Fabian Luciano Fretti', 'Eduardo Del Valle', 'Mathias Quiroz Mendoza', 'Federico Ferraro', 'pendientes de validación']:
+                for value in ['Comisión Directiva', 'Sub-comisión de Disciplina', 'Sub-comisión de Madrinas', 'Sub-comisión de Comunicación', 'Fabian Luciano Fretti', 'Eduardo Del Valle', 'Mathias Quiroz Mendoza', 'Federico Ferraro', 'pendientes de validación']:
                     self.assertIn(value, html)
                 self.assertIn('href="/portal"', html)
                 self.assertEqual(client.head('/portal/comisiones').status_code, 200)
