@@ -61,7 +61,7 @@
         </section>
 
         {% set subcomisiones = [
-            {'id': 'disciplina', 'titulo': 'Sub-comisión de Disciplina', 'funciones': 'Promover el respeto y la convivencia, recibir situaciones vinculadas con la conducta y colaborar en su evaluación conforme a las normas del club.', 'indice': 3, 'rol': 'Miembro'},
+            {'id': 'disciplina', 'titulo': 'Sub-comisión de Disciplina', 'funciones': 'Promover el respeto y la convivencia, recibir situaciones vinculadas con la conducta y colaborar en su evaluación conforme a las normas del club.', 'indice': 3, 'rol': 'Representante de Comisión Directiva'},
             {'id': 'madrinas', 'titulo': 'Sub-comisión de Madrinas', 'funciones': 'Acompañar a quienes se incorporan al club, facilitar su integración y orientar sobre entrenamientos, actividades y canales de consulta.', 'indice': 4, 'rol': 'Líder'},
             {'id': 'comunicacion', 'titulo': 'Sub-comisión de Comunicación', 'funciones': 'Colaborar en la comunicación y difusión de las actividades del club, cuidar su identidad y apoyar acciones de promoción y vinculación.', 'indice': 5, 'rol': 'Líder'}
         ] %}
@@ -72,7 +72,14 @@
                 <h3>Funciones</h3><p>{{ comision.funciones }}</p>
                 <h3>Integrantes</h3>
                 {% set miembro = miembros[comision.indice] %}
+                {% if miembro.foto %}
+                <div class="comisiones-miembro">
+                    <img src="{{ static_asset(miembro.foto) }}" alt="" width="72" height="72" loading="lazy">
+                    <p><strong>{{ miembro.nombre }}{% if miembro.apodo %} ({{ miembro.apodo }}){% endif %}</strong><br>{{ comision.rol }}</p>
+                </div>
+                {% else %}
                 <p><strong>{{ miembro.nombre }}{% if miembro.apodo %} ({{ miembro.apodo }}){% endif %}</strong><br>{{ comision.rol }}</p>
+                {% endif %}
                 {% if comision.id == 'madrinas' %}
                 <ul>
                     <li>Sol Aymarà Sueldo</li>
@@ -88,12 +95,62 @@
                         <span>Eduardo Araque</span>
                     </li>
                 </ul>
-                {% else %}
-                <p class="muted-line">Nómina completa pendiente de confirmación.</p>
+                {% elif comision.id == 'comunicacion' %}
+                <ul>
+                    <li>Williams Morales (Will)</li>
+                    <li class="comisiones-miembro">
+                        <img src="{{ static_asset('img/comision/luis-araujo.png') }}" alt="" width="72" height="72" loading="lazy">
+                        <span>Luis Araujo</span>
+                    </li>
+                    <li>Fernando Barrios (Thor)</li>
+                </ul>
+                {% elif comision.id == 'disciplina' %}
+                <div class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/juan-nagy-el-colo.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <p><strong>Juan Nagy (El Colo)</strong><br>Representante externo (Ex Jugador)</p>
+                </div>
+                <p><strong>Williams Morales (Will)</strong><br>Representante de jugadores activos</p>
                 {% endif %}
             </section>
             {% endfor %}
         </div>
+
+        <section id="management" class="card page-section" aria-labelledby="management-title">
+            <span class="portal-eyebrow">Gestión del club</span>
+            <h2 id="management-title">Management</h2>
+            <h3>Integrantes</h3>
+            <div class="comisiones-miembros">
+                <article class="comisiones-miembro">
+                    <div><h4>Fernando Barrios (Thor)</h4></div>
+                </article>
+                <article class="comisiones-miembro">
+                    <div><h4>Gustavo Yaquers</h4></div>
+                </article>
+                <article class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/agustin-gomez-zalba.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <div><h4>Agustin Gomez Zalba</h4></div>
+                </article>
+                <article class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/eduardo-del-valle-gusa.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <div><h4>Eduardo Del Valle (Gusa)</h4></div>
+                </article>
+            </div>
+        </section>
+
+        <section id="sistemas" class="card page-section" aria-labelledby="sistemas-title">
+            <span class="portal-eyebrow">Tecnología</span>
+            <h2 id="sistemas-title">Mantenimiento y Soporte de Sistemas/SIG</h2>
+            <h3>Integrantes</h3>
+            <div class="comisiones-miembros">
+                <article class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/ariel-martin-gallo.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <div><h4>Ariel Martin Gallo</h4></div>
+                </article>
+            </div>
+            <div class="actions-row top-gap">
+                <a class="button" href="https://wa.me/5491161885141?text=Hola%2C%20quiero%20reportar%20un%20problema%20en%20SIG." target="_blank" rel="noopener">Reportar un problema por WhatsApp</a>
+            </div>
+        </section>
     </main>
 </body>
 </html>
