@@ -94,6 +94,32 @@ a:focus {
     margin: 0 auto;
 }
 
+.skip-link {
+    position: fixed;
+    z-index: 1000;
+    left: 1rem;
+    top: -4rem;
+    padding: .7rem 1rem;
+    background: #fff;
+    color: #10231e;
+    border: 2px solid currentColor;
+    border-radius: .5rem;
+}
+
+.skip-link:focus {
+    top: 1rem;
+}
+
+@media (pointer: coarse) {
+    button,
+    .button,
+    select,
+    input[type="date"],
+    input[type="month"] {
+        min-height: 44px;
+    }
+}
+
 .topbar {
     position: sticky;
     top: 0;

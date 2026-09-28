@@ -7,6 +7,9 @@
 <section class="admin-hero compact-admin-hero">
     <div><span class="admin-eyebrow">Ficha de seguimiento</span><h2>{{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}</h2><p class="page-intro">{{ etapas.get(aspirante['etapa_seguimiento'] or 'pendiente_contacto', 'Pendiente de contacto') }}{% if aspirante['proxima_accion_fecha'] %} &middot; Pr&oacute;xima acci&oacute;n {{ aspirante['proxima_accion_fecha'] }}{% endif %}</p></div>
     <div class="actions">
+        {% if jugador_vinculado_id and puede('jugadores_ver') %}
+            <a class="button" href="{{ url_for('detalle_jugador', jugador_id=jugador_vinculado_id) }}">Ver ficha de jugador</a>
+        {% endif %}
         {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
             <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
         {% endif %}

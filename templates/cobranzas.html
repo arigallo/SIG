@@ -9,6 +9,7 @@
         <p class="page-intro">Embudo de cuotas emitidas, pagadas, pendientes, vencidas y comprobantes cargados.</p>
     </div>
     <div class="actions">
+        <a class="button secondary" href="{{ url_for('ver_excepciones_cobranza') }}">Resolver excepciones</a>
         <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Comprobantes</a>
         <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Contactar morosos</a>
         <a class="button" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>

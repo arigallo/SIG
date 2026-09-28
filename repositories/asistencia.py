@@ -2,9 +2,15 @@ def listar_eventos_asistencia(conn):
     return conn.execute("""
         SELECT
             e.*,
-            ce.id AS calendario_evento_id
+            ce.id AS calendario_evento_id,
+            COALESCE(pc.confirmaciones, 0) AS confirmaciones_portal
         FROM eventos_asistencia e
         LEFT JOIN calendario_eventos ce ON ce.asistencia_evento_id = e.id
+        LEFT JOIN (
+            SELECT evento_id, COUNT(*) AS confirmaciones
+            FROM portal_asistencia_confirmaciones
+            GROUP BY evento_id
+        ) pc ON pc.evento_id = e.id
         ORDER BY
             CASE
                 WHEN e.fecha >= CURRENT_DATE::text THEN 0

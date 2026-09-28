@@ -88,8 +88,12 @@
     </div>
 
     <div>
-        <label>Categoría</label>
-        <input type="text" name="categoria" placeholder="Primera, Juveniles...">
+        <label>Plantel</label>
+        <select name="categoria">
+            {% for plantel in planteles %}
+                <option value="{{ plantel }}">{{ plantel }}</option>
+            {% endfor %}
+        </select>
     </div>
 
     <button class="button secondary" type="submit">Aplicar a seleccionados</button>

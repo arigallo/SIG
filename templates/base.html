@@ -16,6 +16,7 @@
 </head>
 
 <body class="{% if session.get('user_id') %}admin-body{% endif %}" data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
+    <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
     {% set rol_guia = (session.get('rol') or '')|trim|lower %}
     {% set guias_roles = {'admin': 'Administrador', 'tesorero': 'Tesorero', 'medico': 'Médico', 'entrenador': 'Entrenador', 'madrinas': 'Madrinas'} %}
     {% if rol_guia in ['madrina', 'padrino', 'padrinos'] %}{% set rol_guia = 'madrinas' %}{% endif %}
@@ -175,7 +176,7 @@
                 {% endif %}
 
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') or puede('encuestas_ver', 'encuestas_gestionar') %}
-                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
+                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'administrar_versiones', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
                 <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
                     <summary>Admin</summary>
@@ -184,6 +185,7 @@
                             <a class="{% if endpoint == 'listar_usuarios' %}active{% endif %}" href="{{ url_for('listar_usuarios') }}">Usuarios</a>
                             <a class="{% if endpoint == 'listar_roles' %}active{% endif %}" href="{{ url_for('listar_roles') }}">Roles</a>
                             <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
+                            <a class="{% if endpoint == 'administrar_versiones' %}active{% endif %}" href="{{ url_for('administrar_versiones') }}">Versiones</a>
                             <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
                             <a class="{% if endpoint == 'configurar_avisos_login' %}active{% endif %}" href="{{ url_for('configurar_avisos_login') }}">Avisos login</a>
                             <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
@@ -232,7 +234,7 @@
         </div>
     </header>
 
-    <main class="container">
+    <main class="container" id="contenido-principal" tabindex="-1">
         {% set endpoint = request.endpoint or '' %}
         {% if session.get('user_id') and rol_guia in guias_roles %}
             <div class="role-guide-bar">
@@ -253,7 +255,7 @@
             {% if messages %}
 
                 {% for category, message in messages %}
-                    <div class="flash {{ category }}">
+                    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">
                         {{ message }}
                     </div>
                 {% endfor %}

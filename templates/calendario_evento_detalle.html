@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ evento['titulo'] }} · Calendario{% endblock %}
+{% block content %}
+<div class="admin-page calendar-page">
+    <section class="admin-hero module-hero">
+        <div>
+            <span class="badge badge-info">{{ evento['tipo'] }}</span>
+            <h2>{{ evento['titulo'] }}</h2>
+            <p class="page-intro">{{ evento['fecha'] }}{% if evento['hora_inicio'] %} · {{ evento['hora_inicio'] }}{% endif %}{% if evento['ubicacion'] %} · {{ evento['ubicacion'] }}{% endif %}</p>
+            <p>{{ evento['descripcion'] or 'Sin descripción' }}</p>
+        </div>
+        <div class="actions">
+            <a class="button secondary" href="{{ url_for('ver_calendario', mes=evento['fecha'][:7]) }}">Volver al calendario</a>
+            {% if puede('calendario_gestionar') %}<a class="button secondary" href="{{ url_for('editar_evento_calendario', evento_id=evento['id']) }}">Editar evento</a>{% endif %}
+        </div>
+    </section>
+
+    <div class="dashboard-cards spaced">
+        <div class="card stat-card"><h3>Confirmaron</h3><p class="stat-number compact">{{ confirmaciones['confirmado'] }}</p></div>
+        <div class="card stat-card"><h3>En duda</h3><p class="stat-number compact">{{ confirmaciones['dudoso'] }}</p></div>
+        <div class="card stat-card"><h3>No asisten</h3><p class="stat-number compact">{{ confirmaciones['no_asiste'] }}</p></div>
+        <div class="card stat-card"><h3>Asistencia real</h3><p class="stat-number compact">{{ asistencia_real['presentes'] or 0 }} presentes</p><span class="muted-line">{{ asistencia_real['ausentes'] or 0 }} ausentes registrados</span></div>
+    </div>
+
+    {% if evento['convocatoria_texto'] %}<div class="card page-section"><h3>Convocatoria</h3><p>{{ evento['convocatoria_texto'] }}</p>{% if evento['convocatoria_cierre'] %}<p class="muted-line">Cierra: {{ evento['convocatoria_cierre'] }}</p>{% endif %}</div>{% endif %}
+
+    <div class="card page-section">
+        <h3>Acciones del evento</h3>
+        <div class="actions">
+            {% if evento['asistencia_evento_id'] and puede('asistencia_ver') %}<a class="button" href="{{ url_for('tomar_asistencia', evento_id=evento['asistencia_evento_id']) }}">Ver asistencia y respuestas</a>{% endif %}
+            {% if puede('cuotas_ver') %}<a class="button secondary" href="{{ url_for('listar_gastos_compartidos') }}">Ver gastos compartidos</a>{% endif %}
+            {% if puede('cuotas_gestionar') %}<a class="button secondary" href="{{ url_for('nuevo_gasto_compartido', calendario_evento_id=evento['id'], fuente_jugadores='presentes_evento') }}">Crear gasto del evento</a>{% endif %}
+            {% if puede('comunicaciones_ver') %}
+                <form method="post" action="{{ url_for('enviar_recordatorio_evento_calendario', evento_id=evento['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Enviar recordatorio</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if puede('cuotas_ver') %}
+    <div class="card page-section">
+        <h3>Gastos vinculados</h3>
+        {% for gasto in gastos %}
+            <p><a href="{{ url_for('ver_gasto_compartido', gasto_id=gasto['id']) }}">{{ gasto['titulo'] }}</a> · {{ gasto['estado'] }} · {{ gasto['monto_total'] | moneda }}</p>
+        {% else %}
+            <p class="muted-line">Este evento todavía no tiene gastos vinculados.</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if evento['minuta_post_evento'] %}<div class="card page-section"><h3>Minuta</h3><p>{{ evento['minuta_post_evento'] }}</p></div>{% endif %}
+</div>
+{% endblock %}

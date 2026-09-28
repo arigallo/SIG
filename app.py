@@ -591,7 +591,8 @@ ASPIRANTE_ETAPAS = {
     "listo_ingresar": "Listo para ingresar",
     "no_interesado": "No interesado",
 }
-APP_VERSION = os.environ.get("APP_VERSION", "local")
+RELEASE_VERSION = "2.1.0"
+APP_VERSION = os.environ.get("APP_VERSION") or RELEASE_VERSION
 CLOUD_SQL_BACKUP_WINDOW = os.environ.get("CLOUD_SQL_BACKUP_WINDOW", "12:00 a.m. - 4:00 a.m.")
 CLOUD_SQL_BACKUP_RETENTION_DAYS = os.environ.get("CLOUD_SQL_BACKUP_RETENTION_DAYS", "7")
 CLOUD_SQL_PITR_DAYS = os.environ.get("CLOUD_SQL_PITR_DAYS", "7")
@@ -7205,6 +7206,20 @@ def init_db():
     )
 """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS planteles (
+            nombre TEXT PRIMARY KEY
+        )
+    """)
+    if not conn.execute("SELECT 1 FROM planteles LIMIT 1").fetchone():
+        conn.execute("INSERT INTO planteles (nombre) VALUES ('Plantel Superior')")
+        conn.execute("""
+            INSERT INTO planteles (nombre)
+            SELECT DISTINCT TRIM(categoria) FROM jugadores
+            WHERE NULLIF(TRIM(categoria), '') IS NOT NULL
+            ON CONFLICT DO NOTHING
+        """)
+
     columnas_jugadores = get_columns(conn, "jugadores")
     columnas_extra_jugador = {
         "telefono_tutor": "TEXT",
@@ -7353,6 +7368,33 @@ def init_db():
             version TEXT PRIMARY KEY,
             aplicado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS versiones_publicadas (
+            id SERIAL PRIMARY KEY,
+            numero INTEGER NOT NULL UNIQUE,
+            nombre TEXT NOT NULL,
+            fecha_publicacion TEXT NOT NULL,
+            notas TEXT,
+            revision_git TEXT,
+            registrado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            registrado_por TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS comunicacion_email_envios (
+            id SERIAL PRIMARY KEY,
+            jugador_id INTEGER NOT NULL REFERENCES jugadores(id),
+            destinatario TEXT,
+            estado TEXT NOT NULL,
+            motivo TEXT,
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            creado_por TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_comunicacion_email_envios_jugador
+        ON comunicacion_email_envios (jugador_id, creado_en DESC)
     """)
 
     conn.execute("""
@@ -11880,6 +11922,45 @@ def ver_panel_cobranzas():
     return render_template("cobranzas.html", panel=obtener_panel_cobranzas())
 
 
+@app.route("/finanzas/excepciones")
+def ver_excepciones_cobranza():
+    check = permiso_requerido("cuotas_ver", "cuotas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    excepciones = conn.execute("""
+        SELECT 'cuota' AS origen, c.id AS item_id, c.jugador_id, NULL::INTEGER AS gasto_id,
+               j.apellido, j.nombre, c.periodo AS concepto,
+               c.importe, c.fecha_vencimiento,
+               COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') AS comprobante_estado
+        FROM cuotas c
+        JOIN jugadores j ON j.id = c.jugador_id
+        WHERE c.pagado = 0 AND COALESCE(c.anulada, 0) = 0
+          AND COALESCE(c.incobrable, 0) = 0
+          AND (c.comprobante_estado IN ('pendiente', 'rechazado')
+               OR CASE WHEN c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                       THEN c.fecha_vencimiento::date < CURRENT_DATE ELSE FALSE END)
+        UNION ALL
+        SELECT 'gasto' AS origen, i.id AS item_id, i.jugador_id, g.id AS gasto_id,
+               COALESCE(j.apellido, i.apellido_manual, a.apellido) AS apellido,
+               COALESCE(j.nombre, i.nombre_manual, a.nombre) AS nombre,
+               g.titulo AS concepto, i.importe, g.fecha_vencimiento,
+               COALESCE(NULLIF(i.comprobante_estado, ''), 'sin_comprobante') AS comprobante_estado
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
+        WHERE i.estado = 'pendiente'
+          AND (i.comprobante_estado IN ('pendiente', 'rechazado')
+               OR CASE WHEN g.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                       THEN g.fecha_vencimiento::date < CURRENT_DATE ELSE FALSE END)
+        ORDER BY fecha_vencimiento NULLS LAST, apellido, nombre
+        LIMIT 300
+    """).fetchall()
+    conn.close()
+    return render_template("cobranzas_excepciones.html", excepciones=excepciones)
+
+
 @app.route("/finanzas/debitos-automaticos", methods=["GET", "POST"])
 def pagos_masivos_debito_automatico():
     check = permiso_requerido("cuotas_gestionar")
@@ -13096,10 +13177,12 @@ def listar_jugadores():
         parametros,
     ).fetchall()
 
+    planteles = planteles_disponibles(conn)
     conn.close()
     return render_template(
         "jugadores.html",
         jugadores=jugadores,
+        planteles=planteles,
         busqueda=busqueda,
         tipo_filtro=tipo_filtro,
         estado_filtro=estado_filtro,
@@ -13490,6 +13573,7 @@ def detalle_aspirante(aspirante_id):
         WHERE aspirante_id = %s
         ORDER BY fecha DESC, id DESC
     """, (aspirante_id,)).fetchall()
+    jugador_vinculado_id = aspirante.get("jugador_id")
     conn.close()
 
     return render_template(
@@ -13498,6 +13582,7 @@ def detalle_aspirante(aspirante_id):
         asistencias=asistencias,
         seguimientos=seguimientos,
         etapas=ASPIRANTE_ETAPAS,
+        jugador_vinculado_id=jugador_vinculado_id,
     )
 
 
@@ -13650,10 +13735,18 @@ def convertir_aspirante(aspirante_id):
         flash("El ahijadx todavia no alcanzo la cantidad requerida de entrenamientos.", "error")
         return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
 
-    if aspirante["dni"]:
+    categoria_destino = (aspirante.get("categoria") or "Plantel Superior").strip()
+    if categoria_destino not in planteles_disponibles(conn):
+        conn.close()
+        flash("El plantel del ahijadx no está disponible. Agregalo desde Admin > Sistema antes de ingresar al jugador.", "error")
+        return redirect(url_for("detalle_aspirante", aspirante_id=aspirante_id))
+
+    dni_normalizado = re.sub(r"\D", "", aspirante["dni"] or "")
+    if dni_normalizado:
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("jugador-dni:" + dni_normalizado,))
         existente = conn.execute(
-            "SELECT id FROM jugadores WHERE dni = %s",
-            (aspirante["dni"],),
+            "SELECT id FROM jugadores WHERE regexp_replace(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s",
+            (dni_normalizado,),
         ).fetchone()
         if existente:
             conn.close()
@@ -13670,7 +13763,7 @@ def convertir_aspirante(aspirante_id):
         RETURNING id
     """, (
         aspirante["nombre"], aspirante["apellido"], aspirante["dni"], aspirante["fecha_nacimiento"],
-        aspirante["telefono"], aspirante["email"], aspirante["categoria"], fecha_ingreso,
+        aspirante["telefono"], aspirante["email"], categoria_destino, fecha_ingreso,
         aspirante["observaciones"],
     )).fetchone()
     jugador_id = jugador_creado["id"]
@@ -13708,12 +13801,22 @@ def eliminar_aspirante(aspirante_id):
     return redirect(url_for("listar_aspirantes"))
 
 
+def planteles_disponibles(conn):
+    nombres = [fila["nombre"] for fila in conn.execute(
+        "SELECT nombre FROM planteles ORDER BY CASE WHEN nombre = 'Plantel Superior' THEN 0 ELSE 1 END, nombre"
+    ).fetchall()]
+    return nombres
+
+
 @app.route("/jugadores/nuevo", methods=["GET", "POST"])
 def nuevo_jugador():
     check = permiso_requerido("jugadores_gestionar")
     if check:
         return check
 
+    conn = get_connection()
+    planteles = planteles_disponibles(conn)
+    conn.close()
     if request.method == "POST":
         data = {
             "nombre": request.form.get("nombre", "").strip(),
@@ -13722,7 +13825,7 @@ def nuevo_jugador():
             "fecha_nacimiento": request.form.get("fecha_nacimiento", "").strip(),
             "telefono": request.form.get("telefono", "").strip(),
             "email": request.form.get("email", "").strip(),
-            "categoria": request.form.get("categoria", "").strip(),
+            "categoria": request.form.get("categoria", "Plantel Superior").strip(),
             "fecha_ingreso": request.form.get("fecha_ingreso", "").strip(),
             "estado": request.form.get("estado", "").strip() or "Activo",
             "contacto_tutor": request.form.get("contacto_tutor", "").strip(),
@@ -13750,12 +13853,38 @@ def nuevo_jugador():
 
         if not data["nombre"] or not data["apellido"]:
             flash("Nombre y apellido son obligatorios.", "error")
-            return render_template("jugador_form.html", jugador=data, modo="nuevo")
+            return render_template("jugador_form.html", jugador=data, modo="nuevo", planteles=planteles)
+        if data["categoria"] not in planteles:
+            flash("Elegí un plantel de la lista.", "error")
+            return render_template("jugador_form.html", jugador=data, modo="nuevo", planteles=planteles)
         if beca_error:
             flash(beca_error, "error")
-            return render_template("jugador_form.html", jugador=data, modo="nuevo")
+            return render_template("jugador_form.html", jugador=data, modo="nuevo", planteles=planteles)
 
         conn = get_connection()
+        dni_normalizado = re.sub(r"\D", "", data["dni"])
+        if dni_normalizado:
+            conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("jugador-dni:" + dni_normalizado,))
+            existente = conn.execute("""
+                SELECT id FROM jugadores
+                WHERE regexp_replace(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
+                LIMIT 1
+            """, (dni_normalizado,)).fetchone()
+            if existente:
+                conn.close()
+                flash("Ya existe un jugador con ese DNI. Revisá su ficha antes de crear otra.", "error")
+                return render_template("jugador_form.html", jugador=data, modo="nuevo", planteles=planteles)
+            aspirantes_coincidentes = conn.execute("""
+                SELECT id FROM aspirantes
+                WHERE estado = 'Aspirante' AND jugador_id IS NULL
+                  AND regexp_replace(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
+            """, (dni_normalizado,)).fetchall()
+            if len(aspirantes_coincidentes) > 1:
+                conn.close()
+                flash("Hay varios ahijadxs con ese DNI. Revisalos antes de dar de alta al jugador.", "error")
+                return render_template("jugador_form.html", jugador=data, modo="nuevo", planteles=planteles)
+        else:
+            aspirantes_coincidentes = []
         if not data["numero_socio"]:
             data["numero_socio"] = siguiente_numero_socio(conn)
         else:
@@ -13781,6 +13910,13 @@ def nuevo_jugador():
             data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"], data["debito_automatico"]
         )).fetchone()
 
+        if aspirantes_coincidentes:
+            conn.execute("""
+                UPDATE aspirantes
+                SET estado = 'Ingresado', jugador_id = %s, fecha_ingreso_club = %s
+                WHERE id = %s
+            """, (creado["id"], data["fecha_ingreso"] or ahora_sig().strftime("%Y-%m-%d"), aspirantes_coincidentes[0]["id"]))
+
         if data["beca_activa"]:
             registrar_historial_beca(
                 conn,
@@ -13795,7 +13931,7 @@ def nuevo_jugador():
         flash("Registro cargado correctamente.", "ok")
         return redirect(url_for("listar_jugadores"))
 
-    return render_template("jugador_form.html", jugador=None, modo="nuevo")
+    return render_template("jugador_form.html", jugador=None, modo="nuevo", planteles=planteles)
 
 
 @app.route("/jugadores/importar", methods=["GET", "POST"])
@@ -13835,6 +13971,7 @@ def importar_jugadores():
         errores = []
 
         conn = get_connection()
+        planteles = set(planteles_disponibles(conn))
 
         for numero_fila, row in enumerate(rows[1:], start=2):
             if not any(limpiar_valor_excel(valor) for valor in row):
@@ -13847,22 +13984,41 @@ def importar_jugadores():
                 errores.append(f"Fila {numero_fila}: falta nombre o apellido.")
                 continue
 
-            if data["dni"]:
+            data["categoria"] = (data["categoria"] or "Plantel Superior").strip()
+            if data["categoria"] not in planteles:
+                omitidos += 1
+                errores.append(f"Fila {numero_fila}: plantel no disponible ({data['categoria']}). Agregalo desde Admin > Sistema.")
+                continue
+
+            dni_normalizado = re.sub(r"\D", "", data["dni"])
+            if dni_normalizado:
+                conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("jugador-dni:" + dni_normalizado,))
                 existente = conn.execute(
-                    "SELECT id FROM jugadores WHERE dni = %s",
-                    (data["dni"],)
+                    "SELECT id FROM jugadores WHERE regexp_replace(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s",
+                    (dni_normalizado,)
                 ).fetchone()
                 if existente:
                     omitidos += 1
                     errores.append(f"Fila {numero_fila}: DNI ya existente ({data['dni']}).")
                     continue
+                aspirantes_coincidentes = conn.execute("""
+                    SELECT id FROM aspirantes
+                    WHERE estado = 'Aspirante' AND jugador_id IS NULL
+                      AND regexp_replace(COALESCE(dni, ''), '[^0-9]', '', 'g') = %s
+                """, (dni_normalizado,)).fetchall()
+                if len(aspirantes_coincidentes) > 1:
+                    omitidos += 1
+                    errores.append(f"Fila {numero_fila}: varios ahijadxs tienen ese DNI; revisalos antes de importar.")
+                    continue
+            else:
+                aspirantes_coincidentes = []
 
             if not data["numero_socio"]:
                 data["numero_socio"] = siguiente_numero_socio(conn)
             else:
                 data["numero_socio"] = formatear_numero_socio(re.sub(r"\D+", "", data["numero_socio"]) or data["numero_socio"])
 
-            conn.execute("""
+            creado = conn.execute("""
                 INSERT INTO jugadores (
                     nombre, apellido, dni, fecha_nacimiento, telefono, email, categoria,
                     fecha_ingreso, estado, contacto_tutor, parentesco_tutor, telefono_tutor,
@@ -13870,6 +14026,7 @@ def importar_jugadores():
                     documentos, observaciones, tipo_miembro, cobra_cuota
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
             """, (
                 data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
                 data["telefono"], data["email"], data["categoria"], data["fecha_ingreso"],
@@ -13877,7 +14034,13 @@ def importar_jugadores():
                 data["telefono_tutor"], data["email_tutor"], data["direccion"],
                 data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["documentos"],
                 data["observaciones"], data["tipo_miembro"], data["cobra_cuota"],
-            ))
+            )).fetchone()
+            if aspirantes_coincidentes:
+                conn.execute("""
+                    UPDATE aspirantes
+                    SET estado = 'Ingresado', jugador_id = %s, fecha_ingreso_club = %s
+                    WHERE id = %s
+                """, (creado["id"], data["fecha_ingreso"] or ahora_sig().strftime("%Y-%m-%d"), aspirantes_coincidentes[0]["id"]))
             creados += 1
 
         conn.commit()
@@ -13947,9 +14110,9 @@ def acciones_masivas_jugadores():
         detalle = {"accion": "estado", "estado": nuevo_estado, "cantidad": len(ids)}
         mensaje = f"Estado actualizado para {len(ids)} jugador(es)."
     elif accion == "categoria":
-        if not nueva_categoria:
+        if nueva_categoria not in planteles_disponibles(conn):
             conn.close()
-            flash("Ingresá una categoría.", "error")
+            flash("Elegí un plantel de la lista.", "error")
             return redirect(url_for("listar_jugadores"))
 
         conn.execute(
@@ -13957,7 +14120,7 @@ def acciones_masivas_jugadores():
             (nueva_categoria, ids)
         )
         detalle = {"accion": "categoria", "categoria": nueva_categoria, "cantidad": len(ids)}
-        mensaje = f"Categoría actualizada para {len(ids)} jugador(es)."
+        mensaje = f"Plantel actualizado para {len(ids)} jugador(es)."
     elif accion == "portal_activar":
         if not tiene_permiso("portal_jugador_gestionar"):
             conn.close()
@@ -14057,6 +14220,10 @@ def editar_jugador(jugador_id):
         flash("Jugador no encontrado.", "error")
         return redirect(url_for("listar_jugadores"))
 
+    planteles = planteles_disponibles(conn)
+    if jugador.get("categoria") and jugador["categoria"] not in planteles:
+        planteles.append(jugador["categoria"])
+
     if request.method == "POST":
         data = {
             "nombre": request.form.get("nombre", "").strip(),
@@ -14096,13 +14263,19 @@ def editar_jugador(jugador_id):
             flash("Nombre y apellido son obligatorios.", "error")
             jugador_dict = dict(data)
             jugador_dict["id"] = jugador_id
-            return render_template("jugador_form.html", jugador=jugador_dict, modo="editar")
+            return render_template("jugador_form.html", jugador=jugador_dict, modo="editar", planteles=planteles)
         if beca_error:
             conn.close()
             flash(beca_error, "error")
             jugador_dict = dict(data)
             jugador_dict["id"] = jugador_id
-            return render_template("jugador_form.html", jugador=jugador_dict, modo="editar")
+            return render_template("jugador_form.html", jugador=jugador_dict, modo="editar", planteles=planteles)
+        if data["categoria"] not in planteles:
+            conn.close()
+            flash("Elegí un plantel de la lista.", "error")
+            jugador_dict = dict(data)
+            jugador_dict["id"] = jugador_id
+            return render_template("jugador_form.html", jugador=jugador_dict, modo="editar", planteles=planteles)
 
         if data["numero_socio"]:
             data["numero_socio"] = formatear_numero_socio(re.sub(r"\D+", "", data["numero_socio"]) or data["numero_socio"])
@@ -14141,7 +14314,7 @@ def editar_jugador(jugador_id):
         return redirect(url_for("listar_jugadores"))
 
     conn.close()
-    return render_template("jugador_form.html", jugador=jugador, modo="editar")
+    return render_template("jugador_form.html", jugador=jugador, modo="editar", planteles=planteles)
 
 
 @app.route("/jugadores/<int:jugador_id>/eliminar", methods=["POST"])
@@ -14172,7 +14345,7 @@ def eliminar_jugador(jugador_id):
             "portal_asistencia_confirmaciones", "asistencias", "test_resultados",
             "becas_historial", "jugador_bitacora", "documentos_jugadores",
             "fichas_medicas", "lesiones", "planes_pago", "tareas_sig",
-            "whatsapp_envios", "whatsapp_mensajes", "pwa_push_subscriptions",
+            "whatsapp_envios", "whatsapp_mensajes", "comunicacion_email_envios", "pwa_push_subscriptions",
             "pwa_push_envios", "cuotas",
         ):
             conn.execute(f"DELETE FROM {tabla} WHERE jugador_id = %s", (jugador_id,))
@@ -16459,6 +16632,12 @@ def detalle_jugador(jugador_id):
         WHERE actor_tipo = 'portal'
           AND jugador_id = %s
     """, (jugador_id,)).fetchone()
+    aspirante_origen = conn.execute("""
+        SELECT id, fecha_postulacion, fecha_ingreso_club
+        FROM aspirantes
+        WHERE jugador_id = %s
+        ORDER BY id DESC LIMIT 1
+    """, (jugador_id,)).fetchone()
 
     for item in bienestar_reciente:
         try:
@@ -16493,6 +16672,7 @@ def detalle_jugador(jugador_id):
     return render_template(
         "jugador_detalle.html",
         jugador=jugador,
+        aspirante_origen=aspirante_origen,
         deuda=deuda,
         deuda_cuotas=deuda_cuotas,
         deuda_gastos_compartidos=deuda_gastos_compartidos,
@@ -16708,7 +16888,15 @@ def listar_participantes_manual_gasto(conn):
     aspirantes = conn.execute("""
         SELECT id, apellido, nombre, categoria, email
         FROM aspirantes
-        WHERE COALESCE(estado, 'Aspirante') <> 'Baja'
+        WHERE estado = 'Aspirante'
+          AND jugador_id IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM jugadores j
+              WHERE NULLIF(regexp_replace(COALESCE(j.dni, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                AND regexp_replace(COALESCE(j.dni, ''), '[^0-9]', '', 'g') =
+                    regexp_replace(COALESCE(aspirantes.dni, ''), '[^0-9]', '', 'g')
+                AND j.estado = 'Activo'
+          )
         ORDER BY categoria NULLS LAST, apellido, nombre
     """).fetchall()
     return jugadores, aspirantes
@@ -16746,6 +16934,15 @@ def participantes_gasto_desde_fuente(conn, fuente, calendario_evento_id, jugador
                 SELECT id, apellido, nombre, categoria, email
                 FROM aspirantes
                 WHERE id = ANY(%s)
+                  AND estado = 'Aspirante'
+                  AND jugador_id IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM jugadores j
+                      WHERE NULLIF(regexp_replace(COALESCE(j.dni, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                        AND regexp_replace(COALESCE(j.dni, ''), '[^0-9]', '', 'g') =
+                            regexp_replace(COALESCE(aspirantes.dni, ''), '[^0-9]', '', 'g')
+                        AND j.estado = 'Activo'
+                  )
                 ORDER BY apellido, nombre
             """, (aspirante_ids,)).fetchall()
             for aspirante in aspirantes:
@@ -19533,6 +19730,69 @@ def portal_descargar_constancia(token):
     )
 
 
+@app.route("/calendario/<int:evento_id>")
+def detalle_evento_calendario(evento_id):
+    check = permiso_requerido("calendario_ver", "asistencia_ver")
+    if check:
+        return check
+    conn = get_connection()
+    evento = conn.execute("SELECT * FROM calendario_eventos WHERE id = %s", (evento_id,)).fetchone()
+    if not evento:
+        conn.close()
+        abort(404)
+    asistencia_id = evento.get("asistencia_evento_id")
+    confirmaciones = {"confirmado": 0, "dudoso": 0, "no_asiste": 0}
+    asistencia_real = {"presentes": 0, "ausentes": 0}
+    if asistencia_id:
+        filas = conn.execute("""
+            SELECT estado, COUNT(*) AS total
+            FROM portal_asistencia_confirmaciones
+            WHERE evento_id = %s GROUP BY estado
+        """, (asistencia_id,)).fetchall()
+        confirmaciones.update({fila["estado"]: fila["total"] for fila in filas if fila["estado"] in confirmaciones})
+        asistencia_real = conn.execute("""
+            SELECT COUNT(*) FILTER (WHERE presente = 1) AS presentes,
+                   COUNT(*) FILTER (WHERE presente = 0) AS ausentes
+            FROM asistencias WHERE evento_id = %s
+        """, (asistencia_id,)).fetchone()
+    gastos = []
+    if tiene_permiso("cuotas_ver"):
+        gastos = conn.execute("""
+            SELECT id, titulo, estado, monto_total, fecha_vencimiento
+            FROM gastos_compartidos
+            WHERE calendario_evento_id = %s
+            ORDER BY id DESC
+        """, (evento_id,)).fetchall()
+    conn.close()
+    return render_template(
+        "calendario_evento_detalle.html",
+        evento=evento,
+        confirmaciones=confirmaciones,
+        asistencia_real=asistencia_real,
+        gastos=gastos,
+    )
+
+
+@app.route("/admin/calendario/duplicados")
+def revisar_eventos_duplicados():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    conn = get_connection()
+    grupos = conn.execute("""
+        SELECT fecha, tipo, titulo, COALESCE(hora_inicio, '') AS hora_inicio,
+               COALESCE(categoria, '') AS categoria,
+               COUNT(*) AS cantidad, ARRAY_AGG(id ORDER BY id) AS ids
+        FROM calendario_eventos
+        GROUP BY fecha, tipo, titulo, COALESCE(hora_inicio, ''), COALESCE(categoria, '')
+        HAVING COUNT(*) > 1
+        ORDER BY fecha DESC, titulo
+        LIMIT 100
+    """).fetchall()
+    conn.close()
+    return render_template("calendario_duplicados.html", grupos=grupos)
+
+
 @app.route("/calendario")
 def ver_calendario():
     check = permiso_requerido("calendario_ver")
@@ -19638,7 +19898,9 @@ def nuevo_evento_calendario():
             "omitidos": eventos_omitidos,
         })
 
-        if crear_recurrentes:
+        if not eventos_creados:
+            flash("Ese evento ya existe en el calendario.", "warning")
+        elif crear_recurrentes:
             mensaje = f"Se crearon {len(eventos_creados)} eventos del mes."
             if eventos_omitidos:
                 mensaje += f" Se omitieron {len(eventos_omitidos)} duplicados."
@@ -19755,6 +20017,18 @@ def editar_evento_calendario(evento_id):
             else:
                 asistencia_evento_id = crear_evento_asistencia_desde_calendario(conn, data)
         elif asistencia_evento_id:
+            tiene_registros = conn.execute("""
+                SELECT 1 FROM portal_asistencia_confirmaciones WHERE evento_id = %s
+                UNION ALL SELECT 1 FROM asistencias WHERE evento_id = %s
+                UNION ALL SELECT 1 FROM aspirante_asistencias WHERE evento_id = %s
+                LIMIT 1
+            """, (asistencia_evento_id, asistencia_evento_id, asistencia_evento_id)).fetchone()
+            if tiene_registros:
+                conn.close()
+                flash("Este evento ya tiene confirmaciones o asistencia. No se puede quitar el control de asistencia.", "error")
+                data["id"] = evento_id
+                data["crear_asistencia"] = 1
+                return render_template("calendario_evento_form.html", evento=data)
             conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (asistencia_evento_id,))
             conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
             conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
@@ -19833,12 +20107,20 @@ def eliminar_evento_calendario(evento_id):
 
     asistencia_evento_id = evento.get("asistencia_evento_id")
     if asistencia_evento_id:
-        conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (asistencia_evento_id,))
-        conn.execute("DELETE FROM asistencias WHERE evento_id = %s", (asistencia_evento_id,))
-        conn.execute("DELETE FROM aspirante_asistencias WHERE evento_id = %s", (asistencia_evento_id,))
-        conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
+        tiene_registros = conn.execute("""
+            SELECT 1 FROM portal_asistencia_confirmaciones WHERE evento_id = %s
+            UNION ALL SELECT 1 FROM asistencias WHERE evento_id = %s
+            UNION ALL SELECT 1 FROM aspirante_asistencias WHERE evento_id = %s
+            LIMIT 1
+        """, (asistencia_evento_id, asistencia_evento_id, asistencia_evento_id)).fetchone()
+        if tiene_registros:
+            conn.close()
+            flash("El evento tiene confirmaciones o asistencia y no se puede eliminar.", "error")
+            return redirect(url_for("ver_calendario", mes=evento["fecha"][:7]))
 
     conn.execute("DELETE FROM calendario_eventos WHERE id = %s", (evento_id,))
+    if asistencia_evento_id:
+        conn.execute("DELETE FROM eventos_asistencia WHERE id = %s", (asistencia_evento_id,))
     conn.commit()
     conn.close()
 
@@ -20594,18 +20876,43 @@ def template_morosos_default():
     return (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
-        "Te pedimos regularizar la situacion o avisarnos si ya realizaste el pago. Gracias."
+        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
     )
+
+
+def plantillas_cobranza():
+    return {
+        "recordatorio": ("Recordatorio amable", template_morosos_default()),
+        "vencida": (
+            "Cuotas vencidas",
+            "Hola {nombre}, registramos {cuotas_vencidas} cuota(s) vencida(s), con saldo pendiente de {deuda}. "
+            "El primer vencimiento fue el {primer_vencimiento}. Si ya pagaste, respondé con el comprobante. Gracias.",
+        ),
+        "consulta": (
+            "Consultar pago informado",
+            "Hola {nombre}, todavía vemos un saldo pendiente de {deuda}. "
+            "Si realizaste el pago, compartinos el comprobante para revisarlo. Gracias.",
+        ),
+    }
+
+
+def registrar_email_cobranza(conn, jugador_id, resultado):
+    enviado, destinatario, motivo = resultado
+    conn.execute("""
+        INSERT INTO comunicacion_email_envios
+            (jugador_id, destinatario, estado, motivo, creado_por)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (jugador_id, destinatario, "enviado" if enviado else "fallido", motivo or None, session.get("username")))
 
 
 def construir_texto_recordatorio_cuota(cuota):
     nombre = nombre_jugador_corto(cuota)
-    estado = "vencio" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
+    estado = "venció" if (cuota.get("dias_vencida") or 0) > 0 else "vence"
     fecha = cuota.get("fecha_vencimiento") or "-"
     return (
         f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
         f"La cuota {cuota.get('periodo') or '-'} por {formato_moneda(cuota.get('importe') or 0)} {estado} el {fecha}.\n"
-        "Si ya realizaste el pago, podes responder este mensaje o cargar el comprobante desde tu portal.\n\n"
+        "Si ya realizaste el pago, podés responder este mensaje o cargar el comprobante desde tu portal.\n\n"
         "Gracias."
     )
 
@@ -20613,14 +20920,14 @@ def construir_texto_recordatorio_cuota(cuota):
 def construir_texto_recordatorio_ficha(ficha):
     nombre = nombre_jugador_corto(ficha)
     if ficha.get("estado_documento") == "vencida":
-        estado = f"vencio el {ficha.get('fecha_vencimiento') or '-'}"
+        estado = f"venció el {ficha.get('fecha_vencimiento') or '-'}"
     elif ficha.get("estado_documento") == "por_vencer":
         estado = f"vence el {ficha.get('fecha_vencimiento') or '-'}"
     else:
         estado = "figura pendiente de carga"
     return (
         f"Hola {nombre}, te escribimos de Ruda Macho Rugby Club.\n\n"
-        f"La ficha m?dica {estado}. Cuando puedas, acercanos la actualizaci?n o cargala por los canales habituales.\n\n"
+        f"La ficha médica {estado}. Cuando puedas, acercanos la actualización o cargala por los canales habituales.\n\n"
         "Gracias."
     )
 
@@ -20631,14 +20938,32 @@ def ver_comunicaciones():
     if check:
         return check
 
-    template_default = (
-        "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
-        "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
-        "Te pedimos regularizar la situación o avisarnos si ya realizaste el pago. Gracias."
-    )
-    template_default = template_morosos_default()
+    plantillas = plantillas_cobranza()
+    plantilla_clave = request.args.get("plantilla", "recordatorio")
+    if plantilla_clave not in plantillas:
+        plantilla_clave = "recordatorio"
+    template_default = plantillas[plantilla_clave][1]
     template = request.args.get("mensaje", template_default).strip() or template_default
     morosos = obtener_morosos_para_comunicacion()
+    ultimo_whatsapp = {}
+    ultimo_email = {}
+    if morosos:
+        conn = get_connection()
+        filas = conn.execute("""
+            SELECT DISTINCT ON (jugador_id) jugador_id, estado, creado_en
+            FROM whatsapp_envios
+            WHERE jugador_id = ANY(%s) AND tipo = 'comunicacion_moroso'
+            ORDER BY jugador_id, creado_en DESC, id DESC
+        """, ([jugador["id"] for jugador in morosos],)).fetchall()
+        emails = conn.execute("""
+            SELECT DISTINCT ON (jugador_id) jugador_id, estado, creado_en
+            FROM comunicacion_email_envios
+            WHERE jugador_id = ANY(%s)
+            ORDER BY jugador_id, creado_en DESC, id DESC
+        """, ([jugador["id"] for jugador in morosos],)).fetchall()
+        conn.close()
+        ultimo_whatsapp = {fila["jugador_id"]: fila for fila in filas}
+        ultimo_email = {fila["jugador_id"]: fila for fila in emails}
 
     comunicaciones = []
     for jugador in morosos:
@@ -20656,11 +20981,15 @@ def ver_comunicaciones():
             "email": email_jugador_preferido(jugador),
             "telefono_whatsapp": telefono_whatsapp,
             "whatsapp_url": whatsapp_url,
+            "ultimo_whatsapp": ultimo_whatsapp.get(jugador["id"]),
+            "ultimo_email": ultimo_email.get(jugador["id"]),
         })
 
     return render_template(
         "comunicaciones.html",
         template=template,
+        plantillas=plantillas,
+        plantilla_clave=plantilla_clave,
         comunicaciones=comunicaciones,
     )
 
@@ -20687,6 +21016,16 @@ def enviar_email_comunicacion_moroso(jugador_id):
     mensaje = mensaje_moroso(template, jugador)
     asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
     enviado, destinatario, motivo = enviar_email_jugador(jugador, asunto, mensaje)
+    conn = None
+    try:
+        conn = get_connection()
+        registrar_email_cobranza(conn, jugador_id, (enviado, destinatario, motivo))
+        conn.commit()
+    except Exception:
+        app.logger.exception("No se pudo registrar el estado del email de cobranza.")
+    finally:
+        if conn:
+            conn.close()
     if enviado:
         registrar_auditoria("enviar_recordatorio", "moroso", str(jugador_id), {"destinatario": destinatario, "tipo": "comunicacion_moroso"})
         flash("Email enviado.", "ok")
@@ -20713,7 +21052,19 @@ def enviar_email_comunicacion_morosos_lote():
     for jugador in jugadores:
         mensaje = mensaje_moroso(template, jugador)
         asunto = f"Estado de cuotas - {jugador['apellido']}, {jugador['nombre']}"
-        resultados.append(enviar_email_jugador(jugador, asunto, mensaje))
+        resultado = enviar_email_jugador(jugador, asunto, mensaje)
+        resultados.append(resultado)
+    conn = None
+    try:
+        conn = get_connection()
+        for jugador, resultado in zip(jugadores, resultados):
+            registrar_email_cobranza(conn, jugador["id"], resultado)
+        conn.commit()
+    except Exception:
+        app.logger.exception("No se pudieron registrar los estados del lote de emails de cobranza.")
+    finally:
+        if conn:
+            conn.close()
 
     enviados = sum(1 for ok, _, _ in resultados if ok)
     registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos"})
@@ -21736,11 +22087,90 @@ def panel_sistema_admin():
     if check:
         return check
 
+    conn = get_connection()
+    planteles = planteles_disponibles(conn)
+    versiones = resumen_versiones_publicadas(conn)
+    conn.close()
     return render_template(
         "sistema_admin.html",
         estado=obtener_estado_sistema_admin(),
         solo_backup=False,
+        planteles=planteles,
+        versiones=versiones,
     )
+
+
+def resumen_versiones_publicadas(conn):
+    registradas = conn.execute("""
+        SELECT numero, nombre, fecha_publicacion, notas, revision_git
+        FROM versiones_publicadas ORDER BY numero DESC
+    """).fetchall()
+    return {
+        "registradas": registradas,
+        "total": len(registradas),
+    }
+
+
+@app.route("/admin/versiones", methods=["GET", "POST"])
+def administrar_versiones():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    conn = get_connection()
+    if request.method == "POST":
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("versiones_publicadas",))
+        accion = request.form.get("accion", "")
+        resumen = resumen_versiones_publicadas(conn)
+        if accion == "publicar":
+            nombre = request.form.get("nombre", "").strip()
+            fecha = request.form.get("fecha_publicacion", "").strip()
+            notas = request.form.get("notas", "").strip()
+            revision = request.form.get("revision_git", "").strip()
+            try:
+                datetime.strptime(fecha, "%Y-%m-%d")
+                fecha_valida = True
+            except ValueError:
+                fecha_valida = False
+            if not nombre or len(nombre) > 100 or not fecha_valida or len(notas) > 2000 or len(revision) > 80:
+                flash("Revisá el nombre, la fecha y las notas de la entrega.", "error")
+            else:
+                siguiente = resumen["total"] + 1
+                conn.execute("""
+                    INSERT INTO versiones_publicadas
+                        (numero, nombre, fecha_publicacion, notas, revision_git, registrado_por)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (siguiente, nombre, fecha, notas or None, revision or None, session.get("username")))
+                conn.commit()
+                flash(f"Entrega publicada #{siguiente} registrada.", "ok")
+        else:
+            flash("Acción de versiones no válida.", "error")
+        conn.close()
+        return redirect(url_for("administrar_versiones"))
+    resumen = resumen_versiones_publicadas(conn)
+    conn.close()
+    return render_template("versiones_admin.html", versiones=resumen, version_objetivo=RELEASE_VERSION)
+
+
+@app.route("/admin/sistema/planteles", methods=["POST"])
+def agregar_plantel():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    nombre = " ".join(request.form.get("nombre", "").split())
+    if not nombre or len(nombre) > 80:
+        flash("Ingresá un nombre de plantel de hasta 80 caracteres.", "error")
+        return redirect(url_for("panel_sistema_admin"))
+    conn = get_connection()
+    existe = conn.execute("SELECT nombre FROM planteles WHERE LOWER(nombre) = LOWER(%s)", (nombre,)).fetchone()
+    if existe:
+        conn.close()
+        flash("Ese plantel ya existe.", "error")
+        return redirect(url_for("panel_sistema_admin"))
+    conn.execute("INSERT INTO planteles (nombre) VALUES (%s)", (nombre,))
+    conn.commit()
+    conn.close()
+    flash("Plantel agregado.", "ok")
+    return redirect(url_for("panel_sistema_admin"))
 
 
 @app.route("/admin/sistema/avisos-login", methods=["GET", "POST"])
@@ -24710,6 +25140,23 @@ def eliminar_evento_asistencia(evento_id):
     if evento is None:
         conn.close()
         flash("Evento no encontrado.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    calendario_evento = obtener_calendario_evento_por_asistencia(conn, evento_id)
+    if calendario_evento:
+        conn.close()
+        flash("Este evento está vinculado al calendario. Editalo desde allí.", "error")
+        return redirect(url_for("listar_eventos_asistencia"))
+
+    tiene_registros = conn.execute("""
+        SELECT 1 FROM portal_asistencia_confirmaciones WHERE evento_id = %s
+        UNION ALL SELECT 1 FROM asistencias WHERE evento_id = %s
+        UNION ALL SELECT 1 FROM aspirante_asistencias WHERE evento_id = %s
+        LIMIT 1
+    """, (evento_id, evento_id, evento_id)).fetchone()
+    if tiene_registros:
+        conn.close()
+        flash("El evento tiene confirmaciones o asistencia y no se puede eliminar.", "error")
         return redirect(url_for("listar_eventos_asistencia"))
 
     conn.execute("DELETE FROM portal_asistencia_confirmaciones WHERE evento_id = %s", (evento_id,))

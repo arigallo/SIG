@@ -16,6 +16,9 @@
         </div>
     </div>
     <div class="admin-hero-actions actions">
+        {% if aspirante_origen and puede('aspirantes_ver') %}
+            <a class="button secondary" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante_origen['id']) }}">Ver etapa de ingreso</a>
+        {% endif %}
         <a class="button secondary" href="{{ url_for('timeline_jugador', jugador_id=jugador['id']) }}">Historial</a>
         {% if puede('jugadores_gestionar') %}
             <a class="button secondary" href="{{ url_for('editar_jugador', jugador_id=jugador['id']) }}">Editar jugador</a>

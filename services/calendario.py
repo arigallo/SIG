@@ -105,7 +105,12 @@ def crear_eventos_calendario(conn, data, fechas_recurrentes=None, crear_recurren
     for fecha_evento in fechas_a_crear:
         data_evento = dict(data)
         data_evento["fecha"] = fecha_evento
-        if crear_recurrentes and existe_evento_calendario(conn, data_evento):
+        if conn is not None:
+            clave = "|".join(str(data_evento.get(campo) or "") for campo in (
+                "fecha", "tipo", "titulo", "hora_inicio", "categoria"
+            ))
+            conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("calendario:" + clave,))
+        if existe_evento_calendario(conn, data_evento):
             eventos_omitidos.append(fecha_evento)
             continue
         evento_id, asistencia_evento_id = crear_evento_calendario_desde_data(conn, data_evento)

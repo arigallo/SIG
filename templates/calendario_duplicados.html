@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Posibles eventos duplicados{% endblock %}
+{% block content %}
+<div class="admin-page">
+    <div class="section-header"><div><h2>Posibles eventos duplicados</h2><p class="page-intro">Revisá cada evento y sus respuestas antes de decidir cuál conservar. Esta pantalla no modifica datos.</p></div><a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Volver a Sistema</a></div>
+    <div class="table-wrapper"><table>
+        <thead><tr><th>Fecha</th><th>Hora</th><th>Evento</th><th>Plantel</th><th>Coincidencias</th><th>Revisar</th></tr></thead>
+        <tbody>
+        {% for grupo in grupos %}
+            <tr><td>{{ grupo['fecha'] }}</td><td>{{ grupo['hora_inicio'] or '-' }}</td><td>{{ grupo['tipo'] }} · {{ grupo['titulo'] }}</td><td>{{ grupo['categoria'] or 'General' }}</td><td>{{ grupo['cantidad'] }}</td><td>{% for id in grupo['ids'] %}<a class="button secondary" href="{{ url_for('detalle_evento_calendario', evento_id=id) }}">#{{ id }}</a>{% endfor %}</td></tr>
+        {% else %}<tr><td colspan="6" class="empty">No se encontraron eventos con fecha, hora, tipo, título y plantel idénticos.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</div>
+{% endblock %}

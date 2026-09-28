@@ -7,18 +7,18 @@
 <form method="post" class="card form-grid">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
-        <label>Nombre *</label>
-        <input type="text" name="nombre" value="{{ jugador['nombre'] if jugador else '' }}" required>
+        <label for="jugador-nombre">Nombre *</label>
+        <input id="jugador-nombre" type="text" name="nombre" value="{{ jugador['nombre'] if jugador else '' }}" required autocomplete="given-name">
     </div>
 
     <div>
-        <label>Apellido *</label>
-        <input type="text" name="apellido" value="{{ jugador['apellido'] if jugador else '' }}" required>
+        <label for="jugador-apellido">Apellido *</label>
+        <input id="jugador-apellido" type="text" name="apellido" value="{{ jugador['apellido'] if jugador else '' }}" required autocomplete="family-name">
     </div>
 
     <div>
-        <label>DNI</label>
-        <input type="text" name="dni" value="{{ jugador['dni'] if jugador else '' }}">
+        <label for="jugador-dni">DNI</label>
+        <input id="jugador-dni" type="text" name="dni" value="{{ jugador['dni'] if jugador else '' }}" inputmode="numeric">
     </div>
 
     <div>
@@ -42,8 +42,13 @@
     </div>
 
     <div>
-        <label>Categoria</label>
-        <input type="text" name="categoria" value="{{ jugador['categoria'] if jugador else '' }}" placeholder="Primera, Juveniles, etc.">
+        <label for="jugador-plantel">Plantel</label>
+        {% set plantel_actual = jugador['categoria'] if jugador and jugador.get('categoria') else 'Plantel Superior' %}
+        <select id="jugador-plantel" name="categoria" required>
+            {% for plantel in planteles %}
+                <option value="{{ plantel }}" {% if plantel == plantel_actual %}selected{% endif %}>{{ plantel }}</option>
+            {% endfor %}
+        </select>
     </div>
 
     <div>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Excepciones de cobranza{% endblock %}
+{% block content %}
+<div class="admin-page">
+    <div class="section-header">
+        <div><h2>Excepciones de cobranza</h2><p class="page-intro">Comprobantes pendientes o rechazados y saldos vencidos que necesitan seguimiento.</p></div>
+        <a class="button secondary" href="{{ url_for('ver_panel_cobranzas') }}">Volver a cobranzas</a>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Persona</th><th>Concepto</th><th>Importe</th><th>Vencimiento</th><th>Situación</th><th>Acción</th></tr></thead>
+            <tbody>
+            {% for item in excepciones %}
+                <tr>
+                    <td>{{ item['apellido'] or '' }}, {{ item['nombre'] or '' }}</td>
+                    <td>{{ item['concepto'] }}</td>
+                    <td>{{ item['importe'] | moneda }}</td>
+                    <td>{{ item['fecha_vencimiento'] or '-' }}</td>
+                    <td>{% if item['comprobante_estado'] == 'pendiente' %}Comprobante por revisar{% elif item['comprobante_estado'] == 'rechazado' %}Comprobante rechazado{% else %}Saldo vencido{% endif %}</td>
+                    <td>
+                        {% if item['origen'] == 'cuota' %}<a href="{{ url_for('listar_comprobantes_revision', estado='pendiente') if item['comprobante_estado'] == 'pendiente' else url_for('ver_cuotas', jugador_id=item['jugador_id']) }}">Revisar</a>
+                        {% else %}<a href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver gasto</a>{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="empty">No hay excepciones pendientes.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

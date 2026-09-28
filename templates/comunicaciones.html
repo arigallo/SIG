@@ -28,6 +28,19 @@
 
 <form method="get" class="card spaced-small toolbar-card">
     <div class="field">
+        <label for="plantilla-cobranza">Situación</label>
+        <select id="plantilla-cobranza" name="plantilla">
+            {% for clave, opcion in plantillas.items() %}
+                <option value="{{ clave }}" {% if clave == plantilla_clave %}selected{% endif %}>{{ opcion[0] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="button secondary" type="submit">Usar plantilla</button>
+</form>
+
+<form method="get" class="card spaced-small toolbar-card">
+    <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
+    <div class="field">
         <label>Mensaje para morosos</label>
         <textarea name="mensaje" rows="4">{{ template }}</textarea>
         <span class="report-note">
@@ -45,6 +58,13 @@
         <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Restaurar plantilla</a>
     </div>
 </form>
+
+<div class="card spaced-small" role="status">
+    <h3>Antes de enviar</h3>
+    <p>Destinatarios con deuda: {{ comunicaciones | length }} · Con email: {{ comunicaciones | selectattr('email') | list | length }} · Con WhatsApp válido: {{ comunicaciones | selectattr('telefono_whatsapp') | list | length }}</p>
+    {% if comunicaciones %}<p><strong>Vista previa:</strong> {{ comunicaciones[0]['mensaje'] }}</p>{% endif %}
+    <p class="report-note">La tabla muestra el mensaje individual y el último estado de cada canal. «Email enviado» indica aceptación por el servidor de correo; no confirma lectura ni entrega final.</p>
+</div>
 
 <div class="table-wrapper communication-table">
     <p class="table-hint">En celular, cada jugador se ordena en una tarjeta para que veas primero deuda, contacto y acciones.</p>
@@ -81,6 +101,12 @@
                         <span class="muted-line">{{ jugador['email_tutor'] or jugador['email'] }}</span>
                     {% else %}
                         <span class="muted-line">Sin email cargado</span>
+                    {% endif %}
+                    {% if item['ultimo_whatsapp'] %}
+                        <span class="muted-line">Último WhatsApp: {{ item['ultimo_whatsapp']['estado'] }} · {{ item['ultimo_whatsapp']['creado_en'] | fecha_hora }}</span>
+                    {% endif %}
+                    {% if item['ultimo_email'] %}
+                        <span class="muted-line">Último email: {{ item['ultimo_email']['estado'] }} · {{ item['ultimo_email']['creado_en'] | fecha_hora }}</span>
                     {% endif %}
                 </td>
                 <td data-label="Deuda" class="strong-danger">{{ jugador['deuda'] | moneda }}</td>

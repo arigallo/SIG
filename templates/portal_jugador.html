@@ -252,6 +252,7 @@
                 </span>
                 <span class="portal-collapse-icon" aria-hidden="true"></span>
             </summary>
+            <p class="report-note">Un comprobante enviado queda en revisión hasta que tesorería acredite el pago. Mientras tanto, el saldo sigue pendiente.</p>
             <div class="table-wrapper flush portal-card-table portal-ledger-table portal-collapsible-body">
                 <table>
                     <thead>
@@ -263,7 +264,7 @@
                             <td>{{ movimiento['fecha_pago'] or movimiento['fecha'] or '-' }}</td>
                             <td>{{ movimiento['concepto'] }}</td>
                             <td>{{ movimiento['importe'] | moneda }}</td>
-                            <td><span class="badge {% if movimiento['estado'] == 'pagado' %}badge-success{% elif movimiento['estado'] == 'pendiente' %}badge-warning{% else %}badge-muted{% endif %}">{{ movimiento['estado'] }}</span></td>
+                            <td><span class="badge {% if movimiento['estado'] == 'pagado' %}badge-success{% elif movimiento['estado'] == 'pendiente' %}badge-warning{% else %}badge-muted{% endif %}">{{ 'Pagado' if movimiento['estado'] == 'pagado' else 'Pendiente' if movimiento['estado'] == 'pendiente' else movimiento['estado'] }}</span></td>
                         </tr>
                         {% else %}
                         <tr><td colspan="4" class="empty">Todav&iacute;a no hay movimientos financieros.</td></tr>
@@ -584,7 +585,7 @@
                                                    name="comprobante_pago"
                                                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                                                    required>
-                                            <span class="upload-title">Arrastra o pega el comprobante</span>
+                                            <span class="upload-title">Arrastrá o elegí el comprobante</span>
                                             <span class="upload-file" data-upload-file-name>Ningun archivo seleccionado</span>
                                         </label>
                                         <button class="button secondary" type="submit">{% if cuota['comprobante_drive_file_id'] %}Reemplazar{% else %}Enviar{% endif %}</button>

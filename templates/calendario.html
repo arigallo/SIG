@@ -97,7 +97,7 @@
                         {{ evento['tipo'] }}
                     </span>
                 </td>
-                <td data-label="Evento"><strong>{{ evento['titulo'] }}</strong></td>
+                <td data-label="Evento"><strong>{% if evento['origen'] == 'calendario' %}<a href="{{ url_for('detalle_evento_calendario', evento_id=evento['id']) }}">{{ evento['titulo'] }}</a>{% else %}{{ evento['titulo'] }}{% endif %}</strong></td>
                 <td data-label="Categoría">{{ evento['categoria'] or '-' }}</td>
                 <td data-label="Ubicación">{{ evento['ubicacion'] or '-' }}</td>
                 <td data-label="Detalle">

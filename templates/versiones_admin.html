@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Versiones publicadas{% endblock %}
+{% block content %}
+<div class="admin-page">
+    <div class="section-header"><div><h2>Versiones publicadas</h2><p class="page-intro">{% if versiones['total'] == 0 %}Próxima entrega preparada: {{ version_objetivo }}. El contador empieza con su publicación como entrega n.º 1.{% else %}El contador aumenta solo con nuevas publicaciones registradas.{% endif %}</p></div><a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Volver a Sistema</a></div>
+    <div class="dashboard-cards spaced">
+        <div class="card stat-card"><h3>Publicaciones registradas</h3><p class="stat-number compact">{{ versiones['total'] }}</p></div>
+    </div>
+
+    <form class="card form-card page-section" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="accion" value="publicar">
+        <h3>Registrar una entrega publicada</h3>
+        <p>Completá este formulario después de confirmar que la versión está disponible para los usuarios.</p>
+        <label for="version-nombre">Nombre de la versión</label>
+        <input id="version-nombre" name="nombre" maxlength="100" value="{% if versiones['total'] == 0 %}SIG {{ version_objetivo }}{% endif %}" required>
+        <label for="version-fecha">Fecha de publicación</label>
+        <input id="version-fecha" name="fecha_publicacion" type="date" required>
+        <label for="version-revision">Commit o revisión desplegada</label>
+        <input id="version-revision" name="revision_git" maxlength="80">
+        <label for="version-notas">Cambios principales</label>
+        <textarea id="version-notas" name="notas" rows="4" maxlength="2000"></textarea>
+        <button class="button" type="submit">Registrar publicación #{{ versiones['total'] + 1 }}</button>
+    </form>
+
+    <div class="card page-section"><h3>Historial registrado</h3>
+        {% for version in versiones['registradas'] %}
+            <article><strong>#{{ version['numero'] }} · {{ version['nombre'] }}</strong><span class="muted-line">{{ version['fecha_publicacion'] }}{% if version['revision_git'] %} · {{ version['revision_git'] }}{% endif %}</span>{% if version['notas'] %}<p>{{ version['notas'] }}</p>{% endif %}</article>
+        {% else %}<p class="muted-line">Aún no se registraron nuevas publicaciones.</p>{% endfor %}
+    </div>
+</div>
+{% endblock %}

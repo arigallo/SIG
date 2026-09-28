@@ -9,6 +9,8 @@
         <p class="page-intro">Checks b&aacute;sicos de operaci&oacute;n, Cloud Run, Cloud SQL y mantenimiento.</p>
     </div>
     <div class="actions">
+        {% if not solo_backup %}<a class="button secondary" href="{{ url_for('administrar_versiones') }}">Publicaciones registradas: {{ versiones['total'] }}</a>{% endif %}
+        {% if not solo_backup %}<a class="button secondary" href="{{ url_for('revisar_eventos_duplicados') }}">Revisar eventos duplicados</a>{% endif %}
         {% if session.get('rol') == 'admin' %}
             <a class="button secondary" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
             <a class="button secondary" href="{{ url_for('listar_sugerencias_recomendaciones') }}">Sugerencias</a>
@@ -20,6 +22,18 @@
 </div>
 
 <div class="dashboard-cards report-cards spaced">
+    {% if not solo_backup %}
+    <div class="card">
+        <h3>Planteles</h3>
+        <p>{{ planteles | join(', ') }}</p>
+        <form method="post" action="{{ url_for('agregar_plantel') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label for="nuevo-plantel">Agregar plantel</label>
+            <input id="nuevo-plantel" name="nombre" type="text" maxlength="80" required>
+            <button class="button" type="submit">Agregar</button>
+        </form>
+    </div>
+    {% endif %}
     <div class="card stat-card {% if estado['db_ok'] %}alert-card-info{% else %}alert-card-critical{% endif %}">
         <h3>Base de datos</h3>
         <p class="stat-number compact">{% if estado['db_ok'] %}OK{% else %}Error{% endif %}</p>

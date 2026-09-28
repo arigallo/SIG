@@ -36,6 +36,7 @@
                 <th>Tipo</th>
                 <th>Descripción</th>
                 <th>Estado</th>
+                <th>Portal</th>
                 <th>Acción</th>
             </tr>
         </thead>
@@ -52,11 +53,12 @@
                         <span class="badge badge-success">Abierto</span>
                     {% endif %}
                 </td>
+                <td>{{ evento['confirmaciones_portal'] }} respuestas</td>
                 <td class="actions">
                     <a class="button secondary" href="{{ url_for('tomar_asistencia', evento_id=evento['id']) }}">
                         Ver / tomar asistencia
                     </a>
-                    <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar CSV</a>
+                    <a class="button secondary" href="{{ url_for('exportar_evento_asistencia', evento_id=evento['id']) }}">Exportar Excel</a>
                     {% if puede('asistencia_gestionar') %}
                         {% if evento.get('calendario_evento_id') %}
                             <a class="button secondary" href="{{ url_for('editar_evento_calendario', evento_id=evento['calendario_evento_id'], origen='asistencia') }}">Editar</a>
@@ -83,7 +85,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="empty">No hay eventos de asistencia cargados.</td>
+                <td colspan="6" class="empty">No hay eventos de asistencia cargados.</td>
             </tr>
             {% endfor %}
         </tbody>

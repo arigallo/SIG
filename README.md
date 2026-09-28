@@ -10,6 +10,22 @@ Secret Manager, email y WhatsApp.
 - Edicion
 - Eliminacion
 
+## Versión preparada: 2.1.0
+
+- La ficha del jugador enlaza su etapa previa como ahijadx cuando existe un DNI coincidente; el alta directa conserva el vínculo y evita duplicar jugadores con el mismo DNI.
+- Cada evento del calendario tiene una vista central con confirmaciones, asistencia real, gastos vinculados y acciones disponibles según el rol.
+- Finanzas muestra una cola de excepciones para comprobantes pendientes o rechazados y saldos vencidos.
+- Comunicación muestra la cantidad de destinatarios, una vista previa y el último estado de WhatsApp por jugador.
+- El panel prioriza accesos según permisos. El portal explica cuándo un comprobante sigue en revisión.
+
+### Versiones publicadas
+
+`Admin > Versiones` empieza a contar con la publicación de SIG 2.1.0 como entrega n.º 1. Después registra cada nueva entrega con fecha, nombre y revisión desplegada. El contador muestra 0 hasta registrar esa primera publicación; los commits no incrementan el número.
+
+### Verificación
+
+Con las dependencias instaladas, ejecutar `python -m unittest discover -s tests -q`. El proyecto requiere una `SECRET_KEY` de prueba y `INIT_DB=false` para ejecutar pruebas sin iniciar la base de producción.
+
 ## Requisitos
 - Python 3.10 o superior
 

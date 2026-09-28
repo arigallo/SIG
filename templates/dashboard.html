@@ -26,6 +26,40 @@
     </div>
 </section>
 
+<section class="card page-section" aria-labelledby="my-work-title">
+    <div class="section-header compact">
+        <div>
+            <span class="admin-eyebrow">Tu trabajo</span>
+            <h3 id="my-work-title">Próximos pasos para tu rol</h3>
+        </div>
+    </div>
+    <div class="actions">
+        {% if session.get('rol') == 'admin' %}
+            <a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisión general</a>
+            <a class="button secondary" href="{{ url_for('ver_excepciones_cobranza') }}">Excepciones de cobranza</a>
+            <a class="button secondary" href="{{ url_for('revisar_eventos_duplicados') }}">Eventos duplicados</a>
+            <a class="button secondary" href="{{ url_for('administrar_versiones') }}">Versiones</a>
+        {% elif session.get('rol') == 'tesorero' %}
+            {% if puede('cuotas_gestionar') %}<a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Revisar {{ comprobantes_pendientes_count }} comprobantes</a>{% endif %}
+            {% if puede('cuotas_ver') %}<a class="button secondary" href="{{ url_for('ver_excepciones_cobranza') }}">Resolver excepciones</a>{% endif %}
+            {% if puede('caja_ver') %}<a class="button secondary" href="{{ url_for('ver_caja') }}">Ver caja</a>{% endif %}
+        {% elif session.get('rol') == 'entrenador' %}
+            {% if puede('calendario_ver') %}<a class="button secondary" href="{{ url_for('ver_calendario') }}">Ver próximos eventos</a>{% endif %}
+            {% if puede('asistencia_ver') %}<a class="button secondary" href="{{ url_for('listar_eventos_asistencia') }}">Revisar asistencia</a>{% endif %}
+            {% if puede('tests_ver') %}<a class="button secondary" href="{{ url_for('listar_tests') }}">Ver tests</a>{% endif %}
+        {% elif session.get('rol') == 'medico' %}
+            {% if puede('salud_ver') %}<a class="button secondary" href="{{ url_for('panel_salud') }}">Panel de salud</a><a class="button secondary" href="{{ url_for('ver_documentos_vencidos') }}">Revisar {{ fichas_por_vencer_count }} fichas por vencer</a>{% endif %}
+        {% elif session.get('rol') in ['madrinas', 'madrina', 'padrino', 'padrinos'] %}
+            {% if puede('aspirantes_ver') %}<a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Seguir ahijadxs</a>{% endif %}
+            {% if puede('comunicaciones_ver') %}<a class="button secondary" href="{{ url_for('ver_whatsapp_inbox') }}">Responder mensajes</a>{% endif %}
+        {% else %}
+            {% if puede('calendario_ver') %}<a class="button secondary" href="{{ url_for('ver_calendario') }}">Ver calendario</a>{% endif %}
+            {% if puede('jugadores_ver') %}<a class="button secondary" href="{{ url_for('listar_jugadores') }}">Ver jugadores</a>{% endif %}
+            {% if puede_ver_operacion() %}<a class="button secondary" href="{{ url_for('ver_operacion_diaria') }}">Revisión diaria</a>{% endif %}
+        {% endif %}
+    </div>
+</section>
+
 <div class="quick-module-grid">
     {% if puede_ver_jugadores %}
         <a class="quick-module-card quick-module-club" href="{{ url_for('listar_jugadores') }}">
