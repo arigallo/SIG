@@ -6244,3 +6244,18 @@ tbody tr:hover {
         min-height: 118px;
     }
 }
+.role-simulation-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    border: 2px solid #b45309;
+    border-radius: 0.6rem;
+    background: #fffbeb;
+    color: #78350f;
+}
+
+.role-simulation-banner form { margin: 0; }

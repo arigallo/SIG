@@ -42,6 +42,7 @@
             <nav class="main-nav" id="admin-main-nav" aria-label="Navegaci&oacute;n principal">
                 {% set endpoint = request.endpoint or '' %}
                 <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
+                {% if session.get('user_id') %}<a class="nav-link {% if endpoint == 'mis_avisos' %}active{% endif %}" href="{{ url_for('mis_avisos') }}">Mis avisos <span class="nav-badge" data-avisos-postulacion-badge hidden>0</span></a>{% endif %}
                 {% if puede_ver_operacion() %}
                     <a class="nav-link {% if endpoint == 'ver_operacion_diaria' %}active{% endif %}" href="{{ url_for('ver_operacion_diaria') }}">Operaci&oacute;n</a>
                 {% endif %}
@@ -176,7 +177,7 @@
                 {% endif %}
 
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') or puede('encuestas_ver', 'encuestas_gestionar') %}
-                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'panel_sistema_admin', 'administrar_versiones', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
+                {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'simular_rol', 'panel_sistema_admin', 'administrar_versiones', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
                 <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
                     <summary>Admin</summary>
@@ -184,6 +185,7 @@
                         {% if session.get('rol') == 'admin' %}
                             <a class="{% if endpoint == 'listar_usuarios' %}active{% endif %}" href="{{ url_for('listar_usuarios') }}">Usuarios</a>
                             <a class="{% if endpoint == 'listar_roles' %}active{% endif %}" href="{{ url_for('listar_roles') }}">Roles</a>
+                            <a class="{% if endpoint == 'simular_rol' %}active{% endif %}" href="{{ url_for('simular_rol') }}">Simular rol</a>
                             <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
                             <a class="{% if endpoint == 'administrar_versiones' %}active{% endif %}" href="{{ url_for('administrar_versiones') }}">Versiones</a>
                             <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
@@ -218,6 +220,9 @@
                         {% if rol_guia in guias_roles %}
                             <a href="{{ url_for('static', filename='docs/instructivo_' ~ rol_guia ~ '.pdf') }}" target="_blank" rel="noopener">Instructivo de mi rol (PDF)</a>
                         {% endif %}
+                        {% if rol_guia == 'madrinas' %}
+                            <a href="{{ url_for('static', filename='docs/manual_madrinas.pdf') }}" target="_blank" rel="noopener">Manual de madrinas (PDF)</a>
+                        {% endif %}
                         {% if puede('aspirantes_ver', 'aspirantes_gestionar') %}
                             <a href="{{ url_for('static', filename='docs/instructivo_madrinas.pdf') }}" target="_blank" rel="noopener">Instructivo de madrinas (PDF)</a>
                         {% endif %}
@@ -236,11 +241,23 @@
 
     <main class="container" id="contenido-principal" tabindex="-1">
         {% set endpoint = request.endpoint or '' %}
+        {% if session.get('simulacion_rol_original') %}
+            <div class="role-simulation-banner" role="status">
+                <span>Simulando rol <strong>{{ session.get('rol') }}</strong> como administrador. Vista de solo lectura; tu cuenta real sigue siendo admin.</span>
+                <form method="post" action="{{ url_for('finalizar_simulacion_rol') }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Volver a admin</button>
+                </form>
+            </div>
+        {% endif %}
         {% if session.get('user_id') and rol_guia in guias_roles %}
             <div class="role-guide-bar">
                 {% set guia_clave = rol_guia %}
                 {% set guia_nombre = guias_roles[rol_guia] %}
                 {% include '_instructivo_button.html' %}
+                {% if rol_guia == 'madrinas' %}
+                    <a class="role-guide-button role-guide-button--madrinas" href="{{ url_for('static', filename='docs/manual_madrinas.pdf') }}" target="_blank" rel="noopener" aria-label="Abrir manual de madrinas (PDF, nueva pestaña)">Manual de madrinas <span class="role-guide-format">PDF ↗</span></a>
+                {% endif %}
             </div>
         {% endif %}
 

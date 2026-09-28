@@ -17,6 +17,8 @@ Secret Manager, email y WhatsApp.
 - Finanzas muestra una cola de excepciones para comprobantes pendientes o rechazados y saldos vencidos.
 - Comunicación muestra la cantidad de destinatarios, una vista previa y el último estado de WhatsApp por jugador.
 - El panel prioriza accesos según permisos. El portal explica cuándo un comprobante sigue en revisión.
+- Desde Sistema, un administrador puede simular otro rol para recorrer sus pantallas y permisos en modo de solo lectura, y volver a admin sin alterar usuarios.
+- Madrinas dispone del manual del equipo además del instructivo de SIG. En Sistema se puede designar un usuario con email para recibir avisos de nuevas postulaciones públicas por correo y dentro de SIG; si tiene push habilitado, también recibe la notificación del navegador.
 
 ### Versiones publicadas
 

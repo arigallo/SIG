@@ -8223,6 +8223,23 @@ def init_db():
         WHERE email IS NOT NULL AND email <> ''
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS avisos_postulacion (
+            id SERIAL PRIMARY KEY,
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+            aspirante_id INTEGER NOT NULL REFERENCES aspirantes(id),
+            creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            leido_en TIMESTAMPTZ,
+            email_estado TEXT NOT NULL DEFAULT 'pendiente',
+            email_motivo TEXT,
+            UNIQUE (usuario_id, aspirante_id)
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_avisos_postulacion_usuario
+        ON avisos_postulacion (usuario_id, leido_en, creado_en DESC)
+    """)
+
     usuario_admin = conn.execute("""
         SELECT * FROM usuarios WHERE username = 'admin'
     """).fetchone()
@@ -9959,6 +9976,11 @@ def proteger_rutas():
         if not csrf_valido():
             abort(400)
 
+    if (session.get("simulacion_rol_original")
+            and request.method not in {"GET", "HEAD", "OPTIONS"}
+            and request.endpoint != "finalizar_simulacion_rol"):
+        abort(403, description="La simulación de roles es de solo lectura.")
+
     if request.path in {"/meta/data-deletion", "/meta/data-deletion-callback"}:
         return
 
@@ -9996,7 +10018,8 @@ def proteger_rutas():
             "actualizado_por": None,
         }
 
-    if g.mantenimiento["activo"] and session.get("rol") != "admin":
+    if (g.mantenimiento["activo"] and session.get("rol") != "admin"
+            and not session.get("simulacion_rol_original")):
         return render_template("mantenimiento.html", mantenimiento=g.mantenimiento), 503
 
 
@@ -10535,7 +10558,7 @@ def smtp_configurado():
     return bool(SMTP_HOST and SMTP_FROM)
 
 
-def render_email_html(cuerpo, logo_cid=None):
+def render_email_html(cuerpo, logo_cid=None, firma="Tesorería - Ruda Macho Rugby Club"):
     cuerpo_html = "<br>".join(html.escape(linea) if linea else "" for linea in str(cuerpo or "").splitlines())
     logo_html = ""
     if logo_cid:
@@ -10549,21 +10572,21 @@ def render_email_html(cuerpo, logo_cid=None):
         '<html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.5;">'
         f'<div>{cuerpo_html}</div>'
         '<div style="margin-top:20px;">'
-        '<strong>Tesorer\u00eda - Ruda Macho Rugby Club</strong>'
+        f'<strong>{html.escape(firma)}</strong>'
         f'{logo_html}'
         '</div>'
         '</body></html>'
     )
 
 
-def enviar_email(destinatario, asunto, cuerpo, adjuntos=None):
+def enviar_email(destinatario, asunto, cuerpo, adjuntos=None, firma="Tesorería - Ruda Macho Rugby Club", remitente_nombre=None):
     if not smtp_configurado():
         return False, "smtp"
 
     cuerpo_base = str(cuerpo or "").rstrip()
-    cuerpo_texto = cuerpo_base + "\n\nTesorer\u00eda - Ruda Macho Rugby Club"
+    cuerpo_texto = cuerpo_base + "\n\n" + firma
     mensaje = EmailMessage()
-    mensaje["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
+    mensaje["From"] = formataddr((remitente_nombre or SMTP_FROM_NAME, SMTP_FROM))
     mensaje["To"] = destinatario
     mensaje["Subject"] = asunto
     mensaje.set_content(cuerpo_texto)
@@ -10571,7 +10594,7 @@ def enviar_email(destinatario, asunto, cuerpo, adjuntos=None):
     logo_cid = None
     if logo_path.exists():
         logo_cid = make_msgid(domain="rudamachorugby.com")[1:-1]
-    mensaje.add_alternative(render_email_html(cuerpo_base, logo_cid=logo_cid), subtype="html")
+    mensaje.add_alternative(render_email_html(cuerpo_base, logo_cid=logo_cid, firma=firma), subtype="html")
     if logo_cid and logo_path.exists():
         with logo_path.open("rb") as fh:
             mensaje.get_payload()[-1].add_related(
@@ -13314,6 +13337,110 @@ def validar_datos_aspirante(data, publico=False):
     return None
 
 
+POSTULACION_NOTIFY_USER_KEY = "postulacion_notify_user_id"
+
+
+def destinatario_avisos_postulacion(conn):
+    configuracion = obtener_app_settings(conn, [POSTULACION_NOTIFY_USER_KEY])
+    usuario_id = ((configuracion.get(POSTULACION_NOTIFY_USER_KEY) or {}).get("valor") or "").strip()
+    if not usuario_id.isdigit():
+        return None
+    return conn.execute("""
+        SELECT id, username, email FROM usuarios
+        WHERE id = %s AND NULLIF(TRIM(email), '') IS NOT NULL
+    """, (int(usuario_id),)).fetchone()
+
+
+def enviar_aviso_postulacion(aviso_id, destinatario, aspirante):
+    asunto = f"Nueva postulación: {aspirante['nombre']} {aspirante['apellido']}"
+    cuerpo = (
+        "Se registró una nueva postulación en SIG.\n\n"
+        f"Nombre: {aspirante['nombre']} {aspirante['apellido']}\n"
+        f"WhatsApp: {aspirante['telefono']}\n"
+        f"Correo: {aspirante['email'] or '-'}\n\n"
+        "Ingresá a SIG > Mis avisos para revisar la postulación."
+    )
+    try:
+        enviado, motivo = enviar_email(
+            destinatario["email"], asunto, cuerpo,
+            firma="Ruda Macho Rugby Club", remitente_nombre="Ruda Macho Rugby Club",
+        )
+    except Exception as error:
+        app.logger.exception("No se pudo enviar email de nueva postulación.")
+        enviado, motivo = False, str(error)[:200]
+    try:
+        conn = get_connection()
+        conn.execute("""
+            UPDATE avisos_postulacion
+            SET email_estado = %s, email_motivo = %s
+            WHERE id = %s
+        """, ("enviado" if enviado else "fallido", motivo, aviso_id))
+        conn.commit()
+        conn.close()
+    except Exception:
+        app.logger.exception("No se pudo registrar el resultado del email de postulación.")
+    try:
+        enviar_push_por_actor("usuario", {
+            "title": "Nueva postulación",
+            "body": f"{aspirante['nombre']} {aspirante['apellido']} se registró en SIG.",
+            "url": url_for("mis_avisos"),
+            "icon": pwa_icon_url("192"),
+        }, usuario_id=destinatario["id"])
+    except Exception:
+        app.logger.exception("No se pudo enviar push de nueva postulación.")
+
+
+def obtener_contador_avisos_postulacion():
+    usuario_id = session.get("user_id") if has_request_context() else None
+    if not usuario_id:
+        return 0
+    try:
+        conn = get_connection()
+        fila = conn.execute("""
+            SELECT COUNT(*) AS total FROM avisos_postulacion
+            WHERE usuario_id = %s AND leido_en IS NULL
+        """, (usuario_id,)).fetchone()
+        conn.close()
+        return fila["total"] if fila else 0
+    except Exception:
+        app.logger.exception("No se pudo contar avisos de postulaciones.")
+        return 0
+
+
+@app.route("/mis-avisos/contador")
+def contador_avisos_postulacion():
+    return jsonify({"total": obtener_contador_avisos_postulacion()})
+
+
+@app.route("/mis-avisos")
+def mis_avisos():
+    conn = get_connection()
+    avisos = conn.execute("""
+        SELECT av.id, av.creado_en, av.leido_en, av.email_estado,
+               a.id AS aspirante_id, a.nombre, a.apellido, a.telefono,
+               a.email, a.fecha_postulacion, a.estado
+        FROM avisos_postulacion av
+        JOIN aspirantes a ON a.id = av.aspirante_id
+        WHERE av.usuario_id = %s
+        ORDER BY av.creado_en DESC
+        LIMIT 100
+    """, (session["user_id"],)).fetchall()
+    conn.close()
+    return render_template("mis_avisos.html", avisos=avisos)
+
+
+@app.route("/mis-avisos/<int:aviso_id>/leido", methods=["POST"])
+def marcar_aviso_postulacion_leido(aviso_id):
+    conn = get_connection()
+    conn.execute("""
+        UPDATE avisos_postulacion SET leido_en = CURRENT_TIMESTAMP
+        WHERE id = %s AND usuario_id = %s AND leido_en IS NULL
+    """, (aviso_id, session["user_id"]))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("mis_avisos"))
+
+
 @app.route("/postulate", methods=["GET", "POST"])
 def postulacion_aspirante_publica():
     data = {}
@@ -13361,7 +13488,7 @@ def postulacion_aspirante_publica():
                 conn.close()
                 return redirect(url_for("postulacion_aspirante_publica", enviado=1), code=303)
             else:
-                conn.execute("""
+                aspirante_nuevo = conn.execute("""
                     INSERT INTO aspirantes (
                         nombre, apellido, fecha_nacimiento, telefono, email, categoria,
                         fecha_postulacion, estado, entrenamientos_objetivo, observaciones,
@@ -13369,14 +13496,26 @@ def postulacion_aspirante_publica():
                         consentimiento_contacto
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Aspirante', %s, %s,
                               'pendiente_contacto', %s, %s, 'formulario_publico', 1)
+                    RETURNING id
                 """, (
                     data["nombre"], data["apellido"], data["fecha_nacimiento"],
                     data["telefono"], data["email"], data["categoria"],
                     ahora_sig().strftime("%Y-%m-%d"), ASPIRANTE_ENTRENAMIENTOS_OBJETIVO,
                     data["observaciones"], data["experiencia_previa"], data["disponibilidad"],
-                ))
+                )).fetchone()
+                destinatario = destinatario_avisos_postulacion(conn)
+                aviso = None
+                if destinatario:
+                    aviso = conn.execute("""
+                        INSERT INTO avisos_postulacion (usuario_id, aspirante_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (usuario_id, aspirante_id) DO NOTHING
+                        RETURNING id
+                    """, (destinatario["id"], aspirante_nuevo["id"])).fetchone()
                 conn.commit()
                 conn.close()
+                if aviso:
+                    enviar_aviso_postulacion(aviso["id"], destinatario, data)
                 return redirect(url_for("postulacion_aspirante_publica", enviado=1), code=303)
     return render_template("aspirante_postulacion_publica.html", enviado=request.method == "GET" and request.args.get("enviado") == "1", data=data)
 
@@ -22081,6 +22220,49 @@ def crear_backup_cloud_sql():
     return redirect(url_for("panel_sistema_admin" if session.get("rol") == "admin" else "backup_db"))
 
 
+@app.route("/admin/simular-rol", methods=["GET", "POST"])
+def simular_rol():
+    if session.get("rol") != "admin" or session.get("simulacion_rol_original"):
+        abort(403)
+
+    conn = get_connection()
+    roles = conn.execute("""
+        SELECT nombre, descripcion, permisos
+        FROM roles
+        WHERE nombre <> 'admin'
+        ORDER BY nombre
+    """).fetchall()
+    if request.method == "POST":
+        nombre = request.form.get("rol", "").strip()
+        elegido = next((rol for rol in roles if rol["nombre"] == nombre), None)
+        if elegido is None:
+            conn.close()
+            flash("Elegí un rol válido para simular.", "error")
+            return redirect(url_for("simular_rol"))
+        session["simulacion_rol_original"] = {
+            "rol": session["rol"],
+            "permisos": session.get("permisos", []),
+        }
+        session["rol"] = elegido["nombre"]
+        session["permisos"] = deserializar_permisos(elegido["permisos"], elegido["nombre"])
+        conn.close()
+        flash(f"Simulando el rol {nombre}. Las acciones de escritura están bloqueadas.", "warning")
+        return redirect(url_for("index"))
+    conn.close()
+    return render_template("simular_rol.html", roles=roles)
+
+
+@app.route("/admin/simular-rol/salir", methods=["POST"])
+def finalizar_simulacion_rol():
+    original = session.pop("simulacion_rol_original", None)
+    if not original or original.get("rol") != "admin":
+        abort(403)
+    session["rol"] = original["rol"]
+    session["permisos"] = original["permisos"]
+    flash("Volviste al rol administrador.", "ok")
+    return redirect(url_for("simular_rol"))
+
+
 @app.route("/admin/sistema")
 def panel_sistema_admin():
     check = rol_requerido("admin")
@@ -22090,6 +22272,12 @@ def panel_sistema_admin():
     conn = get_connection()
     planteles = planteles_disponibles(conn)
     versiones = resumen_versiones_publicadas(conn)
+    usuarios_postulaciones = conn.execute("""
+        SELECT id, username, email FROM usuarios
+        WHERE NULLIF(TRIM(email), '') IS NOT NULL
+        ORDER BY username
+    """).fetchall()
+    destinatario_postulaciones = destinatario_avisos_postulacion(conn)
     conn.close()
     return render_template(
         "sistema_admin.html",
@@ -22097,7 +22285,32 @@ def panel_sistema_admin():
         solo_backup=False,
         planteles=planteles,
         versiones=versiones,
+        usuarios_postulaciones=usuarios_postulaciones,
+        destinatario_postulaciones=destinatario_postulaciones,
     )
+
+
+@app.route("/admin/sistema/avisos-postulacion", methods=["POST"])
+def configurar_avisos_postulacion():
+    check = rol_requerido("admin")
+    if check:
+        return check
+    usuario_id = request.form.get("usuario_id", "").strip()
+    conn = get_connection()
+    if usuario_id:
+        usuario = conn.execute("""
+            SELECT id FROM usuarios
+            WHERE id = %s AND NULLIF(TRIM(email), '') IS NOT NULL
+        """, (int(usuario_id),)).fetchone() if usuario_id.isdigit() else None
+        if not usuario:
+            conn.close()
+            flash("Elegí un usuario con correo electrónico cargado.", "error")
+            return redirect(url_for("panel_sistema_admin"))
+    guardar_app_setting(conn, POSTULACION_NOTIFY_USER_KEY, usuario_id, session.get("username"))
+    conn.commit()
+    conn.close()
+    flash("Destinatario de postulaciones actualizado.", "ok")
+    return redirect(url_for("panel_sistema_admin"))
 
 
 def resumen_versiones_publicadas(conn):
@@ -23488,6 +23701,7 @@ def eliminar_usuario(usuario_id):
 
     conn = get_connection()
     conn.execute("DELETE FROM password_reset_tokens WHERE usuario_id = %s", (usuario_id,))
+    conn.execute("DELETE FROM avisos_postulacion WHERE usuario_id = %s", (usuario_id,))
     conn.execute("DELETE FROM usuarios WHERE id = %s", (usuario_id,))
     conn.commit()
     conn.close()

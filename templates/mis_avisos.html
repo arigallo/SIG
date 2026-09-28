@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Mis avisos{% endblock %}
+{% block content %}
+<div class="section-header"><div><h2>Mis avisos</h2><p class="page-intro">Postulaciones públicas dirigidas a tu usuario.</p></div></div>
+<div class="page-section">
+    {% for aviso in avisos %}
+        <article class="card page-section">
+            <h3>{{ aviso['nombre'] }} {{ aviso['apellido'] }} {% if not aviso['leido_en'] %}<span class="badge badge-warning">Nuevo</span>{% endif %}</h3>
+            <p>Se postuló el {{ aviso['fecha_postulacion'] or aviso['creado_en']|fecha_hora }}. Estado: {{ aviso['estado'] }}.</p>
+            <p>WhatsApp: {{ aviso['telefono'] }}{% if aviso['email'] %} · Email: {{ aviso['email'] }}{% endif %}</p>
+            {% if puede('aspirantes_ver') %}<a class="button secondary" href="{{ url_for('detalle_aspirante', aspirante_id=aviso['aspirante_id']) }}">Ver ficha</a>{% endif %}
+            {% if not aviso['leido_en'] %}
+                <form method="post" action="{{ url_for('marcar_aviso_postulacion_leido', aviso_id=aviso['id']) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="button secondary" type="submit">Marcar como leído</button>
+                </form>
+            {% endif %}
+        </article>
+    {% else %}
+        <div class="card"><p>No tenés avisos de postulaciones.</p></div>
+    {% endfor %}
+</div>
+{% endblock %}

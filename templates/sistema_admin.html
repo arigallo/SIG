@@ -10,6 +10,7 @@
     </div>
     <div class="actions">
         {% if not solo_backup %}<a class="button secondary" href="{{ url_for('administrar_versiones') }}">Publicaciones registradas: {{ versiones['total'] }}</a>{% endif %}
+        {% if not solo_backup %}<a class="button secondary" href="{{ url_for('simular_rol') }}">Simular rol</a>{% endif %}
         {% if not solo_backup %}<a class="button secondary" href="{{ url_for('revisar_eventos_duplicados') }}">Revisar eventos duplicados</a>{% endif %}
         {% if session.get('rol') == 'admin' %}
             <a class="button secondary" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
@@ -31,6 +32,21 @@
             <label for="nuevo-plantel">Agregar plantel</label>
             <input id="nuevo-plantel" name="nombre" type="text" maxlength="80" required>
             <button class="button" type="submit">Agregar</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>Avisos de nuevas postulaciones</h3>
+        <p>El usuario elegido recibe un email y un aviso dentro de SIG cuando alguien completa el formulario público. Necesita tener un correo cargado.</p>
+        <form method="post" action="{{ url_for('configurar_avisos_postulacion') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label for="usuario-avisos-postulacion">Usuario destinatario</label>
+            <select id="usuario-avisos-postulacion" name="usuario_id">
+                <option value="">Sin destinatario</option>
+                {% for usuario in usuarios_postulaciones %}
+                    <option value="{{ usuario['id'] }}" {% if destinatario_postulaciones and destinatario_postulaciones['id'] == usuario['id'] %}selected{% endif %}>{{ usuario['username'] }} · {{ usuario['email'] }}</option>
+                {% endfor %}
+            </select>
+            <button class="button" type="submit">Guardar destinatario</button>
         </form>
     </div>
     {% endif %}

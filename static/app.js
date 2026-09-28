@@ -105,6 +105,7 @@
 
     const whatsappBadge = document.querySelector("[data-whatsapp-inbox-badge]");
     const notificationsBadge = document.querySelector("[data-notifications-badge]");
+    const postulacionesBadge = document.querySelector("[data-avisos-postulacion-badge]");
     let lastWhatsappInboxId = null;
 
     const setWhatsappBadge = (count) => {
@@ -192,6 +193,26 @@
     if (notificationsBadge) {
         pollNotifications();
         window.setInterval(pollNotifications, 30000);
+    }
+
+    if (postulacionesBadge) {
+        const pollPostulaciones = async () => {
+            try {
+                const response = await fetch("/mis-avisos/contador", {
+                    credentials: "same-origin",
+                    headers: {"Accept": "application/json"},
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                const count = Number(data.total) || 0;
+                postulacionesBadge.textContent = String(count);
+                postulacionesBadge.hidden = count <= 0;
+            } catch (error) {
+                // El próximo sondeo vuelve a intentar.
+            }
+        };
+        pollPostulaciones();
+        window.setInterval(pollPostulaciones, 30000);
     }
 
     const prioritySelectAll = document.querySelector("[data-priority-select-all]");

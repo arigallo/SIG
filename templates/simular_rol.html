@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Simular rol{% endblock %}
+{% block content %}
+<div class="section-header">
+    <div>
+        <h2>Simular rol</h2>
+        <p class="page-intro">Explorá los menús y pantallas de otro rol con tu cuenta de administrador. La simulación es de solo lectura y no cambia los permisos de ningún usuario.</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('panel_sistema_admin') }}">Volver a Sistema</a>
+</div>
+<form class="card form-card page-section" method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label for="rol-simulado">Rol para simular</label>
+    <select id="rol-simulado" name="rol" required>
+        <option value="">Seleccioná un rol</option>
+        {% for rol in roles %}
+            <option value="{{ rol['nombre'] }}">{{ rol['nombre'] }}{% if rol['descripcion'] %} · {{ rol['descripcion'] }}{% endif %}</option>
+        {% endfor %}
+    </select>
+    <button class="button" type="submit">Iniciar simulación</button>
+</form>
+{% endblock %}
