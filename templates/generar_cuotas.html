@@ -4,6 +4,7 @@
 
 {% block content %}
 <h2>Generación masiva de cuotas</h2>
+<p><a class="button secondary" href="{{ url_for('modificar_montos_cuotas') }}">Modificar montos de cuotas ya cargadas</a></p>
 
 <form method="post" class="card form-card form-card-narrow">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .venv/
 .codex-venv/
+work/test-deps/
 
 # Local editor and tool state
 .cache/

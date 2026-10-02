@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Modificar montos de cuotas{% endblock %}
+{% block content %}
+<h2>Modificar montos de cuotas cargadas</h2>
+<p>Indicá el nuevo importe base. Se conservan el porcentaje de beca registrado y los adicionales de planes de pago. Se excluyen cuotas pagadas, anuladas y con comprobantes pendientes o aceptados.</p>
+<form method="post" class="card form-card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="desde">Período desde</label><input id="desde" type="month" name="periodo_desde" value="{{ periodo_desde }}" required></div>
+    <div class="field"><label for="hasta">Período hasta</label><input id="hasta" type="month" name="periodo_hasta" value="{{ periodo_hasta }}" required></div>
+    <div class="field"><label for="categoria">Categoría (vacío: todas)</label><input id="categoria" name="categoria" value="{{ categoria }}"></div>
+    <div class="field"><label for="importe">Nuevo importe base</label><input id="importe" type="number" step="0.01" min="0.01" max="999999999" name="importe" value="{{ importe }}" required></div>
+    <button class="button" type="submit">Ver cuotas y montos propuestos</button>
+</form>
+{% if cuotas is not none %}
+<div class="card stack-gap">
+<h3>{{ cuotas|length }} cuotas disponibles</h3>
+{% if cuotas %}
+<form method="post" onsubmit="return confirm('¿Aplicar el nuevo importe a las cuotas seleccionadas?');">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="accion" value="aplicar">
+    <input type="hidden" name="periodo_desde" value="{{ periodo_desde }}">
+    <input type="hidden" name="periodo_hasta" value="{{ periodo_hasta }}">
+    <input type="hidden" name="categoria" value="{{ categoria }}">
+    <input type="hidden" name="importe" value="{{ importe }}">
+    <label><input type="checkbox" checked onchange="this.form.querySelectorAll('[name=cuota_id]').forEach(c => c.checked = this.checked)"> Seleccionar todas</label>
+    <div class="table-wrapper"><table>
+    <thead><tr><th>Seleccionar</th><th>Jugador</th><th>Categoría</th><th>Período</th><th>Monto actual</th><th>Nuevo monto</th></tr></thead>
+    <tbody>{% for cuota in cuotas %}<tr>
+        <td><input type="checkbox" name="cuota_id" value="{{ cuota.id }}" checked aria-label="Seleccionar cuota de {{ cuota.apellido }} {{ cuota.periodo }}"></td>
+        <td>{{ cuota.apellido }}, {{ cuota.nombre }}</td><td>{{ cuota.categoria or '' }}</td><td>{{ cuota.periodo }}</td>
+        <td>{{ cuota.importe|moneda }}</td><td>{{ cuota.nuevo_importe|moneda }}</td>
+    </tr>{% endfor %}</tbody></table></div>
+    <button class="button" type="submit">Aplicar a las cuotas seleccionadas</button>
+</form>
+{% else %}<p>No hay cuotas modificables para estos filtros.</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

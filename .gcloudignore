@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 
 venv/
+work/test-deps/
 club_jugadores_app/venv/
 
 *.db

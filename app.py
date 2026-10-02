@@ -16199,6 +16199,94 @@ def eliminar_documento_lesion(documento_id):
     return redirect(url_for("editar_lesion", lesion_id=documento["lesion_id"]))
 
 
+def calcular_monto_cuota_modificada(cuota, importe_base):
+    """Conserva la beca registrada y el adicional del plan de la cuota."""
+    base = round(importe_base, 2)
+    porcentaje = porcentaje_beca(cuota.get("beca_porcentaje")) or 0
+    descuento = round(base * porcentaje / 100, 2)
+    adicional = round(float(cuota.get("plan_pago_monto") or 0), 2)
+    if adicional and cuota.get("becada") and "Cuota social cubierta por beca" in (cuota.get("plan_pago_detalle") or ""):
+        descuento = base
+    return {
+        "importe": round(base - descuento + adicional, 2),
+        "importe_original": round(base + adicional, 2),
+        "descuento_beca": descuento,
+    }
+
+
+@app.route("/cuotas/modificar-montos", methods=["GET", "POST"])
+def modificar_montos_cuotas():
+    check = permiso_requerido("cuotas_gestionar")
+    if check:
+        return check
+    datos = request.form if request.method == "POST" else request.args
+    desde = datos.get("periodo_desde", "").strip()
+    hasta = datos.get("periodo_hasta", "").strip()
+    categoria = datos.get("categoria", "").strip()
+    importe = datos.get("importe", "").strip()
+    contexto = dict(periodo_desde=desde, periodo_hasta=hasta, categoria=categoria,
+                    importe=importe, cuotas=None)
+    if not datos:
+        return render_template("modificar_montos_cuotas.html", **contexto)
+    try:
+        for periodo in (desde, hasta):
+            if not re.fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])", periodo):
+                raise ValueError
+        valor = float(importe.replace(",", "."))
+        if desde > hasta or not (0 < valor <= 999999999) or round(valor, 2) <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Indicá períodos válidos (desde ≤ hasta) y un importe mayor a cero.", "error")
+        return render_template("modificar_montos_cuotas.html", **contexto), 400
+    aplicar = request.method == "POST" and datos.get("accion") == "aplicar"
+    seleccionados = set(datos.getlist("cuota_id")) if aplicar else set()
+    if aplicar and not seleccionados:
+        flash("Seleccioná al menos una cuota.", "error")
+        return render_template("modificar_montos_cuotas.html", **contexto), 400
+    conn = get_connection()
+    cambios = []
+    try:
+        condiciones = ["c.periodo >= %s", "c.periodo <= %s", "c.pagado = 0",
+                       "COALESCE(c.anulada, 0) = 0",
+                       "COALESCE(c.incobrable, 0) = 0",
+                       "COALESCE(c.comprobante_estado, '') NOT IN ('pendiente', 'aceptado')",
+                       "(COALESCE(c.comprobante_estado, '') = 'rechazado' OR COALESCE(c.comprobante_drive_file_id, '') = '')"]
+        parametros = [desde, hasta]
+        if categoria:
+            condiciones.append("j.categoria = %s")
+            parametros.append(categoria)
+        cuotas = conn.execute(f"""
+            SELECT c.*, j.apellido, j.nombre, j.categoria
+            FROM cuotas c JOIN jugadores j ON j.id = c.jugador_id
+            WHERE {' AND '.join(condiciones)}
+            ORDER BY j.apellido, j.nombre, c.periodo, c.id
+            {'FOR UPDATE OF c' if aplicar else ''}
+        """, parametros).fetchall()
+        for fila in cuotas:
+            cuota = dict(fila)
+            nuevo = calcular_monto_cuota_modificada(cuota, valor)
+            cuota["nuevo_importe"] = nuevo["importe"]
+            if aplicar and str(cuota["id"]) in seleccionados:
+                conn.execute("""
+                    UPDATE cuotas SET importe = %s, importe_original = %s,
+                        descuento_beca = %s WHERE id = %s
+                """, (nuevo["importe"], nuevo["importe_original"], nuevo["descuento_beca"], cuota["id"]))
+                cambios.append(dict(id=cuota["id"], importe_anterior=cuota["importe"], **nuevo))
+        if aplicar:
+            conn.commit()
+        contexto["cuotas"] = [dict(fila, nuevo_importe=calcular_monto_cuota_modificada(dict(fila), valor)["importe"]) for fila in cuotas]
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    if aplicar:
+        registrar_auditoria("modificar_montos", "cuotas", None, {"cambios": cambios})
+        flash(f"Montos actualizados: {len(cambios)} cuotas. Omitidas: {len(seleccionados) - len(cambios)} (ya no disponibles o fuera del filtro).", "ok")
+        return redirect(url_for("modificar_montos_cuotas"))
+    return render_template("modificar_montos_cuotas.html", **contexto)
+
+
 @app.route("/cuotas/generar", methods=["GET", "POST"])
 def generar_cuotas():
     check = permiso_requerido("cuotas_gestionar")
