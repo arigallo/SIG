@@ -1,0 +1,33 @@
+106:         {"endpoint": "https://push.server.com/...",
+167:         if "endpoint" not in subscription_info:
+168:             raise WebPushException("subscription_info missing endpoint URL")
+270:     def as_curl(self, endpoint: str, encoded_data: bytes, headers: Dict[str, str]):
+276:         :param endpoint: Push service endpoint URL
+277:         :type endpoint: basestring
+299:             url=endpoint, headers="".join(header_list), data=data
+323:             Needed if endpoint is https://android.googleapis.com/gcm/send
+326:             it will be extracted from the endpoint.
+364:                 endpoint = "https://android.googleapis.com/gcm/send"
+367:                 endpoint = "https://fcm.googleapis.com/fcm/send"
+370:                 reg_id = cast(str, self.subscription_info["endpoint"]).rsplit("/", 1)[
+391:             endpoint = self.subscription_info["endpoint"]
+401:             endpoint,
+406:         return {"endpoint": endpoint, "data": encoded_data, "headers": headers}
+410:         timeout = kwargs.pop("timeout", 10000)
+414:         endpoint = params.pop("endpoint")
+419:             return self.as_curl(endpoint, encoded_data=encoded_data, headers=headers)
+422:             endpoint,
+423:             timeout=timeout,
+434:         timeout = kwargs.pop("timeout", 10000)
+438:         endpoint = params.pop("endpoint")
+443:             return self.as_curl(endpoint, encoded_data=encoded_data, headers=headers)
+445:             resp = await self.aiohttp_session.post(endpoint, timeout=timeout, **params)
+449:                 resp = await session.post(endpoint, timeout=timeout, **params)
+468:     timeout: Union[None, float] = None,
+475:         One call solution to endcode and send `data` to the endpoint
+486:                 "endpoint": "https://push.example.com/v1/abcd",
+511:     :param timeout: POST requests timeout
+512:     :type timeout: float
+533:             url = urlparse(cast(str, subscription_info.get("endpoint")))
+535:             vapid_claims["aud"] = aud
+576:         timeout=timeout,

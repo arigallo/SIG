@@ -1,0 +1,1418 @@
+[
+  {
+    "endpoint": "ver_presupuesto",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "crear_presupuesto_item",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "alternar_presupuesto_item",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_presupuesto_item",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_caja",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_ventas_club",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "crear_producto_venta",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ajustar_stock_producto",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "alternar_producto_venta",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "registrar_venta_club",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "comprobante_venta_club",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "comprobante_venta_club",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "anular_venta_club",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_movimiento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_movimiento",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_facturas_recibidas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "crear_filtro_factura_email",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "alternar_filtro_factura_email",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "sincronizar_facturas_recibidas_view",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_factura_recibida_archivo",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "registrar_factura_recibida_en_caja",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descartar_factura_recibida",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_operacion_diaria",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "crear_tarea_sig",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_estado_tarea_sig",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_panel_cobranzas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_excepciones_cobranza",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "pagos_masivos_debito_automatico",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "pagos_masivos_debito_automatico",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_ficha_medica",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_ficha_medica_documento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_ficha_medica",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_ficha_medica",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cargar_fichas_medicas_batch",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cargar_fichas_medicas_batch",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_fichas_medicas_batch",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_fichas_medicas_batch",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "procesar_ficha_medica_batch_ocr",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_ficha_medica_batch_documento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_documentos_vencidos",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_documento_jugador",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_documento_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_documento_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_documentos_secretaria",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_documento_secretaria",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_documento_secretaria",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_documento_secretaria",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_jugadores",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_aspirantes",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_aspirante",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_aspirante",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "detalle_aspirante",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_aspirante",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_aspirante",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "registrar_seguimiento_aspirante",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "convertir_aspirante",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_aspirante",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_jugador",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "importar_jugadores",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "importar_jugadores",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "acciones_masivas_jugadores",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "recalcular_numeros_socio_route",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_jugador",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_cuotas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "recalcular_becas_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_planes_pago",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_solicitud_pago_portal",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_plan_pago",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_plan_pago",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_plan_pago",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_plan_pago",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_plan_pago",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_plan_pago",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_cuota",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "pagar_cuota",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "pagar_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "subir_comprobante_cuota",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "subir_comprobante_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_comprobantes_revision",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_comprobante_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_comprobante_cuota",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "conciliar_pagos",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "conciliar_pagos",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_lesiones",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_lesion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_lesion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_lesion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_lesion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_lesion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_documento_lesion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_documento_lesion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "modificar_montos_cuotas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "modificar_montos_cuotas",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "generar_cuotas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "generar_cuotas",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "timeline_jugador",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "detalle_jugador",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_bitacora_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "generar_portal_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "desactivar_portal_jugador",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_gastos_compartidos",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_gasto_compartido",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_gasto_compartido",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_gasto_compartido",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_gasto_compartido",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorios_gasto_compartido_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cerrar_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "registrar_pago_posterior_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "reabrir_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "subir_comprobante_gasto_compartido_admin",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_comprobante_gasto_compartido",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_item_gasto_compartido",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "detalle_evento_calendario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_eventos_duplicados",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_calendario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_evento_calendario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_evento_calendario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_evento_calendario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_evento_calendario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_evento_calendario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_evento_calendario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_alertas",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "panel_salud",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_reportes",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_circulares_urba",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "sincronizar_circulares_urba_view",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "guardar_notificaciones_circulares_urba",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_reportes",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_datos_integral",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_comunicaciones",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_email_comunicacion_moroso",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_email_comunicacion_morosos_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_whatsapp_comunicacion_moroso",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_whatsapp_comunicacion_morosos_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_notificacion_app_manual",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_notificacion_app_manual",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_whatsapp_inbox",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "estado_whatsapp_inbox",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "responder_whatsapp_inbox",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "vincular_whatsapp_inbox",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_cuota_whatsapp",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_ficha",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorio_ficha_whatsapp",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorios_cuotas_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorios_cuotas_whatsapp_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorios_fichas_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "enviar_recordatorios_fichas_whatsapp_lote",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_morosos",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "backup_db",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "crear_backup_cloud_sql",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "simular_rol",
+    "method": "GET",
+    "status": 403,
+    "database_reached": false
+  },
+  {
+    "endpoint": "simular_rol",
+    "method": "POST",
+    "status": 403,
+    "database_reached": false
+  },
+  {
+    "endpoint": "finalizar_simulacion_rol",
+    "method": "POST",
+    "status": 403,
+    "database_reached": false
+  },
+  {
+    "endpoint": "panel_sistema_admin",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_avisos_postulacion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "administrar_versiones",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "administrar_versiones",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "agregar_plantel",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_avisos_login",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_avisos_login",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_automatizaciones",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_alertas_500",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ejecutar_automatizaciones_admin",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_facturas_email",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_facturas_email",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_encuestas_satisfaccion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_encuesta_satisfaccion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nueva_encuesta_satisfaccion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_encuesta_satisfaccion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cambiar_estado_encuesta_satisfaccion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_sugerencias_recomendaciones",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_sugerencia_recomendacion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "reenviar_sugerencia_recomendacion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_sugerencias_recomendaciones",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_sugerencias_recomendaciones",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_sugerencias_denuncias_legacy",
+    "method": "GET",
+    "status": 301,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_sugerencias_denuncias_legacy",
+    "method": "GET",
+    "status": 301,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_mantenimiento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "configurar_mantenimiento",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_auditoria",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_auditoria",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "ver_seguridad",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_roles",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_rol",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_rol",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_rol",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_rol",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_rol",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_usuario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_usuario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_usuarios",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_usuario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_usuario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "resetear_password_usuario",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "resetear_password_usuario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_usuario",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "actualizar_cuota_incobrable",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_cuota",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_recibo",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "descargar_comprobante_movimiento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_caja",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_movimiento",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_movimiento",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_movimiento",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cerrar_mes",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_tests",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_test_tipo",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_test_tipo",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cargar_test_resultados",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cargar_test_resultados",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "importar_test_resultados",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "importar_test_resultados",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_test_importacion",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "revisar_test_importacion",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_tests",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "graficos_tests",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "listar_eventos_asistencia",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_evento_asistencia",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "nuevo_evento_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_evento_asistencia",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "editar_evento_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "cerrar_evento_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "reabrir_evento_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "eliminar_evento_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "exportar_evento_asistencia",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "tomar_asistencia",
+    "method": "GET",
+    "status": 302,
+    "database_reached": false
+  },
+  {
+    "endpoint": "tomar_asistencia",
+    "method": "POST",
+    "status": 302,
+    "database_reached": false
+  }
+]

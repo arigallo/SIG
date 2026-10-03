@@ -46,25 +46,26 @@
         </section>
 
         <section class="entry-actions" aria-label="Accesos principales">
-            <details class="entry-action entry-action-admin" {% if request.method == 'POST' %}open{% endif %}>
+            <details class="entry-action entry-action-admin" {% if request.method == 'POST' or request.args.get('renovar') == '1' %}open{% endif %}>
                 <summary>
                     <span>Acceso Administrativo</span>
                     <small>Usuarios internos del club</small>
                 </summary>
 
-                <form method="post" class="entry-login-form">
+                <form method="post" action="{{ url_for('login') }}" class="entry-login-form" data-csrf-url="{{ url_for('login_csrf') }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <div>
-                        <label>Usuario</label>
-                        <input type="text" name="username" autocomplete="username" required>
+                        <label for="login-username">Usuario</label>
+                        <input id="login-username" type="text" name="username" autocomplete="username" required>
                     </div>
 
                     <div>
-                        <label>Clave</label>
-                        <input type="password" name="password" autocomplete="current-password" required>
+                        <label for="login-password">Clave</label>
+                        <input id="login-password" type="password" name="password" autocomplete="current-password" required>
                     </div>
 
                     <button class="button login-button" type="submit">Ingresar al SIG</button>
+                    <p data-login-error role="alert" hidden></p>
                 </form>
 
                 <div class="login-links">
@@ -127,5 +128,6 @@
     </main>
 
     <script src="{{ static_asset('app.js') }}" defer></script>
+    <script src="{{ static_asset('login.js') }}" defer></script>
 </body>
 </html>

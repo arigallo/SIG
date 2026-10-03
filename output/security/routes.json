@@ -1,0 +1,4078 @@
+[
+  {
+    "endpoint": "ver_presupuesto",
+    "line": 8922,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "int",
+      "normalizar_mes",
+      "obtener_presupuesto_mensual",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "crear_presupuesto_item",
+    "line": 8937,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "normalizar_mes",
+      "parsear_importe",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "alternar_presupuesto_item",
+    "line": 8989,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "normalizar_mes",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_presupuesto_item",
+    "line": 9018,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "normalizar_mes",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_caja",
+    "line": 9045,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "ver_ventas_club",
+    "line": 9126,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "get_connection",
+      "normalizar_mes",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "crear_producto_venta",
+    "line": 9170,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "int",
+      "parsear_importe",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ajustar_stock_producto",
+    "line": 9202,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "int",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "alternar_producto_venta",
+    "line": 9232,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "registrar_venta_club",
+    "line": 9252,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ValueError",
+      "ahora_sig",
+      "bool",
+      "flash",
+      "float",
+      "get_connection",
+      "int",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "procesar_comprobante_movimiento",
+      "redirect",
+      "registrar_auditoria",
+      "round",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento",
+      "zip"
+    ]
+  },
+  {
+    "endpoint": "comprobante_venta_club",
+    "line": 9379,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "procesar_comprobante_movimiento",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "anular_venta_club",
+    "line": 9488,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ValueError",
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "nuevo_movimiento",
+    "line": 9525,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "fecha_movimiento_default",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "procesar_comprobante_movimiento",
+      "redirect",
+      "render_template",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "listar_facturas_recibidas",
+    "line": 9628,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "factura_email_configurado",
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "crear_filtro_factura_email",
+    "line": 9677,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "alternar_filtro_factura_email",
+    "line": 9718,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "sincronizar_facturas_recibidas_view",
+    "line": 9745,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "sincronizar_facturas_email",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_factura_recibida_archivo",
+    "line": 9781,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "registrar_factura_recibida_en_caja",
+    "line": 9812,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "mes_esta_cerrado",
+      "parsear_importe",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "descartar_factura_recibida",
+    "line": 9890,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "whatsapp_webhook_verify",
+    "line": 10031,
+    "guards": [],
+    "calls": [
+      "Response"
+    ]
+  },
+  {
+    "endpoint": "whatsapp_webhook_receive",
+    "line": 10042,
+    "guards": [],
+    "calls": [
+      "Response",
+      "buscar_jugador_por_whatsapp",
+      "enviar_notificacion_whatsapp_inbox_email",
+      "get_connection",
+      "normalizar_telefono_whatsapp",
+      "registrar_whatsapp_mensaje",
+      "registrar_whatsapp_webhook",
+      "resumir_contenido_whatsapp",
+      "resumir_evento_webhook_whatsapp",
+      "str"
+    ]
+  },
+  {
+    "endpoint": "sugerencias_recomendaciones",
+    "line": 11001,
+    "guards": [],
+    "calls": [
+      "consumir_limite_publico",
+      "enviar_notificacion_sugerencia_recomendacion",
+      "flash",
+      "get_connection",
+      "len",
+      "obtener_destinatarios_sugerencias",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "sugerencias_denuncias_legacy",
+    "line": 11095,
+    "guards": [],
+    "calls": [
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "responder_encuesta_satisfaccion",
+    "line": 11193,
+    "guards": [],
+    "calls": [
+      "abort",
+      "bool",
+      "consumir_limite_publico",
+      "encuesta_esta_disponible",
+      "flash",
+      "get_connection",
+      "int",
+      "preparar_preguntas_encuesta",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "login_csrf",
+    "line": 11290,
+    "guards": [],
+    "calls": [
+      "csrf_token",
+      "jsonify"
+    ]
+  },
+  {
+    "endpoint": "login",
+    "line": 11295,
+    "guards": [],
+    "calls": [
+      "audit_request_ip",
+      "bool",
+      "check_password_hash",
+      "csrf_token",
+      "deserializar_permisos",
+      "flash",
+      "get_connection",
+      "login_bloqueado",
+      "normalizar_username",
+      "obtener_avisos_login_publicos",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_intento_login",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "meta_data_deletion",
+    "line": 11374,
+    "guards": [],
+    "calls": [
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "meta_data_deletion_callback_info",
+    "line": 11379,
+    "guards": [],
+    "calls": [
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "meta_data_deletion_callback",
+    "line": 11384,
+    "guards": [],
+    "calls": [
+      "Response",
+      "parse_meta_signed_request",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "meta_data_deletion_status",
+    "line": 11425,
+    "guards": [],
+    "calls": [
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "solicitar_recuperacion_password",
+    "line": 11433,
+    "guards": [],
+    "calls": [
+      "crear_token_recuperacion",
+      "enviar_email",
+      "flash",
+      "get_connection",
+      "normalizar_email",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "restablecer_password",
+    "line": 11483,
+    "guards": [],
+    "calls": [
+      "buscar_token_recuperacion",
+      "flash",
+      "generate_password_hash",
+      "get_connection",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for",
+      "validar_password_nueva"
+    ]
+  },
+  {
+    "endpoint": "logout",
+    "line": 11541,
+    "guards": [],
+    "calls": [
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "cambiar_mi_password",
+    "line": 11553,
+    "guards": [],
+    "calls": [
+      "check_password_hash",
+      "flash",
+      "generate_password_hash",
+      "get_connection",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_password_nueva"
+    ]
+  },
+  {
+    "endpoint": "descartar_onboarding",
+    "line": 11602,
+    "guards": [],
+    "calls": [
+      "destino_interno",
+      "get_connection",
+      "redirect"
+    ]
+  },
+  {
+    "endpoint": "institucional",
+    "line": 11616,
+    "guards": [],
+    "calls": [
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "index",
+    "line": 11621,
+    "guards": [],
+    "calls": [
+      "ahora_sig",
+      "get_connection",
+      "len",
+      "obtener_estado_sistema_admin",
+      "obtener_notificaciones_operativas",
+      "render_template",
+      "round",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "ver_operacion_diaria",
+    "line": 11851,
+    "guards": [],
+    "calls": [
+      "bool",
+      "flash",
+      "listar_tareas_sig",
+      "modulos_tareas_permitidos",
+      "obtener_revision_diaria",
+      "ordenar_modulos_tareas",
+      "puede_gestionar_tareas_sig",
+      "puede_ver_operacion",
+      "redirect",
+      "render_template",
+      "tiene_permiso",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "crear_tarea_sig",
+    "line": 11872,
+    "guards": [],
+    "calls": [
+      "flash",
+      "get_connection",
+      "int",
+      "modulos_tareas_permitidos",
+      "puede_gestionar_tareas_sig",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "actualizar_estado_tarea_sig",
+    "line": 11918,
+    "guards": [],
+    "calls": [
+      "flash",
+      "get_connection",
+      "modulos_tareas_permitidos",
+      "puede_gestionar_tareas_sig",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_panel_cobranzas",
+    "line": 11951,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "obtener_panel_cobranzas",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "ver_excepciones_cobranza",
+    "line": 11960,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "pagos_masivos_debito_automatico",
+    "line": 11999,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "actualizar_cumplimiento_plan_por_cuota",
+      "ahora_sig",
+      "flash",
+      "float",
+      "formato_moneda",
+      "get_connection",
+      "int",
+      "len",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "round",
+      "set",
+      "siguiente_numero_recibo",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_ficha_medica",
+    "line": 12083,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ficha_tiene_apto_efectivo",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descargar_ficha_medica_documento",
+    "line": 12118,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_ficha_medica",
+    "line": 12172,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "datos_ficha_desde_ocr",
+      "extraer_texto_ocr_drive",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "normalizar_ocr_texto",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "str",
+      "subir_ficha_medica_a_drive",
+      "url_for",
+      "validar_ficha_medica_upload"
+    ]
+  },
+  {
+    "endpoint": "cargar_fichas_medicas_batch",
+    "line": 12368,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "datos_ficha_desde_ocr",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "obtener_fichas_medicas_batch_recientes",
+      "obtener_jugadores_selector",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "secure_filename",
+      "str",
+      "subir_ficha_medica_batch_pendiente",
+      "sugerir_jugador_ficha_ocr",
+      "url_for",
+      "validar_ficha_medica_upload"
+    ]
+  },
+  {
+    "endpoint": "revisar_fichas_medicas_batch",
+    "line": 12477,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "mover_ficha_medica_batch_a_jugador",
+      "obtener_jugadores_selector",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "procesar_ficha_medica_batch_ocr",
+    "line": 12655,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "procesar_ocr_ficha_medica_batch_item",
+      "redirect",
+      "truncate_audit_value",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descargar_ficha_medica_batch_documento",
+    "line": 12701,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "send_file",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_documentos_vencidos",
+    "line": 12734,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "nuevo_documento_jugador",
+    "line": 12791,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "eliminar_documento_jugador",
+    "line": 12855,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_documentos_secretaria",
+    "line": 12978,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "permiso_requerido",
+      "render_documentos_secretaria"
+    ]
+  },
+  {
+    "endpoint": "nuevo_documento_secretaria",
+    "line": 12991,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_documentos_secretaria",
+      "str",
+      "subir_documento_secretaria_a_drive",
+      "url_for",
+      "validar_documento_secretaria_upload",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "ver_documento_secretaria",
+    "line": 13078,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_documento_secretaria",
+    "line": 13112,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "eliminar_drive_file",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_jugadores",
+    "line": 13146,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "render_template",
+      "sorted"
+    ]
+  },
+  {
+    "endpoint": "contador_avisos_postulacion",
+    "line": 13422,
+    "guards": [],
+    "calls": [
+      "jsonify",
+      "obtener_contador_avisos_postulacion"
+    ]
+  },
+  {
+    "endpoint": "mis_avisos",
+    "line": 13427,
+    "guards": [],
+    "calls": [
+      "get_connection",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "marcar_aviso_postulacion_leido",
+    "line": 13444,
+    "guards": [],
+    "calls": [
+      "get_connection",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "postulacion_aspirante_publica",
+    "line": 13456,
+    "guards": [],
+    "calls": [
+      "ahora_sig",
+      "consumir_limite_publico",
+      "destinatario_avisos_postulacion",
+      "enviar_aviso_postulacion",
+      "flash",
+      "get_connection",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_datos_aspirante"
+    ]
+  },
+  {
+    "endpoint": "listar_aspirantes",
+    "line": 13535,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "aspirante_con_progreso",
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "sorted"
+    ]
+  },
+  {
+    "endpoint": "nuevo_aspirante",
+    "line": 13631,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "aspirante_desde_formulario",
+      "flash",
+      "get_connection",
+      "obtener_madrinas_disponibles",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_datos_aspirante"
+    ]
+  },
+  {
+    "endpoint": "detalle_aspirante",
+    "line": 13702,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "aspirante_con_progreso",
+      "buscar_aspirante",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_aspirante",
+    "line": 13740,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "aspirante_desde_formulario",
+      "flash",
+      "get_connection",
+      "obtener_madrinas_disponibles",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for",
+      "validar_datos_aspirante"
+    ]
+  },
+  {
+    "endpoint": "registrar_seguimiento_aspirante",
+    "line": 13820,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for",
+      "validar_datos_aspirante"
+    ]
+  },
+  {
+    "endpoint": "convertir_aspirante",
+    "line": 13865,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "aspirante_con_progreso",
+      "buscar_aspirante",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_aspirante",
+    "line": 13936,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "nuevo_jugador",
+    "line": 13962,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "datos_beca_form",
+      "flash",
+      "formatear_numero_socio",
+      "get_connection",
+      "len",
+      "normalizar_tipo_miembro",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "redirect",
+      "registrar_historial_beca",
+      "render_template",
+      "siguiente_numero_socio",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "importar_jugadores",
+    "line": 14088,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "any",
+      "enumerate",
+      "flash",
+      "formatear_numero_socio",
+      "get_connection",
+      "len",
+      "limpiar_valor_excel",
+      "list",
+      "load_workbook",
+      "mapear_fila_jugador",
+      "normalizar_header_excel",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "registrar_auditoria",
+      "render_template",
+      "set",
+      "siguiente_numero_socio"
+    ]
+  },
+  {
+    "endpoint": "acciones_masivas_jugadores",
+    "line": 14223,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "generar_portal_token",
+      "get_connection",
+      "int",
+      "len",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "redirect",
+      "registrar_auditoria",
+      "tiene_permiso",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "recalcular_numeros_socio_route",
+    "line": 14324,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "recalcular_numeros_socio",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_jugador",
+    "line": 14360,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "beca_modificada",
+      "datos_beca_form",
+      "dict",
+      "flash",
+      "formatear_numero_socio",
+      "get_connection",
+      "normalizar_tipo_miembro",
+      "permiso_requerido",
+      "planteles_disponibles",
+      "redirect",
+      "registrar_historial_beca",
+      "render_template",
+      "snapshot_beca",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_jugador",
+    "line": 14471,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_cuotas",
+    "line": 14530,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "recalcular_becas_jugador",
+    "line": 14619,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "recalcular_cuotas_becadas",
+      "redirect",
+      "registrar_historial_beca",
+      "url_for",
+      "validar_mes_beca"
+    ]
+  },
+  {
+    "endpoint": "listar_planes_pago",
+    "line": 14670,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "actualizar_solicitud_pago_portal",
+    "line": 14773,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "nuevo_plan_pago",
+    "line": 14862,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "datos_plan_pago_form",
+      "flash",
+      "get_connection",
+      "int",
+      "len",
+      "obtener_cuotas_impagas_para_plan",
+      "periodo_inicio_plan",
+      "permiso_requerido",
+      "recalcular_cuotas_planes_pago",
+      "redirect",
+      "render_template",
+      "round",
+      "set",
+      "str",
+      "total_cuotas_plan",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_plan_pago",
+    "line": 14989,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "datos_plan_pago_form",
+      "flash",
+      "get_connection",
+      "periodo_inicio_plan",
+      "periodo_minimo",
+      "permiso_requerido",
+      "recalcular_cuotas_planes_pago",
+      "redirect",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_plan_pago",
+    "line": 15068,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "periodo_inicio_plan",
+      "permiso_requerido",
+      "recalcular_cuotas_planes_pago",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "actualizar_plan_pago",
+    "line": 15120,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "periodo_inicio_plan",
+      "permiso_requerido",
+      "recalcular_cuotas_planes_pago",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "nueva_cuota",
+    "line": 15154,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "calcular_importe_cuota_mensual",
+      "flash",
+      "float",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "pagar_cuota",
+    "line": 15258,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "actualizar_cumplimiento_plan_por_cuota",
+      "ahora_sig",
+      "bool",
+      "enviar_recibo_cuota_por_email",
+      "flash",
+      "generar_recibo_pdf",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "siguiente_numero_recibo",
+      "str",
+      "subir_comprobante_a_drive",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "subir_comprobante_cuota",
+    "line": 15419,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "str",
+      "subir_comprobante_a_drive",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_comprobantes_revision",
+    "line": 15507,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "tuple"
+    ]
+  },
+  {
+    "endpoint": "revisar_comprobante_cuota",
+    "line": 15586,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "actualizar_cumplimiento_plan_por_cuota",
+      "ahora_sig",
+      "construir_texto_rechazo_comprobante",
+      "destino_interno",
+      "enviar_email_jugador",
+      "enviar_recibo_cuota_por_email",
+      "flash",
+      "float",
+      "generar_recibo_pdf",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "siguiente_numero_recibo",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descargar_comprobante_cuota",
+    "line": 15723,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "conciliar_pagos",
+    "line": 15777,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "aplicar_matches_conciliacion",
+      "buscar_match_conciliacion",
+      "flash",
+      "get_connection",
+      "leer_csv_conciliacion",
+      "len",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "sum",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_lesiones",
+    "line": 15849,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "dict",
+      "get_connection",
+      "obtener_preview_tipo",
+      "permiso_requerido",
+      "render_template",
+      "semaforo_lesion"
+    ]
+  },
+  {
+    "endpoint": "nueva_lesion",
+    "line": 15894,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "guardar_documentos_lesion",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_lesion",
+    "line": 15975,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "dict",
+      "flash",
+      "get_connection",
+      "guardar_documentos_lesion",
+      "mensaje_error_drive",
+      "obtener_preview_tipo",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_lesion",
+    "line": 16104,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "eliminar_drive_file",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_documento_lesion",
+    "line": 16141,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_documento_lesion",
+    "line": 16184,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "eliminar_drive_file",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "modificar_montos_cuotas",
+    "line": 16229,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "calcular_monto_cuota_modificada",
+      "dict",
+      "flash",
+      "float",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "round",
+      "set",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "generar_cuotas",
+    "line": 16302,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "calcular_importe_cuota_mensual",
+      "flash",
+      "float",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "timeline_jugador",
+    "line": 16419,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "filtrar_bitacora_visible",
+      "flash",
+      "formato_moneda",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "str",
+      "tiene_permiso",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "detalle_jugador",
+    "line": 16586,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "bool",
+      "categoria_evento_aplica",
+      "dict",
+      "ficha_tiene_apto_efectivo",
+      "filtrar_bitacora_visible",
+      "flash",
+      "float",
+      "get_connection",
+      "next",
+      "obtener_cuenta_corriente_jugador",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "resumen_auditoria_portal",
+      "resumen_bienestar_confirmacion",
+      "round",
+      "str",
+      "sum",
+      "tiene_permiso",
+      "tipos_bitacora_disponibles",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "nueva_bitacora_jugador",
+    "line": 16955,
+    "guards": [],
+    "calls": [
+      "flash",
+      "get_connection",
+      "redirect",
+      "tipos_bitacora_disponibles",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "generar_portal_jugador",
+    "line": 16991,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "generar_portal_token",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "desactivar_portal_jugador",
+    "line": 17019,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_gastos_compartidos",
+    "line": 17512,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "sorted"
+    ]
+  },
+  {
+    "endpoint": "nuevo_gasto_compartido",
+    "line": 17589,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "float",
+      "get_connection",
+      "int",
+      "len",
+      "listar_participantes_manual_gasto",
+      "next",
+      "opciones_eventos_gastos_compartidos",
+      "participantes_gasto_desde_fuente",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "repartir_importe_gasto",
+      "round",
+      "sorted",
+      "str",
+      "sum",
+      "url_for",
+      "zip"
+    ]
+  },
+  {
+    "endpoint": "editar_gasto_compartido",
+    "line": 17760,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "float",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "int",
+      "len",
+      "listar_participantes_manual_gasto",
+      "opciones_eventos_gastos_compartidos",
+      "participante_gasto_key",
+      "participantes_gasto_desde_fuente",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "repartir_importe_gasto",
+      "round",
+      "sorted",
+      "str",
+      "sum",
+      "url_for",
+      "zip"
+    ]
+  },
+  {
+    "endpoint": "ver_gasto_compartido",
+    "line": 18028,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_gasto_compartido",
+    "line": 18084,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "secure_filename",
+      "send_file",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_gasto_compartido",
+    "line": 18133,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_gasto_compartido",
+      "enviar_email_jugador",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "mensaje_fallo_email",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorios_gasto_compartido_lote",
+    "line": 18171,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_gasto_compartido",
+      "enviar_email_jugador",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "resumir_envio_masivo_email",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "cerrar_gasto_compartido",
+    "line": 18210,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "float",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "int",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "redirect",
+      "round",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "registrar_pago_posterior_gasto_compartido",
+    "line": 18296,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_movimiento_pago_posterior_gasto",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "reabrir_gasto_compartido",
+    "line": 18364,
+    "guards": [],
+    "calls": [
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_gasto_compartido",
+    "line": 18395,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "subir_comprobante_gasto_compartido_admin",
+    "line": 18418,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "mensaje_error_drive",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_movimiento_pago_posterior_gasto",
+      "str",
+      "subir_comprobante_gasto_compartido_a_drive",
+      "tiene_permiso",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "descargar_comprobante_gasto_compartido",
+    "line": 18530,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "send_file",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "actualizar_item_gasto_compartido",
+    "line": 18563,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_movimiento_pago_posterior_gasto",
+      "str",
+      "tiene_permiso",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "portal_subir_comprobante_gasto_compartido",
+    "line": 18691,
+    "guards": [],
+    "calls": [
+      "ahora_sig",
+      "detalle_actor_portal",
+      "flash",
+      "gasto_compartido_esta_cerrado",
+      "get_connection",
+      "mensaje_error_drive",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "subir_comprobante_gasto_compartido_a_drive",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_ver_comprobante_gasto_compartido",
+    "line": 18778,
+    "guards": [],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "redirect",
+      "send_file",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_buscar",
+    "line": 18810,
+    "guards": [],
+    "calls": [
+      "flash",
+      "get_connection",
+      "len",
+      "normalizar_identificador_portal",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_omitir_notificaciones",
+    "line": 18847,
+    "guards": [],
+    "calls": [
+      "abort",
+      "get_connection",
+      "hash_portal_token",
+      "int",
+      "jugador_tiene_suscripcion_push_activa",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_comisiones",
+    "line": 18870,
+    "guards": [],
+    "calls": [
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "portal_jugador",
+    "line": 18875,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "bool",
+      "construir_comparativo_tests",
+      "construir_grafico_tests",
+      "dict",
+      "estado_ficha_portal",
+      "float",
+      "formato_moneda",
+      "get_connection",
+      "int",
+      "jugador_tiene_suscripcion_push_activa",
+      "len",
+      "next",
+      "obtener_comunicaciones_portal_dia",
+      "obtener_confirmaciones_portal",
+      "obtener_cuenta_corriente_jugador",
+      "obtener_eventos_deportivos_portal",
+      "portal_omision_notificaciones_vigente",
+      "quote",
+      "render_template",
+      "resumir_resultados_tests",
+      "round",
+      "semaforo_lesion",
+      "sum",
+      "timedelta",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "portal_solicitar_asistencia_pago",
+    "line": 19257,
+    "guards": [],
+    "calls": [
+      "abort",
+      "detalle_actor_portal",
+      "flash",
+      "get_connection",
+      "len",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_actualizar_configuracion",
+    "line": 19323,
+    "guards": [],
+    "calls": [
+      "abort",
+      "flash",
+      "get_connection",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_confirmar_asistencia",
+    "line": 19370,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "categoria_evento_aplica",
+      "detalle_actor_portal",
+      "es_evento_partido",
+      "flash",
+      "formato_fecha_hora_evento",
+      "get_connection",
+      "guardar_confirmacion_portal_sin_bienestar",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_bienestar_asistencia",
+    "line": 19433,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "all",
+      "categoria_evento_aplica",
+      "detalle_actor_portal",
+      "dict",
+      "es_evento_partido",
+      "flash",
+      "formato_fecha_hora_evento",
+      "get_connection",
+      "guardar_confirmacion_portal_sin_bienestar",
+      "int",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_calendario_ics",
+    "line": 19598,
+    "guards": [],
+    "calls": [
+      "Response",
+      "abort",
+      "generar_ics_calendario",
+      "obtener_eventos_deportivos_ics",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_actualizar_contacto",
+    "line": 19615,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "detalle_actor_portal",
+      "flash",
+      "get_connection",
+      "list",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_subir_comprobante",
+    "line": 19751,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "detalle_actor_portal",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "subir_comprobante_a_drive",
+      "url_for",
+      "username_portal_jugador"
+    ]
+  },
+  {
+    "endpoint": "portal_ver_comprobante",
+    "line": 19840,
+    "guards": [],
+    "calls": [
+      "abort",
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "redirect",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_descargar_recibo",
+    "line": 19878,
+    "guards": [],
+    "calls": [
+      "abort",
+      "flash",
+      "generar_recibo_pdf",
+      "get_connection",
+      "redirect",
+      "send_file",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "portal_descargar_constancia",
+    "line": 19911,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ahora_sig",
+      "get_connection",
+      "send_file"
+    ]
+  },
+  {
+    "endpoint": "detalle_evento_calendario",
+    "line": 19972,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "abort",
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "revisar_eventos_duplicados",
+    "line": 20015,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "render_template",
+      "rol_requerido"
+    ]
+  },
+  {
+    "endpoint": "ver_calendario",
+    "line": 20035,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "normalizar_mes",
+      "obtener_calendario",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "nuevo_evento_calendario",
+    "line": 20064,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "bool",
+      "calendario_evento_requiere_asistencia",
+      "crear_eventos_calendario",
+      "flash",
+      "generar_fechas_recurrentes_mes",
+      "get_connection",
+      "len",
+      "normalizar_duracion_evento",
+      "normalizar_hora_evento",
+      "normalizar_mes",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "tiene_permiso",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_evento_calendario",
+    "line": 20171,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "calendario_evento_requiere_asistencia",
+      "crear_evento_asistencia_desde_calendario",
+      "dict",
+      "flash",
+      "get_connection",
+      "normalizar_duracion_evento",
+      "normalizar_hora_evento",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "tiene_permiso",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_evento_calendario",
+    "line": 20330,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_evento_calendario",
+    "line": 20377,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "categoria_evento_aplica",
+      "construir_texto_recordatorio_evento",
+      "enviar_email_jugador",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_alertas",
+    "line": 20419,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "filtrar_alertas_por_permisos",
+      "obtener_alertas",
+      "permiso_requerido",
+      "render_template",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "panel_salud",
+    "line": 20441,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "obtener_panel_salud",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "ver_reportes",
+    "line": 20450,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "filtros_reportes",
+      "obtener_reportes",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "listar_circulares_urba",
+    "line": 20466,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "anios_circulares_urba",
+      "get_connection",
+      "int",
+      "obtener_config_circulares_urba",
+      "permiso_requerido",
+      "render_template",
+      "str"
+    ]
+  },
+  {
+    "endpoint": "sincronizar_circulares_urba_view",
+    "line": 20510,
+    "guards": [],
+    "calls": [
+      "ahora_sig",
+      "anios_circulares_urba",
+      "enviar_notificacion_circulares_urba",
+      "flash",
+      "get_connection",
+      "int",
+      "len",
+      "redirect",
+      "sincronizar_circulares_urba",
+      "str",
+      "sum",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "guardar_notificaciones_circulares_urba",
+    "line": 20540,
+    "guards": [],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "int",
+      "redirect",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_reportes",
+    "line": 20611,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Workbook",
+      "agregar_hoja_reporte",
+      "aplicar_formato_columnas",
+      "append_fila_reporte",
+      "estilizar_hoja_reporte",
+      "filtros_reportes",
+      "obtener_reportes",
+      "permiso_requerido",
+      "registrar_auditoria",
+      "send_file"
+    ]
+  },
+  {
+    "endpoint": "exportar_datos_integral",
+    "line": 20825,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Workbook",
+      "agregar_hoja_reporte",
+      "ahora_sig",
+      "aplicar_formato_columnas",
+      "append_fila_reporte",
+      "bool",
+      "estilizar_hoja_reporte",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "registrar_auditoria",
+      "send_file",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "ver_comunicaciones",
+    "line": 21174,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "email_jugador_preferido",
+      "get_connection",
+      "mensaje_moroso",
+      "normalizar_telefono_whatsapp",
+      "obtener_morosos_para_comunicacion",
+      "permiso_requerido",
+      "plantillas_cobranza",
+      "quote",
+      "render_template",
+      "valor_texto_contacto"
+    ]
+  },
+  {
+    "endpoint": "enviar_email_comunicacion_moroso",
+    "line": 21236,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_email_jugador",
+      "flash",
+      "get_connection",
+      "mensaje_fallo_email",
+      "mensaje_moroso",
+      "next",
+      "obtener_morosos_para_comunicacion",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_email_cobranza",
+      "str",
+      "template_morosos_default",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_email_comunicacion_morosos_lote",
+    "line": 21276,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_email_jugador",
+      "flash",
+      "get_connection",
+      "mensaje_moroso",
+      "obtener_morosos_para_comunicacion",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "registrar_email_cobranza",
+      "resumir_envio_masivo_email",
+      "sum",
+      "template_morosos_default",
+      "url_for",
+      "zip"
+    ]
+  },
+  {
+    "endpoint": "enviar_whatsapp_comunicacion_moroso",
+    "line": 21315,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_whatsapp_recordatorio_cuota_template",
+      "flash",
+      "mensaje_fallo_whatsapp",
+      "next",
+      "obtener_morosos_para_comunicacion",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "template_morosos_default",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_whatsapp_comunicacion_morosos_lote",
+    "line": 21348,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_whatsapp_recordatorio_cuota_template",
+      "flash",
+      "obtener_morosos_para_comunicacion",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "resumir_envio_masivo_whatsapp",
+      "str",
+      "sum",
+      "template_morosos_default",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_notificacion_app_manual",
+    "line": 21378,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "bool",
+      "desactivar_suscripcion_push",
+      "enviar_push_subscription",
+      "flash",
+      "get_connection",
+      "int",
+      "len",
+      "normalizar_url_push",
+      "obtener_destinatarios_push_manual",
+      "permiso_requerido",
+      "pwa_icon_url",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "resumen_suscripciones_push",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "contador_notificaciones",
+    "line": 21537,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "jsonify",
+      "obtener_contador_notificaciones",
+      "permiso_requerido"
+    ]
+  },
+  {
+    "endpoint": "ver_notificaciones",
+    "line": 21545,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "formato_moneda",
+      "obtener_notificaciones_operativas",
+      "permiso_requerido",
+      "render_template",
+      "round",
+      "whatsapp_mensaje"
+    ]
+  },
+  {
+    "endpoint": "descartar_notificacion",
+    "line": 21626,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "clave_notificacion",
+      "descartar_notificacion_usuario",
+      "flash",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descartar_notificaciones_lote",
+    "line": 21647,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descartar_notificaciones_usuario",
+      "flash",
+      "parsear_notificacion_form_value",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_whatsapp_inbox",
+    "line": 21673,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "listar_jugadores_basicos_para_whatsapp",
+      "listar_whatsapp_conversaciones",
+      "listar_whatsapp_webhook_eventos",
+      "next",
+      "normalizar_telefono_whatsapp",
+      "obtener_whatsapp_conversacion",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "estado_whatsapp_inbox",
+    "line": 21713,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Response",
+      "obtener_estado_whatsapp_inbox",
+      "permiso_requerido"
+    ]
+  },
+  {
+    "endpoint": "pwa_manifest",
+    "line": 21726,
+    "guards": [],
+    "calls": [
+      "Response",
+      "actor_push_actual",
+      "get_connection",
+      "pwa_icon_url",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "pwa_service_worker",
+    "line": 21771,
+    "guards": [],
+    "calls": [
+      "send_file"
+    ]
+  },
+  {
+    "endpoint": "pwa_config",
+    "line": 21779,
+    "guards": [],
+    "calls": [
+      "bool",
+      "jsonify"
+    ]
+  },
+  {
+    "endpoint": "pwa_push_subscribe",
+    "line": 21787,
+    "guards": [],
+    "calls": [
+      "abort",
+      "actor_push_actual",
+      "get_connection",
+      "guardar_suscripcion_push",
+      "jsonify",
+      "registrar_auditoria",
+      "str"
+    ]
+  },
+  {
+    "endpoint": "pwa_push_unsubscribe",
+    "line": 21810,
+    "guards": [],
+    "calls": [
+      "desactivar_suscripcion_push",
+      "get_connection",
+      "jsonify"
+    ]
+  },
+  {
+    "endpoint": "pwa_push_test",
+    "line": 21821,
+    "guards": [],
+    "calls": [
+      "abort",
+      "actor_push_actual",
+      "enviar_push_por_actor",
+      "get_connection",
+      "jsonify",
+      "pwa_icon_url",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "presencia_heartbeat",
+    "line": 21844,
+    "guards": [],
+    "calls": [
+      "Response",
+      "normalizar_username",
+      "registrar_presencia_usuario"
+    ]
+  },
+  {
+    "endpoint": "responder_whatsapp_inbox",
+    "line": 21861,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "buscar_jugador_por_whatsapp",
+      "enviar_whatsapp_meta",
+      "flash",
+      "mensaje_fallo_whatsapp",
+      "normalizar_telefono_whatsapp",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "vincular_whatsapp_inbox",
+    "line": 21898,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "int",
+      "normalizar_telefono_whatsapp",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_cuota",
+    "line": 21933,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_cuota",
+      "enviar_email_jugador",
+      "flash",
+      "get_connection",
+      "mensaje_fallo_email",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_cuota_whatsapp",
+    "line": 21972,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_whatsapp_recordatorio_cuota_template",
+      "flash",
+      "get_connection",
+      "mensaje_fallo_whatsapp",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_ficha",
+    "line": 22020,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_ficha",
+      "enviar_email_jugador",
+      "flash",
+      "get_connection",
+      "mensaje_fallo_email",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorio_ficha_whatsapp",
+    "line": 22063,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_ficha",
+      "enviar_whatsapp_jugador",
+      "flash",
+      "get_connection",
+      "mensaje_fallo_whatsapp",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorios_cuotas_lote",
+    "line": 22110,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_cuota",
+      "enviar_email_jugador",
+      "flash",
+      "obtener_notificaciones_operativas",
+      "permiso_requerido",
+      "redirect",
+      "resumir_envio_masivo_email",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorios_cuotas_whatsapp_lote",
+    "line": 22128,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enviar_whatsapp_recordatorio_cuota_template",
+      "flash",
+      "obtener_notificaciones_operativas",
+      "permiso_requerido",
+      "redirect",
+      "resumir_envio_masivo_whatsapp",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorios_fichas_lote",
+    "line": 22150,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_ficha",
+      "enviar_email_jugador",
+      "flash",
+      "obtener_notificaciones_operativas",
+      "permiso_requerido",
+      "redirect",
+      "resumir_envio_masivo_email",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "enviar_recordatorios_fichas_whatsapp_lote",
+    "line": 22166,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_texto_recordatorio_ficha",
+      "enviar_whatsapp_jugador",
+      "flash",
+      "obtener_notificaciones_operativas",
+      "permiso_requerido",
+      "redirect",
+      "resumir_envio_masivo_whatsapp",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_morosos",
+    "line": 22187,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Response",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "registrar_auditoria"
+    ]
+  },
+  {
+    "endpoint": "backup_db",
+    "line": 22270,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "obtener_estado_sistema_admin",
+      "permiso_requerido",
+      "registrar_auditoria",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "crear_backup_cloud_sql",
+    "line": 22290,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "solicitar_backup_cloud_sql",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "simular_rol",
+    "line": 22323,
+    "guards": [],
+    "calls": [
+      "abort",
+      "deserializar_permisos",
+      "flash",
+      "get_connection",
+      "next",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "finalizar_simulacion_rol",
+    "line": 22355,
+    "guards": [],
+    "calls": [
+      "abort",
+      "flash",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "panel_sistema_admin",
+    "line": 22366,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "destinatario_avisos_postulacion",
+      "get_connection",
+      "obtener_estado_sistema_admin",
+      "planteles_disponibles",
+      "render_template",
+      "resumen_versiones_publicadas",
+      "rol_requerido"
+    ]
+  },
+  {
+    "endpoint": "configurar_avisos_postulacion",
+    "line": 22393,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "int",
+      "redirect",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "administrar_versiones",
+    "line": 22427,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "len",
+      "redirect",
+      "render_template",
+      "resumen_versiones_publicadas",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "agregar_plantel",
+    "line": 22467,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "len",
+      "redirect",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_avisos_login",
+    "line": 22489,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "len",
+      "normalizar_avisos_login",
+      "obtener_config_avisos_login",
+      "range",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_automatizaciones",
+    "line": 22542,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "bool",
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "int_setting",
+      "redirect",
+      "registrar_auditoria",
+      "rol_requerido",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_alertas_500",
+    "line": 22562,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "bool",
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "len",
+      "parsear_emails_config",
+      "redirect",
+      "registrar_auditoria",
+      "rol_requerido",
+      "serializar_lista_config",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ejecutar_automatizaciones_admin",
+    "line": 22587,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "ejecutar_automatizaciones",
+      "flash",
+      "len",
+      "redirect",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ejecutar_automatizaciones_programadas",
+    "line": 22601,
+    "guards": [],
+    "calls": [
+      "abort",
+      "ejecutar_automatizaciones",
+      "jsonify"
+    ]
+  },
+  {
+    "endpoint": "configurar_facturas_email",
+    "line": 22610,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "any",
+      "bool",
+      "factura_email_defaults",
+      "factura_email_setting_key",
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "guardar_secret_manager",
+      "int_setting",
+      "obtener_factura_email_configs",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "rol_requerido",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_encuestas_satisfaccion",
+    "line": 22693,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "nueva_encuesta_satisfaccion",
+    "line": 22713,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "any",
+      "flash",
+      "get_connection",
+      "len",
+      "normalizar_preguntas_encuesta",
+      "parsear_fecha_encuesta",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_encuesta_satisfaccion",
+    "line": 22778,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "abort",
+      "dict",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "preparar_preguntas_encuesta",
+      "range",
+      "render_template",
+      "round",
+      "sum",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "cambiar_estado_encuesta_satisfaccion",
+    "line": 22835,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "abort",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_sugerencias_recomendaciones",
+    "line": 22857,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "dict",
+      "get_connection",
+      "info_email_estado_sugerencia",
+      "info_seguimiento_estado_sugerencia",
+      "leer_lista_config",
+      "permiso_requerido",
+      "puede_gestionar_tipo_sugerencia",
+      "render_template",
+      "set",
+      "tiene_permiso"
+    ]
+  },
+  {
+    "endpoint": "actualizar_sugerencia_recomendacion",
+    "line": 22957,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "bool",
+      "destino_interno",
+      "flash",
+      "get_connection",
+      "normalizar_estado_seguimiento_sugerencia",
+      "permiso_requerido",
+      "puede_ver_tipo_sugerencia",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "reenviar_sugerencia_recomendacion",
+    "line": 22995,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "bool",
+      "destino_interno",
+      "enviar_notificacion_sugerencia_recomendacion",
+      "flash",
+      "get_connection",
+      "len",
+      "obtener_destinatarios_sugerencias",
+      "permiso_requerido",
+      "puede_ver_tipo_sugerencia",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_sugerencias_recomendaciones",
+    "line": 23053,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "len",
+      "obtener_sugerencias_config",
+      "parsear_emails_config",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "serializar_lista_config",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_sugerencias_denuncias_legacy",
+    "line": 23095,
+    "guards": [],
+    "calls": [
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_sugerencias_denuncias_legacy",
+    "line": 23100,
+    "guards": [],
+    "calls": [
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "configurar_mantenimiento",
+    "line": 23105,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "guardar_app_setting",
+      "obtener_config_mantenimiento",
+      "redirect",
+      "render_template",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "ver_auditoria",
+    "line": 23140,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "enriquecer_actores_auditoria",
+      "get_connection",
+      "permiso_requerido",
+      "render_template",
+      "tuple",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "exportar_auditoria",
+    "line": 23230,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Response",
+      "enriquecer_actores_auditoria",
+      "formato_fecha_hora",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "registrar_auditoria",
+      "tuple",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "ver_seguridad",
+    "line": 23310,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "listar_roles",
+    "line": 23390,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "deserializar_permisos",
+      "dict",
+      "get_connection",
+      "len",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "nuevo_rol",
+    "line": 23419,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "grupos_permisos",
+      "permiso_requerido",
+      "permisos_desde_formulario",
+      "redirect",
+      "render_template",
+      "serializar_permisos",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_rol",
+    "line": 23487,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "deserializar_permisos",
+      "flash",
+      "get_connection",
+      "grupos_permisos",
+      "permiso_requerido",
+      "permisos_desde_formulario",
+      "redirect",
+      "render_template",
+      "serializar_permisos",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_rol",
+    "line": 23530,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "nuevo_usuario",
+    "line": 23571,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "generate_password_hash",
+      "get_connection",
+      "normalizar_email",
+      "normalizar_username",
+      "obtener_roles",
+      "redirect",
+      "render_template",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_usuarios",
+    "line": 23630,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "render_template",
+      "rol_requerido"
+    ]
+  },
+  {
+    "endpoint": "editar_usuario",
+    "line": 23649,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "cargar_permisos_rol",
+      "flash",
+      "get_connection",
+      "normalizar_email",
+      "normalizar_username",
+      "obtener_roles",
+      "redirect",
+      "render_template",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "resetear_password_usuario",
+    "line": 23746,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "generate_password_hash",
+      "get_connection",
+      "redirect",
+      "render_template",
+      "rol_requerido",
+      "url_for",
+      "validar_password_nueva"
+    ]
+  },
+  {
+    "endpoint": "eliminar_usuario",
+    "line": 23792,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "redirect",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "actualizar_cuota_incobrable",
+    "line": 23812,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_cuota",
+    "line": 23875,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descargar_recibo",
+    "line": 24071,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "generar_recibo_pdf",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "descargar_comprobante_movimiento",
+    "line": 24096,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "descargar_drive_file",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_caja",
+    "line": 24142,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Alignment",
+      "Border",
+      "Font",
+      "PatternFill",
+      "Side",
+      "Workbook",
+      "ahora_sig",
+      "enumerate",
+      "get_connection",
+      "len",
+      "max",
+      "permiso_requerido",
+      "range",
+      "registrar_auditoria",
+      "send_file"
+    ]
+  },
+  {
+    "endpoint": "editar_movimiento",
+    "line": 24271,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "dict",
+      "flash",
+      "get_connection",
+      "mensaje_error_drive",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "procesar_comprobante_movimiento",
+      "redirect",
+      "render_template",
+      "str",
+      "url_for",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "eliminar_movimiento",
+    "line": 24400,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "mes_esta_cerrado",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "cerrar_mes",
+    "line": 24475,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "listar_tests",
+    "line": 24538,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "nuevo_test_tipo",
+    "line": 24578,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "parsear_puntaje_test",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "cargar_test_resultados",
+    "line": 24633,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "flash",
+      "get_connection",
+      "normalizar_fecha_test",
+      "parsear_puntaje_test",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "importar_test_resultados",
+    "line": 24709,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "ahora_sig",
+      "enumerate",
+      "flash",
+      "get_connection",
+      "int",
+      "len",
+      "list",
+      "load_workbook",
+      "normalizar_fecha_test",
+      "normalizar_header_excel",
+      "obtener_jugadores_selector",
+      "obtener_test_importaciones_batch_recientes",
+      "obtener_test_tipos",
+      "parsear_puntaje_test",
+      "permiso_requerido",
+      "range",
+      "redirect",
+      "render_template",
+      "str",
+      "sugerir_jugador_por_nombre_test",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "revisar_test_importacion",
+    "line": 24829,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "int",
+      "normalizar_fecha_test",
+      "obtener_jugadores_selector",
+      "obtener_test_tipos",
+      "parsear_puntaje_test",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_tests",
+    "line": 25018,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Workbook",
+      "agregar_hoja_reporte",
+      "ahora_sig",
+      "aplicar_formato_columnas",
+      "append_fila_reporte",
+      "armar_filtros_tests_desde_request",
+      "construir_comparativo_tests",
+      "estilizar_hoja_reporte",
+      "float",
+      "get_column_letter",
+      "get_connection",
+      "len",
+      "max",
+      "min",
+      "permiso_requerido",
+      "range",
+      "registrar_auditoria",
+      "round",
+      "send_file",
+      "set",
+      "sorted",
+      "str",
+      "sum"
+    ]
+  },
+  {
+    "endpoint": "graficos_tests",
+    "line": 25202,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "construir_comparativo_tests",
+      "construir_grafico_tests",
+      "get_connection",
+      "int",
+      "next",
+      "obtener_test_tipos",
+      "permiso_requerido",
+      "render_template",
+      "str",
+      "validar_fecha_movimiento"
+    ]
+  },
+  {
+    "endpoint": "listar_eventos_asistencia",
+    "line": 25292,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "get_connection",
+      "listar_eventos_asistencia_repo",
+      "permiso_requerido",
+      "render_template"
+    ]
+  },
+  {
+    "endpoint": "nuevo_evento_asistencia",
+    "line": 25307,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "permiso_requerido",
+      "redirect",
+      "render_template",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "editar_evento_asistencia",
+    "line": 25339,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "obtener_calendario_evento_por_asistencia",
+      "obtener_evento_asistencia",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "str",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "cerrar_evento_asistencia",
+    "line": 25390,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "obtener_evento_asistencia",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "reabrir_evento_asistencia",
+    "line": 25420,
+    "guards": [
+      "rol_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "obtener_evento_asistencia",
+      "redirect",
+      "rol_requerido",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "eliminar_evento_asistencia",
+    "line": 25446,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "flash",
+      "get_connection",
+      "obtener_calendario_evento_por_asistencia",
+      "obtener_evento_asistencia",
+      "permiso_requerido",
+      "redirect",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "exportar_evento_asistencia",
+    "line": 25486,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "Workbook",
+      "agregar_hoja_reporte",
+      "ahora_sig",
+      "append_fila_reporte",
+      "estilizar_hoja_reporte",
+      "flash",
+      "get_connection",
+      "len",
+      "list",
+      "obtener_evento_asistencia",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "send_file",
+      "str",
+      "sum",
+      "url_for"
+    ]
+  },
+  {
+    "endpoint": "tomar_asistencia",
+    "line": 25670,
+    "guards": [
+      "permiso_requerido"
+    ],
+    "calls": [
+      "dict",
+      "es_evento_partido",
+      "flash",
+      "get_connection",
+      "len",
+      "obtener_evento_asistencia",
+      "permiso_requerido",
+      "redirect",
+      "registrar_auditoria",
+      "render_template",
+      "resumen_bienestar_confirmacion",
+      "round",
+      "sorted",
+      "str",
+      "sum",
+      "url_for"
+    ]
+  }
+]

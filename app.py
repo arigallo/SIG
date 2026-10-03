@@ -9926,6 +9926,7 @@ def proteger_rutas():
     rutas_publicas = {
         "institucional",
         "login",
+        "login_csrf",
         "solicitar_recuperacion_password",
         "restablecer_password",
         "logout",
@@ -9974,6 +9975,9 @@ def proteger_rutas():
 
     if request.method == "POST" and request.endpoint not in csrf_exentas:
         if not csrf_valido():
+            if request.endpoint == "login":
+                flash("La sesión de ingreso cambió o venció. Volvé a ingresar con tu usuario y contraseña.", "warning")
+                return redirect(url_for("login", renovar="1"), code=303)
             abort(400)
 
     if (session.get("simulacion_rol_original")
@@ -10143,6 +10147,8 @@ def whatsapp_webhook_receive():
 
 @app.after_request
 def auditar_acciones(response):
+    if request.endpoint in {"login", "login_csrf"}:
+        response.headers["Cache-Control"] = "no-store"
     if request.method != "POST":
         return response
 
@@ -11278,6 +11284,11 @@ def responder_encuesta_satisfaccion(token):
         disponible=disponible, completada=bool(encuesta) and request.args.get("completada") == "1",
         preguntas=preguntas, data=data,
     ), (200 if encuesta else 404)
+
+
+@app.get("/login/csrf")
+def login_csrf():
+    return jsonify(token=csrf_token())
 
 
 @app.route("/login", methods=["GET", "POST"])

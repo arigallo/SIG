@@ -1,0 +1,20 @@
+test_anonymous_client_can_disable_another_push_endpoint (__main__.SecurityReviewEvidence.test_anonymous_client_can_disable_another_push_endpoint) ... ok
+test_audit_form_does_not_redact_tokens (__main__.SecurityReviewEvidence.test_audit_form_does_not_redact_tokens) ... ok
+test_client_controls_ip_used_for_login_limits (__main__.SecurityReviewEvidence.test_client_controls_ip_used_for_login_limits) ... ok
+test_csrf_still_rejects_missing_token_on_sensitive_post (__main__.SecurityReviewEvidence.test_csrf_still_rejects_missing_token_on_sensitive_post) ... ok
+test_dni_alone_discloses_portal_bearer_token (__main__.SecurityReviewEvidence.test_dni_alone_discloses_portal_bearer_token) ... ok
+test_explicit_empty_permissions_reenable_role_defaults (__main__.SecurityReviewEvidence.test_explicit_empty_permissions_reenable_role_defaults) ... ok
+test_export_keeps_attacker_formula_as_formula (__main__.SecurityReviewEvidence.test_export_keeps_attacker_formula_as_formula) ... ok
+test_non_ascii_csrf_raises_instead_of_rejecting (__main__.SecurityReviewEvidence.test_non_ascii_csrf_raises_instead_of_rejecting) ... ok
+test_push_repository_accepts_internal_http_endpoint (__main__.SecurityReviewEvidence.test_push_repository_accepts_internal_http_endpoint) ... ok
+test_reports_permission_alone_exports_medical_observations (__main__.SecurityReviewEvidence.test_reports_permission_alone_exports_medical_observations) ... ok
+test_reset_email_uses_untrusted_host_without_rate_limit (__main__.SecurityReviewEvidence.test_reset_email_uses_untrusted_host_without_rate_limit) ... ok
+test_revoked_admin_session_still_reads_users (__main__.SecurityReviewEvidence.test_revoked_admin_session_still_reads_users) ... ok
+test_sensitive_download_lacks_no_store_and_security_headers (__main__.SecurityReviewEvidence.test_sensitive_download_lacks_no_store_and_security_headers) ... ok
+test_session_cookie_can_be_replayed_after_logout (__main__.SecurityReviewEvidence.test_session_cookie_can_be_replayed_after_logout) ... ok
+test_upload_trusts_extension_instead_of_content (__main__.SecurityReviewEvidence.test_upload_trusts_extension_instead_of_content) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.150s
+
+OK

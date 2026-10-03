@@ -1,0 +1,1341 @@
+{
+  "errors": [],
+  "generated_at": "2026-10-03T03:49:19Z",
+  "metrics": {
+    ".\\app.py": {
+      "CONFIDENCE.HIGH": 11,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 27,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 1,
+      "SEVERITY.LOW": 10,
+      "SEVERITY.MEDIUM": 27,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 23013,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "_totals": {
+      "CONFIDENCE.HIGH": 11,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 30,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 1,
+      "SEVERITY.LOW": 11,
+      "SEVERITY.MEDIUM": 29,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 23753,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\asistencia.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 38,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\calendario.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 57,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\finanzas.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 44,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\notificaciones.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 1,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 124,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "repositories\\portal.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 9,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\asistencia.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 5,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\calendario.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 94,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\finanzas.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 1,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 207,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\notificaciones.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 1,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 1,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 45,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "services\\portal.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 115,
+      "nosec": 0,
+      "skipped_tests": 0
+    }
+  },
+  "results": [
+    {
+      "code": "1026     placeholders = \", \".join([\"%s\"] * len(claves))\n1027     rows = conn.execute(f\"\"\"\n1028         SELECT clave, valor, actualizado_en, actualizado_por\n1029         FROM app_settings\n1030         WHERE clave IN ({placeholders})\n1031     \"\"\", list(claves)).fetchall()\n1032     return {row[\"clave\"]: row for row in rows}\n",
+      "col_offset": 28,
+      "end_col_offset": 24,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 1027,
+      "line_range": [
+        1027,
+        1028,
+        1029,
+        1030,
+        1031
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "1386     where = \" AND \".join(filtros)\n1387     rows = conn.execute(f\"\"\"\n1388         SELECT endpoint, subscription_json\n1389         FROM pwa_push_subscriptions\n1390         WHERE {where}\n1391     \"\"\", params).fetchall()\n1392 \n",
+      "col_offset": 28,
+      "end_col_offset": 14,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 1387,
+      "line_range": [
+        1387,
+        1388,
+        1389,
+        1390,
+        1391
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "1619                 return project_id\n1620         except Exception:\n1621             pass\n1622 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 1620,
+      "line_range": [
+        1620,
+        1621
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "1627         )\n1628         with urlopen(req, timeout=2) as resp:\n1629             return resp.read().decode(\"utf-8\").strip()\n",
+      "col_offset": 13,
+      "end_col_offset": 36,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 22,
+        "link": "https://cwe.mitre.org/data/definitions/22.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
+      "line_number": 1628,
+      "line_range": [
+        1628
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen",
+      "test_id": "B310",
+      "test_name": "blacklist"
+    },
+    {
+      "code": "2632                 cliente.logout()\n2633             except Exception:\n2634                 pass\n2635 \n",
+      "col_offset": 12,
+      "end_col_offset": 20,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 2633,
+      "line_range": [
+        2633,
+        2634
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "3527 \n3528     cuotas = conn.execute(f\"\"\"\n3529         SELECT *\n3530         FROM cuotas\n3531         WHERE {\" AND \".join(condiciones)}\n3532         ORDER BY periodo ASC, id ASC\n3533     \"\"\", parametros).fetchall()\n3534 \n",
+      "col_offset": 30,
+      "end_col_offset": 14,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 3528,
+      "line_range": [
+        3528,
+        3529,
+        3530,
+        3531,
+        3532,
+        3533
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "4431             \"automation_token_ok\": bool(os.environ.get(\"AUTOMATION_TOKEN\", \"\").strip()),\n4432             \"secret_key_default\": app.secret_key == \"cambiar-esto-por-una-clave-segura\",\n4433         },\n",
+      "col_offset": 52,
+      "end_col_offset": 87,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 259,
+        "link": "https://cwe.mitre.org/data/definitions/259.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Possible hardcoded password: 'cambiar-esto-por-una-clave-segura'",
+      "line_number": 4432,
+      "line_range": [
+        4432
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html",
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string"
+    },
+    {
+      "code": "4567     where = \" AND \".join(filtros)\n4568     rows = conn.execute(f\"\"\"\n4569         SELECT *\n4570         FROM portal_asistencia_confirmaciones\n4571         WHERE {where}\n4572     \"\"\", params).fetchall()\n4573     confirmaciones = {}\n",
+      "col_offset": 28,
+      "end_col_offset": 14,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 4568,
+      "line_range": [
+        4568,
+        4569,
+        4570,
+        4571,
+        4572
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "5010                 conn.close()\n5011         except Exception:\n5012             pass\n5013 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 5011,
+      "line_range": [
+        5011,
+        5012
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "5033                 conn.close()\n5034         except Exception:\n5035             pass\n5036 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 5034,
+      "line_range": [
+        5034,
+        5035
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "5233                 conn.close()\n5234         except Exception:\n5235             pass\n5236         return False\n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 5234,
+      "line_range": [
+        5234,
+        5235
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "5581         try:\n5582             with urlopen(req, timeout=20) as resp:\n5583                 body = resp.read().decode(\"utf-8\")\n",
+      "col_offset": 17,
+      "end_col_offset": 41,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 22,
+        "link": "https://cwe.mitre.org/data/definitions/22.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
+      "line_number": 5582,
+      "line_range": [
+        5582
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen",
+      "test_id": "B310",
+      "test_name": "blacklist"
+    },
+    {
+      "code": "6197     placeholders = \", \".join([\"%s\"] * len(modulos))\n6198     tareas = conn.execute(f\"\"\"\n6199         SELECT\n6200             t.*,\n6201             j.apellido,\n6202             j.nombre,\n6203             j.categoria\n6204         FROM tareas_sig t\n6205         LEFT JOIN jugadores j ON j.id = t.jugador_id\n6206         WHERE (%s = 'todas' OR t.estado = %s)\n6207           AND t.modulo IN ({placeholders})\n6208         ORDER BY\n6209             CASE t.prioridad WHEN 'alta' THEN 0 WHEN 'media' THEN 1 ELSE 2 END,\n6210             NULLIF(t.fecha_vencimiento, '') ASC NULLS LAST,\n6211             t.creado_en DESC\n6212         LIMIT %s\n6213     \"\"\", (estado, estado, *modulos, limite)).fetchall()\n6214     conn.close()\n",
+      "col_offset": 30,
+      "end_col_offset": 27,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 6198,
+      "line_range": [
+        6198,
+        6199,
+        6200,
+        6201,
+        6202,
+        6203,
+        6204,
+        6205,
+        6206,
+        6207,
+        6208,
+        6209,
+        6210,
+        6211,
+        6212,
+        6213
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "6237         placeholders = \", \".join([\"%s\"] * len(modulos_tareas))\n6238         tareas_vencidas = conn.execute(f\"\"\"\n6239             SELECT COUNT(*) AS total\n6240             FROM tareas_sig\n6241             WHERE estado = 'pendiente'\n6242               AND modulo IN ({placeholders})\n6243               AND NULLIF(fecha_vencimiento, '') IS NOT NULL\n6244               AND fecha_vencimiento::text ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'\n6245               AND fecha_vencimiento::date < CURRENT_DATE\n6246         \"\"\", tuple(modulos_tareas)).fetchone()\n6247     conn.close()\n",
+      "col_offset": 43,
+      "end_col_offset": 29,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 6238,
+      "line_range": [
+        6238,
+        6239,
+        6240,
+        6241,
+        6242,
+        6243,
+        6244,
+        6245,
+        6246
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "6553 \n6554     matches = conn.execute(f\"\"\"\n6555         SELECT\n6556             c.id AS cuota_id,\n6557             c.jugador_id,\n6558             c.periodo,\n6559             c.importe,\n6560             j.apellido,\n6561             j.nombre,\n6562             j.dni\n6563         FROM cuotas c\n6564         JOIN jugadores j ON j.id = c.jugador_id\n6565         WHERE {\" AND \".join(condiciones)}\n6566         ORDER BY c.periodo ASC, c.id ASC\n6567         LIMIT 3\n6568     \"\"\", parametros).fetchall()\n6569 \n",
+      "col_offset": 31,
+      "end_col_offset": 14,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 6554,
+      "line_range": [
+        6554,
+        6555,
+        6556,
+        6557,
+        6558,
+        6559,
+        6560,
+        6561,
+        6562,
+        6563,
+        6564,
+        6565,
+        6566,
+        6567,
+        6568
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "6805     where = \"WHERE activo = 1\" if solo_activos else \"\"\n6806     return conn.execute(f\"\"\"\n6807         SELECT *\n6808         FROM test_tipos\n6809         {where}\n6810         ORDER BY nombre\n6811     \"\"\").fetchall()\n6812 \n",
+      "col_offset": 28,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 6806,
+      "line_range": [
+        6806,
+        6807,
+        6808,
+        6809,
+        6810,
+        6811
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "7184                 conn.close()\n7185         except Exception:\n7186             pass\n7187 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 7185,
+      "line_range": [
+        7185,
+        7186
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "7238         \"beca_motivo\": \"TEXT\",\n7239         \"portal_token\": \"TEXT\",\n7240         \"portal_activo\": \"INTEGER DEFAULT 0\",\n7241         \"portal_actualizado_en\": \"TEXT\",\n7242         \"portal_onboarding_visto\": \"INTEGER DEFAULT 0\",\n7243         \"portal_accesos_rapidos\": \"TEXT\",\n7244         \"posicion\": \"TEXT\",\n7245         \"numero_camiseta\": \"TEXT\",\n7246         \"objetivo_temporada\": \"TEXT\",\n7247         \"tipo_miembro\": \"TEXT DEFAULT 'Jugador'\",\n7248         \"cobra_cuota\": \"INTEGER DEFAULT 1\",\n7249         \"debito_automatico\": \"INTEGER DEFAULT 0\",\n7250     }\n7251 \n7252     for columna, tipo_columna in columnas_extra_jugador.items():\n7253         if columna not in columnas_jugadores:\n7254             conn.execute(f\"ALTER TABLE jugadores ADD COLUMN {columna} {tipo_columna}\")\n7255 \n7256     conn.execute(\"\"\"\n7257         CREATE UNIQUE INDEX IF NOT EXISTS idx_jugadores_portal_token\n7258         ON jugadores (portal_token)\n7259         WHERE portal_token IS NOT NULL\n7260     \"\"\")\n7261 \n7262     conn.execute(\"\"\"\n7263         CREATE TABLE IF NOT EXISTS aspirantes (\n7264             id SERIAL PRIMARY KEY,\n7265             nombre TEXT NOT NULL,\n7266             apellido TEXT NOT NULL,\n",
+      "col_offset": 8,
+      "end_col_offset": 22,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 259,
+        "link": "https://cwe.mitre.org/data/definitions/259.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Possible hardcoded password: 'TEXT'",
+      "line_number": 7239,
+      "line_range": [
+        7224,
+        7225,
+        7226,
+        7227,
+        7228,
+        7229,
+        7230,
+        7231,
+        7232,
+        7233,
+        7234,
+        7235,
+        7236,
+        7237,
+        7238,
+        7239,
+        7240,
+        7241,
+        7242,
+        7243,
+        7244,
+        7245,
+        7246,
+        7247,
+        7248,
+        7249,
+        7250
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html",
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string"
+    },
+    {
+      "code": "8202         \"email\": \"TEXT\",\n8203         \"debe_cambiar_password\": \"INTEGER DEFAULT 0\",\n8204         \"onboarding_visto\": \"INTEGER DEFAULT 0\",\n8205         \"creado_en\": \"TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\",\n8206         \"ultimo_login\": \"TIMESTAMPTZ\",\n8207     }\n8208     for columna, tipo_columna in columnas_extra_usuarios.items():\n8209         if columna not in columnas_usuarios:\n8210             conn.execute(f\"ALTER TABLE usuarios ADD COLUMN {columna} {tipo_columna}\")\n",
+      "col_offset": 8,
+      "end_col_offset": 31,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 259,
+        "link": "https://cwe.mitre.org/data/definitions/259.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Possible hardcoded password: 'INTEGER DEFAULT 0'",
+      "line_number": 8203,
+      "line_range": [
+        8201,
+        8202,
+        8203,
+        8204,
+        8205,
+        8206,
+        8207
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html",
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string"
+    },
+    {
+      "code": "8422         campo_valor = \"valor_numero\" if numerica else \"valor_texto\"\n8423         conn.execute(f\"\"\"\n8424             INSERT INTO encuesta_satisfaccion_respuesta_items\n8425                 (respuesta_id, pregunta_id, {campo_valor})\n8426             SELECT r.id, p.id, r.{columna}\n8427             FROM encuesta_satisfaccion_respuestas r\n8428             JOIN encuesta_satisfaccion_preguntas p\n8429               ON p.encuesta_id = r.encuesta_id AND p.clave_legacy = %s\n8430             WHERE r.{columna} IS NOT NULL\n8431             ON CONFLICT (respuesta_id, pregunta_id) DO NOTHING\n8432         \"\"\", (clave_legacy,))\n8433     conn.execute(\"\"\"\n",
+      "col_offset": 25,
+      "end_col_offset": 44,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 8423,
+      "line_range": [
+        8423,
+        8424,
+        8425,
+        8426,
+        8427,
+        8428,
+        8429,
+        8430,
+        8431,
+        8432
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "9644     conn = get_connection()\n9645     facturas = conn.execute(f\"\"\"\n9646         SELECT fr.*, f.remitente_patron, f.asunto_patron\n9647         FROM facturas_recibidas fr\n9648         LEFT JOIN facturas_email_filtros f ON f.id = fr.filtro_id\n9649         {where_sql}\n9650         ORDER BY fr.creado_en DESC, fr.id DESC\n9651         LIMIT 120\n9652     \"\"\", params).fetchall()\n9653     filtros = conn.execute(\"\"\"\n",
+      "col_offset": 32,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 9645,
+      "line_range": [
+        9645,
+        9646,
+        9647,
+        9648,
+        9649,
+        9650,
+        9651,
+        9652
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "11408         )\n11409     except Exception:\n11410         pass\n11411     return Response(\n",
+      "col_offset": 4,
+      "end_col_offset": 12,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 11409,
+      "line_range": [
+        11409,
+        11410
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "12917     where_sql = f\"WHERE {' AND '.join(condiciones)}\" if condiciones else \"\"\n12918     documentos = conn.execute(f\"\"\"\n12919         SELECT\n12920             *,\n12921             CASE\n12922                 WHEN NULLIF(fecha_vencimiento::text, '') IS NULL THEN 'sin_vencimiento'\n12923                 WHEN fecha_vencimiento::text !~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$' THEN 'sin_vencimiento'\n12924                 WHEN fecha_vencimiento::date < CURRENT_DATE THEN 'vencido'\n12925                 WHEN fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days' THEN 'por_vencer'\n12926                 ELSE 'vigente'\n12927             END AS estado_vencimiento\n12928         FROM secretaria_documentos\n12929         {where_sql}\n12930         ORDER BY\n12931             CASE\n12932                 WHEN NULLIF(fecha_vencimiento::text, '') IS NOT NULL\n12933                  AND fecha_vencimiento::text ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'\n12934                  AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'\n12935                 THEN 0\n12936                 ELSE 1\n12937             END,\n12938             fecha_vencimiento ASC NULLS LAST,\n12939             COALESCE(fecha_documento, creado_en::text) DESC,\n12940             id DESC\n12941     \"\"\", params).fetchall()\n12942 \n",
+      "col_offset": 34,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 12918,
+      "line_range": [
+        12918,
+        12919,
+        12920,
+        12921,
+        12922,
+        12923,
+        12924,
+        12925,
+        12926,
+        12927,
+        12928,
+        12929,
+        12930,
+        12931,
+        12932,
+        12933,
+        12934,
+        12935,
+        12936,
+        12937,
+        12938,
+        12939,
+        12940,
+        12941
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "13205     jugadores = conn.execute(\n13206         f\"\"\"\n13207             SELECT * FROM jugadores\n13208             {where_sql}\n13209             ORDER BY {ordenes_validos[orden]}\n13210         \"\"\",\n13211         parametros,\n",
+      "col_offset": 12,
+      "end_col_offset": 12,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 13206,
+      "line_range": [
+        13206,
+        13207,
+        13208,
+        13209,
+        13210
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "13584     conn = get_connection()\n13585     aspirantes = conn.execute(f\"\"\"\n13586         SELECT\n13587             a.*,\n13588             m.nombre AS madrina_nombre,\n13589             m.apellido AS madrina_apellido,\n13590             COALESCE(stats.entrenamientos_realizados, 0) AS entrenamientos_realizados\n13591         FROM aspirantes a\n13592         LEFT JOIN jugadores m ON m.id = a.madrina_jugador_id\n13593         LEFT JOIN (\n13594             SELECT\n13595                 aa.aspirante_id,\n13596                 SUM(CASE WHEN aa.presente = 1 AND LOWER(e.tipo) = 'entrenamiento' THEN 1 ELSE 0 END) AS entrenamientos_realizados\n13597             FROM aspirante_asistencias aa\n13598             JOIN eventos_asistencia e ON e.id = aa.evento_id\n13599             GROUP BY aa.aspirante_id\n13600         ) stats ON stats.aspirante_id = a.id\n13601         {where_sql}\n13602         ORDER BY a.estado, a.apellido, a.nombre\n13603     \"\"\", parametros).fetchall()\n13604 \n",
+      "col_offset": 34,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 13585,
+      "line_range": [
+        13585,
+        13586,
+        13587,
+        13588,
+        13589,
+        13590,
+        13591,
+        13592,
+        13593,
+        13594,
+        13595,
+        13596,
+        13597,
+        13598,
+        13599,
+        13600,
+        13601,
+        13602,
+        13603
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "14500         ):\n14501             conn.execute(f\"DELETE FROM {tabla} WHERE jugador_id = %s\", (jugador_id,))\n14502 \n",
+      "col_offset": 27,
+      "end_col_offset": 39,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 14501,
+      "line_range": [
+        14501
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "14687     conn = get_connection()\n14688     planes = conn.execute(f\"\"\"\n14689         SELECT\n14690             p.*,\n14691             j.apellido,\n14692             j.nombre,\n14693             j.categoria,\n14694             COALESCE(deuda.deuda, 0) AS deuda_actual,\n14695             COALESCE(incluidas.cuotas_incluidas, 0) AS cuotas_incluidas,\n14696             COALESCE(incluidas.monto_incluido, 0) AS monto_incluido,\n14697             COALESCE(avance.cuotas_generadas, 0) AS cuotas_generadas,\n14698             COALESCE(avance.cuotas_pagadas, 0) AS cuotas_pagadas,\n14699             COALESCE(avance.monto_pagado, 0) AS monto_pagado\n14700         FROM planes_pago p\n14701         JOIN jugadores j ON j.id = p.jugador_id\n14702         LEFT JOIN (\n14703             SELECT jugador_id, SUM(importe) AS deuda\n14704             FROM cuotas\n14705             WHERE pagado = 0\n14706               AND COALESCE(anulada, 0) = 0\n14707               AND COALESCE(incobrable, 0) = 0\n14708               AND COALESCE(importe, 0) > 0\n14709             GROUP BY jugador_id\n14710         ) deuda ON deuda.jugador_id = j.id\n14711         LEFT JOIN (\n14712             SELECT plan_pago_id, COUNT(*) AS cuotas_incluidas, SUM(COALESCE(NULLIF(importe_anulado, 0), NULLIF(importe, 0), importe_original, 0)) AS monto_incluido\n14713             FROM cuotas\n14714             WHERE COALESCE(anulada, 0) = 1\n14715               AND plan_pago_id IS NOT NULL\n14716             GROUP BY plan_pago_id\n14717         ) incluidas ON incluidas.plan_pago_id = p.id\n14718         LEFT JOIN (\n14719             SELECT\n14720                 plan_pago_id,\n14721                 COUNT(*) AS cuotas_generadas,\n14722                 COUNT(*) FILTER (WHERE pagado = 1) AS cuotas_pagadas,\n14723                 SUM(CASE WHEN pagado = 1 THEN plan_pago_monto ELSE 0 END) AS monto_pagado\n14724             FROM cuotas\n14725             WHERE COALESCE(anulada, 0) = 0\n14726               AND COALESCE(plan_pago_monto, 0) > 0\n14727               AND plan_pago_id IS NOT NULL\n14728             GROUP BY plan_pago_id\n14729         ) avance ON avance.plan_pago_id = p.id\n14730         {where_sql}\n14731         ORDER BY\n14732             CASE WHEN p.estado = 'Activo' THEN 0 ELSE 1 END,\n14733             p.fecha_inicio DESC,\n14734             j.apellido,\n14735             j.nombre\n14736     \"\"\", parametros).fetchall()\n14737     solicitudes_portal = conn.execute(\"\"\"\n",
+      "col_offset": 30,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 14688,
+      "line_range": [
+        14688,
+        14689,
+        14690,
+        14691,
+        14692,
+        14693,
+        14694,
+        14695,
+        14696,
+        14697,
+        14698,
+        14699,
+        14700,
+        14701,
+        14702,
+        14703,
+        14704,
+        14705,
+        14706,
+        14707,
+        14708,
+        14709,
+        14710,
+        14711,
+        14712,
+        14713,
+        14714,
+        14715,
+        14716,
+        14717,
+        14718,
+        14719,
+        14720,
+        14721,
+        14722,
+        14723,
+        14724,
+        14725,
+        14726,
+        14727,
+        14728,
+        14729,
+        14730,
+        14731,
+        14732,
+        14733,
+        14734,
+        14735,
+        14736
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "15530     conn = get_connection()\n15531     comprobantes = conn.execute(f\"\"\"\n15532         SELECT\n15533             c.*,\n15534             CASE\n15535                 WHEN c.comprobante_drive_file_id IS NOT NULL\n15536                  AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') = 'sin_comprobante'\n15537                 THEN 'pendiente'\n15538                 ELSE COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante')\n15539             END AS comprobante_estado_resuelto,\n15540             j.apellido,\n15541             j.nombre\n15542         FROM cuotas c\n15543         JOIN jugadores j ON j.id = c.jugador_id\n15544         WHERE {where_sql}\n15545         ORDER BY\n15546             CASE COALESCE(NULLIF(c.comprobante_estado, ''), 'pendiente')\n15547                 WHEN 'pendiente' THEN 0\n15548                 WHEN 'sin_comprobante' THEN 0\n15549                 WHEN 'rechazado' THEN 1\n15550                 WHEN 'aceptado' THEN 2\n15551                 ELSE 3\n15552             END,\n15553             c.comprobante_fecha DESC NULLS LAST,\n15554             c.id DESC\n15555         LIMIT 150\n15556     \"\"\", tuple(params)).fetchall()\n15557 \n",
+      "col_offset": 36,
+      "end_col_offset": 14,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 15531,
+      "line_range": [
+        15531,
+        15532,
+        15533,
+        15534,
+        15535,
+        15536,
+        15537,
+        15538,
+        15539,
+        15540,
+        15541,
+        15542,
+        15543,
+        15544,
+        15545,
+        15546,
+        15547,
+        15548,
+        15549,
+        15550,
+        15551,
+        15552,
+        15553,
+        15554,
+        15555,
+        15556
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "16268             parametros.append(categoria)\n16269         cuotas = conn.execute(f\"\"\"\n16270             SELECT c.*, j.apellido, j.nombre, j.categoria\n16271             FROM cuotas c JOIN jugadores j ON j.id = c.jugador_id\n16272             WHERE {' AND '.join(condiciones)}\n16273             ORDER BY j.apellido, j.nombre, c.periodo, c.id\n16274             {'FOR UPDATE OF c' if aplicar else ''}\n16275         \"\"\", parametros).fetchall()\n16276         for fila in cuotas:\n",
+      "col_offset": 34,
+      "end_col_offset": 18,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 16269,
+      "line_range": [
+        16269,
+        16270,
+        16271,
+        16272,
+        16273,
+        16274,
+        16275
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "17074         ]).strip().lower()\n17075         return f\"manual:{hashlib.sha1(base.encode('utf-8')).hexdigest()[:12]}\"\n17076     return f\"jugador:{item.get('jugador_id') or item.get('id')}\"\n",
+      "col_offset": 25,
+      "end_col_offset": 59,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 327,
+        "link": "https://cwe.mitre.org/data/definitions/327.html"
+      },
+      "issue_severity": "HIGH",
+      "issue_text": "Use of weak SHA1 hash for security. Consider usedforsecurity=False",
+      "line_number": 17075,
+      "line_range": [
+        17075
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html",
+      "test_id": "B324",
+      "test_name": "hashlib"
+    },
+    {
+      "code": "17421     try:\n17422         with urlopen(req, timeout=20) as resp:\n17423             html_text = resp.read().decode(\"utf-8\", errors=\"ignore\")\n",
+      "col_offset": 13,
+      "end_col_offset": 37,
+      "filename": ".\\app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 22,
+        "link": "https://cwe.mitre.org/data/definitions/22.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
+      "line_number": 17422,
+      "line_range": [
+        17422
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen",
+      "test_id": "B310",
+      "test_name": "blacklist"
+    },
+    {
+      "code": "19079         where = \" AND \".join(filtros)\n19080         portal_test_resultados = conn.execute(f\"\"\"\n19081             SELECT\n19082                 r.*,\n19083                 j.apellido,\n19084                 j.nombre,\n19085                 j.categoria\n19086             FROM test_resultados r\n19087             JOIN jugadores j ON j.id = r.jugador_id\n19088             WHERE {where}\n19089             ORDER BY r.fecha, r.id\n19090         \"\"\", params).fetchall()\n19091 \n",
+      "col_offset": 50,
+      "end_col_offset": 18,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 19080,
+      "line_range": [
+        19080,
+        19081,
+        19082,
+        19083,
+        19084,
+        19085,
+        19086,
+        19087,
+        19088,
+        19089,
+        19090
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "22901     conn = get_connection()\n22902     registros = conn.execute(f\"\"\"\n22903         SELECT *\n22904         FROM sugerencias_denuncias\n22905         {where_sql}\n22906         ORDER BY creado_en DESC, id DESC\n22907         LIMIT 300\n22908     \"\"\", params).fetchall()\n22909     resumen = conn.execute(f\"\"\"\n",
+      "col_offset": 33,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 22902,
+      "line_range": [
+        22902,
+        22903,
+        22904,
+        22905,
+        22906,
+        22907,
+        22908
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "22908     \"\"\", params).fetchall()\n22909     resumen = conn.execute(f\"\"\"\n22910         SELECT\n22911             COUNT(*) AS total,\n22912             SUM(CASE WHEN tipo = 'sugerencia' THEN 1 ELSE 0 END) AS sugerencias,\n22913             SUM(CASE WHEN tipo = 'recomendacion' THEN 1 ELSE 0 END) AS recomendaciones,\n22914             SUM(CASE WHEN email_estado NOT IN ('enviado', 'parcial') OR email_estado IS NULL THEN 1 ELSE 0 END) AS pendientes,\n22915             SUM(CASE WHEN seguimiento_estado = 'nuevo' OR seguimiento_estado IS NULL THEN 1 ELSE 0 END) AS nuevos,\n22916             SUM(CASE WHEN seguimiento_estado = 'en_revision' THEN 1 ELSE 0 END) AS en_revision\n22917         FROM sugerencias_denuncias\n22918         {where_sql}\n22919     \"\"\", params).fetchone()\n22920     resumen_total = conn.execute(\"\"\"\n",
+      "col_offset": 31,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 22909,
+      "line_range": [
+        22909,
+        22910,
+        22911,
+        22912,
+        22913,
+        22914,
+        22915,
+        22916,
+        22917,
+        22918,
+        22919
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "23195     conn = get_connection()\n23196     registros = conn.execute(f\"\"\"\n23197         SELECT *\n23198         FROM auditoria\n23199         {where_sql}\n23200         ORDER BY fecha DESC, id DESC\n23201         LIMIT 300\n23202     \"\"\", tuple(params)).fetchall()\n23203     registros = enriquecer_actores_auditoria(conn, registros)\n",
+      "col_offset": 33,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 23196,
+      "line_range": [
+        23196,
+        23197,
+        23198,
+        23199,
+        23200,
+        23201,
+        23202
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "23272     conn = get_connection()\n23273     registros = conn.execute(f\"\"\"\n23274         SELECT *\n23275         FROM auditoria\n23276         {where_sql}\n23277         ORDER BY fecha DESC, id DESC\n23278         LIMIT 5000\n23279     \"\"\", tuple(params)).fetchall()\n23280     registros = enriquecer_actores_auditoria(conn, registros)\n",
+      "col_offset": 33,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 23273,
+      "line_range": [
+        23273,
+        23274,
+        23275,
+        23276,
+        23277,
+        23278,
+        23279
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "25026     conn = get_connection()\n25027     resultados = conn.execute(f\"\"\"\n25028         SELECT\n25029             r.id,\n25030             r.fecha,\n25031             r.puntaje,\n25032             r.observaciones,\n25033             r.creado_en,\n25034             r.creado_por,\n25035             t.id AS test_id,\n25036             t.nombre AS test_nombre,\n25037             t.unidad,\n25038             t.mayor_es_mejor,\n25039             j.id AS jugador_id,\n25040             j.apellido,\n25041             j.nombre,\n25042             j.dni,\n25043             j.categoria,\n25044             j.estado\n25045         FROM test_resultados r\n25046         JOIN test_tipos t ON t.id = r.test_id\n25047         JOIN jugadores j ON j.id = r.jugador_id\n25048         {where_sql}\n25049         ORDER BY t.nombre, r.fecha DESC, j.apellido, j.nombre, r.id DESC\n25050     \"\"\", filtros[\"params\"]).fetchall()\n25051 \n",
+      "col_offset": 34,
+      "end_col_offset": 8,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 25027,
+      "line_range": [
+        25027,
+        25028,
+        25029,
+        25030,
+        25031,
+        25032,
+        25033,
+        25034,
+        25035,
+        25036,
+        25037,
+        25038,
+        25039,
+        25040,
+        25041,
+        25042,
+        25043,
+        25044,
+        25045,
+        25046,
+        25047,
+        25048,
+        25049,
+        25050
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "25256         where = \" AND \".join(filtros)\n25257         resultados = conn.execute(f\"\"\"\n25258             SELECT\n25259                 r.*,\n25260                 j.apellido,\n25261                 j.nombre,\n25262                 j.categoria\n25263             FROM test_resultados r\n25264             JOIN jugadores j ON j.id = r.jugador_id\n25265             WHERE {where}\n25266             ORDER BY j.apellido, j.nombre, r.fecha\n25267         \"\"\", params).fetchall()\n25268 \n",
+      "col_offset": 38,
+      "end_col_offset": 18,
+      "filename": ".\\app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 25257,
+      "line_range": [
+        25257,
+        25258,
+        25259,
+        25260,
+        25261,
+        25262,
+        25263,
+        25264,
+        25265,
+        25266,
+        25267
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "93     where_sql = \" AND \".join(filtros)\n94     return conn.execute(f\"\"\"\n95         SELECT DISTINCT\n96             s.endpoint,\n97             s.subscription_json,\n98             s.actor_tipo,\n99             s.usuario_id,\n100             s.jugador_id,\n101             s.actualizado_en\n102         FROM pwa_push_subscriptions s\n103         {join_sql}\n104         WHERE {where_sql}\n105         ORDER BY s.actualizado_en DESC\n106     \"\"\", params).fetchall()\n107 \n",
+      "col_offset": 28,
+      "end_col_offset": 8,
+      "filename": "repositories\\notificaciones.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 94,
+      "line_range": [
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "185 \n186     cuotas = conn.execute(f\"\"\"\n187         SELECT *\n188         FROM cuotas\n189         WHERE {\" AND \".join(condiciones)}\n190         ORDER BY periodo ASC, id ASC\n191     \"\"\", parametros).fetchall()\n192 \n",
+      "col_offset": 30,
+      "end_col_offset": 14,
+      "filename": "services\\finanzas.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 186,
+      "line_range": [
+        186,
+        187,
+        188,
+        189,
+        190,
+        191
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "39             \"jugador_id\": None,\n40             \"portal_token_hash\": None,\n41         }\n42 \n43     return None\n44 \n45 \n46 def normalizar_url_push(valor, fallback=\"/\"):\n",
+      "col_offset": 12,
+      "end_col_offset": 31,
+      "filename": "services\\notificaciones.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 259,
+        "link": "https://cwe.mitre.org/data/definitions/259.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Possible hardcoded password: 'None'",
+      "line_number": 40,
+      "line_range": [
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html",
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string"
+    }
+  ]
+}
