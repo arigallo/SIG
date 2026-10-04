@@ -82,14 +82,20 @@
                 {% endif %}
                 {% if comision.id == 'madrinas' %}
                 <ul>
-                    <li>Sol Aymarà Sueldo</li>
+                    <li class="comisiones-miembro">
+                        <img src="{{ static_asset('img/comision/sol-sueldo.png') }}" alt="" width="72" height="72" loading="lazy">
+                        <span>Sol Aymarà Sueldo</span>
+                    </li>
                     <li>Fernando Barrios (Thor)</li>
                     <li>Gustavo Yaquers</li>
                     <li class="comisiones-miembro">
                         <img src="{{ static_asset('img/comision/mateo-bonzano.png') }}" alt="" width="72" height="72" loading="lazy">
                         <span>Mateo Bonzano</span>
                     </li>
-                    <li>Bruno Resano</li>
+                    <li class="comisiones-miembro">
+                        <img src="{{ static_asset('img/comision/bruno-resano.png') }}" alt="" width="72" height="72" loading="lazy">
+                        <span>Bruno Resano</span>
+                    </li>
                     <li class="comisiones-miembro">
                         <img src="{{ static_asset('img/comision/eduardo-araque.png') }}" alt="" width="72" height="72" loading="lazy">
                         <span>Eduardo Araque</span>
@@ -109,7 +115,10 @@
                     <img src="{{ static_asset('img/comision/juan-nagy-el-colo.png') }}" alt="" width="72" height="72" loading="lazy">
                     <p><strong>Juan Nagy (El Colo)</strong><br>Representante externo (Ex Jugador)</p>
                 </div>
-                <p><strong>Williams Morales (Will)</strong><br>Representante de jugadores activos</p>
+                <div class="comisiones-miembro">
+                    <img src="{{ static_asset('img/comision/williams-morales-will.png') }}" alt="" width="72" height="72" loading="lazy">
+                    <p><strong>Williams Morales (Will)</strong><br>Representante de jugadores activos</p>
+                </div>
                 {% endif %}
             </section>
             {% endfor %}
