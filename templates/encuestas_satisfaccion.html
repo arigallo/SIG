@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Encuestas de satisfaccion{% endblock %}
+{% block title %}Formularios{% endblock %}
 {% block content %}
 <div class="section-header">
-    <div><h2>Encuestas de satisfaccion</h2><p class="page-intro">Campañas, participacion y resultados.</p></div>
-    {% if puede_gestionar %}<a class="button" href="{{ url_for('nueva_encuesta_satisfaccion') }}">Nueva encuesta</a>{% endif %}
+    <div><h2>Formularios</h2><p class="page-intro">Crea formularios, comparte el enlace y consulta las respuestas.</p></div>
+    {% if puede_gestionar %}<a class="button" href="{{ url_for('nueva_encuesta_satisfaccion') }}">Nuevo formulario</a>{% endif %}
 </div>
 <div class="table-wrapper">
 <table>
-    <thead><tr><th>Encuesta</th><th>Periodo</th><th>Estado</th><th>Preguntas</th><th>Respuestas</th><th></th></tr></thead>
+    <thead><tr><th>Formulario</th><th>Periodo</th><th>Estado</th><th>Preguntas</th><th>Respuestas</th><th></th></tr></thead>
     <tbody>
     {% for encuesta in encuestas %}
     <tr>
@@ -17,7 +17,7 @@
         <td>{{ encuesta.preguntas or 0 }}</td><td>{{ encuesta.respuestas or 0 }}</td>
         <td><a class="button secondary" href="{{ url_for('ver_encuesta_satisfaccion', encuesta_id=encuesta.id) }}">Ver resultados</a></td>
     </tr>
-    {% else %}<tr><td colspan="6">Todavia no hay encuestas. Crea la primera campaña para comenzar.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6">Todavía no hay formularios. Crea el primero para comenzar.</td></tr>{% endfor %}
     </tbody>
 </table>
 </div>

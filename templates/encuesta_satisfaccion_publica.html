@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Encuesta - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Formulario - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
 <body class="login-body entry-body"><main class="public-form-shell">
 <section class="public-form-header">
     <div class="login-logo entry-logo"><picture><source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club"></picture></div>
-    <p class="entry-kicker">Ruda Macho Rugby Club</p><h1>{{ encuesta.titulo if encuesta else 'Encuesta no encontrada' }}</h1>
-    {% if encuesta %}<p>{{ encuesta.descripcion or 'Tu opinión nos ayuda a mejorar.' }}</p>{% endif %}
+    <p class="entry-kicker">Ruda Macho Rugby Club</p><h1>{{ encuesta.titulo if encuesta else 'Formulario no encontrado' }}</h1>
+    {% if encuesta %}<p>{{ encuesta.descripcion or 'Completa el formulario para enviar tu respuesta.' }}</p>{% endif %}
 </section>
 {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash {{ category }} login-flash">{{ message }}</div>{% endfor %}{% endwith %}
 {% if completada and encuesta %}
@@ -18,11 +18,21 @@
     {% if pregunta.tipo == 'escala_1_5' %}<div class="segmented-control survey-scale">{% for valor in range(1,6) %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ valor }}" {% if valor_actual|string == valor|string %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">1 = Valoración mínima · 5 = Valoración máxima</span>
     {% elif pregunta.tipo == 'nps_0_10' %}<div class="segmented-control survey-scale survey-scale-nps">{% for valor in range(0,11) %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ valor }}" {% if valor_actual|string == valor|string %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ valor }}</span></label>{% endfor %}</div><span class="field-hint">0 = Nada probable · 10 = Muy probable</span>
     {% elif pregunta.tipo == 'opcion_unica' %}<div class="survey-options">{% for opcion in pregunta.opciones_lista %}<label><input type="radio" name="pregunta_{{ pregunta.id }}" value="{{ opcion }}" {% if valor_actual == opcion %}checked{% endif %} {% if pregunta.requerida %}required{% endif %}><span>{{ opcion }}</span></label>{% endfor %}</div>
+    {% elif pregunta.tipo == 'desplegable' %}<select name="pregunta_{{ pregunta.id }}" {% if pregunta.requerida %}required{% endif %}><option value="">Selecciona una opción</option>{% for opcion in pregunta.opciones_lista %}<option value="{{ opcion }}" {% if valor_actual == opcion %}selected{% endif %}>{{ opcion }}</option>{% endfor %}</select>
+    {% elif pregunta.tipo == 'opcion_multiple' %}<div class="survey-options" {% if pregunta.requerida %}data-required-options{% endif %}>{% for opcion in pregunta.opciones_lista %}<label><input type="checkbox" name="pregunta_{{ pregunta.id }}" value="{{ opcion }}" {% if opcion in valor_actual %}checked{% endif %}><span>{{ opcion }}</span></label>{% endfor %}</div><span class="field-hint">Puedes seleccionar varias opciones.</span>
+    {% elif pregunta.tipo in ['texto_corto', 'email', 'numero', 'fecha'] %}<input name="pregunta_{{ pregunta.id }}" type="{{ {'texto_corto': 'text', 'email': 'email', 'numero': 'number', 'fecha': 'date'}[pregunta.tipo] }}" {% if pregunta.tipo == 'numero' %}step="any"{% endif %} maxlength="300" value="{{ valor_actual }}" {% if pregunta.requerida %}required{% endif %}>
     {% else %}<textarea name="pregunta_{{ pregunta.id }}" rows="5" maxlength="4000" {% if pregunta.requerida %}required{% endif %}>{{ valor_actual }}</textarea>{% endif %}
 </fieldset>
 {% endfor %}
 <div class="form-grid"><div><label>Nombre <span class="field-hint">(opcional)</span></label><input name="nombre" maxlength="200" value="{{ data.nombre if data else '' }}"></div><div><label>Contacto <span class="field-hint">(opcional)</span></label><input name="contacto" maxlength="300" value="{{ data.contacto if data else '' }}"></div></div>
 <button class="button login-button" type="submit">Enviar respuesta</button>
 </form>
-{% else %}<section class="public-form-card"><h2>Encuesta no disponible</h2><p>La campaña todavía no comenzó, ya fue cerrada o no tiene preguntas.</p></section>{% endif %}
-</main></body></html>
+{% else %}<section class="public-form-card"><h2>Formulario no disponible</h2><p>El formulario todavía no comenzó, ya fue cerrada o no tiene preguntas.</p></section>{% endif %}
+</main><script>
+document.querySelectorAll('[data-required-options]').forEach(group => {
+    const inputs = [...group.querySelectorAll('input')];
+    const validate = () => inputs[0].setCustomValidity(inputs.some(input => input.checked) ? '' : 'Selecciona al menos una opción.');
+    inputs.forEach(input => input.addEventListener('change', validate));
+    validate();
+});
+</script></body></html>

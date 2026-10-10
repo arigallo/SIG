@@ -92,6 +92,20 @@ Debe configurarse `AUTOMATION_TOKEN` en Cloud Run y enviar el mismo valor desde
 Cloud Scheduler. Cada recordatorio se registra de forma idempotente para evitar
 duplicados durante el mismo dia.
 
+## Formularios
+
+Desde `Admin > Formularios` se pueden crear formularios de hasta 30 preguntas,
+ordenarlas y marcar cuáles son obligatorias. Hay texto corto y largo, email,
+número, fecha, opción única, selección múltiple, desplegable, escala y NPS.
+Se conservan el acceso y los datos de las encuestas existentes.
+
+Los borradores sin respuestas permiten editar preguntas y configuración.
+Al publicar, el enlace público recibe respuestas durante las fechas configuradas;
+cerrar el formulario detiene nuevos envíos. Los resultados incluyen distribuciones
+y respuestas de texto, con exportación CSV que agrupa cada envío en una fila.
+Los permisos existentes `encuestas_ver` y `encuestas_gestionar` siguen vigentes.
+`init_db` amplía los tipos permitidos y registra `2026-10-09-formularios-v1`.
+
 ## Cuenta corriente
 
 El perfil administrativo y el portal muestran una cuenta corriente unificada
