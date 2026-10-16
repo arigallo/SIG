@@ -24,7 +24,6 @@
     {% else %}<textarea name="pregunta_{{ pregunta.id }}" rows="5" maxlength="4000" {% if pregunta.requerida %}required{% endif %}>{{ valor_actual }}</textarea>{% endif %}
 </fieldset>
 {% endfor %}
-<div class="form-grid"><div><label>Nombre <span class="field-hint">(opcional)</span></label><input name="nombre" maxlength="200" value="{{ data.nombre if data else '' }}"></div><div><label>Contacto <span class="field-hint">(opcional)</span></label><input name="contacto" maxlength="300" value="{{ data.contacto if data else '' }}"></div></div>
 <button class="button login-button" type="submit">Enviar respuesta</button>
 </form>
 {% else %}<section class="public-form-card"><h2>Formulario no disponible</h2><p>El formulario todavía no comenzó, ya fue cerrada o no tiene preguntas.</p></section>{% endif %}
