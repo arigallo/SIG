@@ -27,5 +27,13 @@
 {% else %}<div class="card">Esta encuesta no tiene preguntas configuradas.</div>{% endfor %}
 </div>
 
-{% if respuestas %}<details class="card spaced"><summary><strong>Participantes e identificación opcional</strong></summary><div class="table-wrapper spaced"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Contacto</th></tr></thead><tbody>{% for item in respuestas %}<tr><td>{{ item.creado_en|fecha_hora }}</td><td>{{ item.nombre or 'Anónima' }}</td><td>{{ item.contacto or '-' }}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
+<section id="respuestas-individuales" class="card spaced">
+<h3>Respuestas individuales</h3>
+{% if respuestas %}
+{% if resumen.total > respuestas|length %}<p class="muted-line">Se muestran las últimas {{ respuestas|length }} respuestas. La exportación CSV incluye todas.</p>{% endif %}
+<div class="table-wrapper spaced"><table><thead><tr><th>Respuesta</th><th>Fecha</th><th>Detalle</th></tr></thead><tbody>
+{% for item in respuestas %}<tr><td>#{{ item.id }}</td><td>{{ item.creado_en|fecha_hora }}</td><td><a class="button secondary" href="{{ url_for('ver_respuesta_encuesta_satisfaccion', encuesta_id=encuesta.id, respuesta_id=item.id) }}">Ver respuesta #{{ item.id }}</a></td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="muted-line">Todavía no hay respuestas recibidas.</p>{% endif %}
+</section>
 {% endblock %}

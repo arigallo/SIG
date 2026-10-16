@@ -169,3 +169,57 @@ class FormulariosTests(unittest.TestCase):
             with patch.object(app, "permiso_requerido", return_value="denied"), patch.object(app, "get_connection") as connection:
                 self.assertEqual(app.exportar_formulario(1), "denied")
                 connection.assert_not_called()
+
+    def test_individual_response_requires_permission(self):
+        with app.app.test_request_context("/admin/encuestas/1/respuestas/3"):
+            with patch.object(app, "permiso_requerido", return_value="denied"), patch.object(app, "get_connection") as connection:
+                self.assertEqual(app.ver_respuesta_encuesta_satisfaccion(1, 3), "denied")
+                connection.assert_not_called()
+
+    def test_individual_response_shows_all_answers_including_zero_and_missing(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.side_effect = [
+            {"id": 1, "titulo": "Formulario"}, {"id": 3, "nombre": None, "contacto": None}
+        ]
+        conn.execute.return_value.fetchall.return_value = [
+            {"id": 2, "tipo": "nps_0_10", "valor_numero": 0, "valor_texto": None},
+            {"id": 4, "tipo": "opcion_multiple", "valor_numero": None, "valor_texto": '["A", "B"]'},
+            {"id": 5, "tipo": "texto_corto", "valor_numero": None, "valor_texto": None},
+        ]
+        with app.app.test_request_context("/admin/encuestas/1/respuestas/3"):
+            with patch.object(app, "permiso_requerido", return_value=None), \
+                 patch.object(app, "get_connection", return_value=conn), \
+                 patch.object(app, "render_template", return_value="detail") as render:
+                self.assertEqual(app.ver_respuesta_encuesta_satisfaccion(1, 3), "detail")
+        preguntas = render.call_args.kwargs["preguntas"]
+        self.assertEqual([p["respuesta"] for p in preguntas], [0, "A; B", None])
+        self.assertEqual(conn.execute.call_args_list[1].args[1], (3, 1))
+        self.assertIn("AND encuesta_id = %s", conn.execute.call_args_list[1].args[0])
+        self.assertIn("LEFT JOIN", conn.execute.call_args_list[2].args[0])
+        conn.close.assert_called_once()
+
+    def test_individual_response_missing_or_from_another_survey_is_not_found(self):
+        from werkzeug.exceptions import NotFound
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.side_effect = [{"id": 1}, None]
+        with app.app.test_request_context("/admin/encuestas/1/respuestas/3"):
+            with patch.object(app, "permiso_requerido", return_value=None), patch.object(app, "get_connection", return_value=conn):
+                with self.assertRaises(NotFound):
+                    app.ver_respuesta_encuesta_satisfaccion(1, 3)
+        conn.close.assert_called_once()
+
+    def test_individual_response_template_escapes_text_and_displays_zero(self):
+        from jinja2 import ChoiceLoader, DictLoader
+        loader = ChoiceLoader([DictLoader({"base.html": "{% block content %}{% endblock %}"}), app.app.jinja_env.loader])
+        with app.app.test_request_context("/admin/encuestas/1/respuestas/3"):
+            with patch.object(app.app.jinja_env, "loader", loader):
+                rendered = app.app.jinja_env.get_template("encuesta_satisfaccion_respuesta.html").render(
+                    encuesta={"id": 1, "titulo": "Formulario"},
+                    respuesta={"id": 3, "creado_en": None},
+                    preguntas=[{"texto": "Puntaje", "respuesta": 0},
+                               {"texto": "Comentario", "respuesta": "<script>alert(1)</script>"},
+                               {"texto": "Opcional", "respuesta": None}])
+        self.assertIn(">0</p>", rendered)
+        self.assertIn("Sin respuesta", rendered)
+        self.assertIn("&lt;script&gt;", rendered)
+        self.assertNotIn("<script>", rendered)

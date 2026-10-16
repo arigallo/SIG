@@ -22912,6 +22912,40 @@ def ver_encuesta_satisfaccion(encuesta_id):
                            puede_gestionar=tiene_permiso("encuestas_gestionar"))
 
 
+@app.get("/admin/encuestas/<int:encuesta_id>/respuestas/<int:respuesta_id>")
+def ver_respuesta_encuesta_satisfaccion(encuesta_id, respuesta_id):
+    check = permiso_requerido("encuestas_ver", "encuestas_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    try:
+        encuesta = conn.execute(
+            "SELECT * FROM encuestas_satisfaccion WHERE id = %s", (encuesta_id,)
+        ).fetchone()
+        respuesta = conn.execute("""
+            SELECT id, nombre, contacto, creado_en FROM encuesta_satisfaccion_respuestas
+            WHERE id = %s AND encuesta_id = %s
+        """, (respuesta_id, encuesta_id)).fetchone()
+        if not encuesta or not respuesta:
+            abort(404)
+        preguntas = preparar_preguntas_encuesta(conn.execute("""
+            SELECT p.*, i.valor_texto, i.valor_numero
+            FROM encuesta_satisfaccion_preguntas p
+            LEFT JOIN encuesta_satisfaccion_respuesta_items i
+                ON i.pregunta_id = p.id AND i.respuesta_id = %s
+            WHERE p.encuesta_id = %s ORDER BY p.orden, p.id
+        """, (respuesta_id, encuesta_id)).fetchall())
+    finally:
+        conn.close()
+    for pregunta in preguntas:
+        valor = pregunta["valor_numero"] if pregunta["valor_numero"] is not None else pregunta["valor_texto"]
+        if pregunta["tipo"] == "opcion_multiple" and valor:
+            valor = "; ".join(json.loads(valor))
+        pregunta["respuesta"] = valor
+    return render_template("encuesta_satisfaccion_respuesta.html", encuesta=encuesta,
+                           respuesta=respuesta, preguntas=preguntas)
+
+
 @app.route("/admin/encuestas/<int:encuesta_id>/estado", methods=["POST"])
 def cambiar_estado_encuesta_satisfaccion(encuesta_id):
     check = permiso_requerido("encuestas_gestionar")

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Respuesta #{{ respuesta.id }}{% endblock %}
+{% block content %}
+<div class="section-header"><div>
+    <a class="back-link" href="{{ url_for('ver_encuesta_satisfaccion', encuesta_id=encuesta.id) }}#respuestas-individuales">Volver a los resultados</a>
+    <h2>{{ encuesta.titulo }}</h2>
+    <p class="page-intro">Respuesta #{{ respuesta.id }} · {{ respuesta.creado_en|fecha_hora }}</p>
+    {% if respuesta.nombre or respuesta.contacto %}<p>{{ respuesta.nombre or 'Anónima' }}{% if respuesta.contacto %} · {{ respuesta.contacto }}{% endif %}</p>{% endif %}
+</div></div>
+<div class="survey-results">
+{% for pregunta in preguntas %}
+<section class="card survey-result-card">
+    <span class="muted-line">Pregunta {{ loop.index }} · {{ pregunta.tipo_label }}</span>
+    <h3>{{ pregunta.texto }}</h3>
+    {% if pregunta.respuesta is not none and pregunta.respuesta != '' %}
+    <p style="white-space: pre-wrap">{{ pregunta.respuesta }}</p>
+    {% else %}<p class="muted-line">Sin respuesta</p>{% endif %}
+</section>
+{% else %}<div class="card">Esta encuesta no tiene preguntas configuradas.</div>{% endfor %}
+</div>
+{% endblock %}
