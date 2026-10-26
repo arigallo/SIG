@@ -39,6 +39,14 @@ def calendario_evento_requiere_asistencia(tipo):
     return (tipo or "").strip() in CALENDARIO_ASISTENCIA_TIPOS
 
 
+def calendario_evento_requiere_bienestar(evento):
+    """Respeta la eleccion del evento y conserva la regla historica si no existe."""
+    configurado = evento.get("requiere_bienestar")
+    if configurado is not None:
+        return bool(configurado)
+    return (evento.get("tipo") or "").strip() != "Partido"
+
+
 def normalizar_categoria_calendario(categoria):
     return (categoria or "").strip()
 

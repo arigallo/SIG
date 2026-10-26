@@ -93,6 +93,22 @@
             <span>Crear evento de asistencia para administradores</span>
         </label>
 
+        <div class="full">
+            <label>Confirmaci&oacute;n en el portal del jugador</label>
+            {% set pide_bienestar = evento.get('requiere_bienestar') if evento else 1 %}
+            <div class="checkbox-grid">
+                <label class="checkbox-field">
+                    <input type="radio" name="confirmacion_portal" value="bienestar" {% if pide_bienestar is none or pide_bienestar %}checked{% endif %}>
+                    <span>Confirmar asistencia y completar cuestionario de bienestar</span>
+                </label>
+                <label class="checkbox-field">
+                    <input type="radio" name="confirmacion_portal" value="directa" {% if pide_bienestar is not none and not pide_bienestar %}checked{% endif %}>
+                    <span>Confirmar asistencia directamente, sin cuestionario</span>
+                </label>
+            </div>
+            <span class="muted-line">En una serie, esta opci&oacute;n se aplica a todos los eventos que se creen.</span>
+        </div>
+
         {% if not evento or not evento.get('id') %}
         <div class="full form-subsection batch-event-panel">
             <div>

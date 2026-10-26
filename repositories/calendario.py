@@ -41,9 +41,10 @@ def crear_evento_calendario_desde_data(conn, data):
         INSERT INTO calendario_eventos (
             fecha, tipo, titulo, descripcion, ubicacion, categoria,
             hora_inicio, duracion_minutos, publicar_portal, asistencia_evento_id,
-            convocatoria_texto, convocatoria_cierre, minuta_post_evento
+            convocatoria_texto, convocatoria_cierre, minuta_post_evento,
+            requiere_bienestar
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """, (
         data["fecha"],
@@ -59,5 +60,6 @@ def crear_evento_calendario_desde_data(conn, data):
         data["convocatoria_texto"] or None,
         data["convocatoria_cierre"] or None,
         data["minuta_post_evento"] or None,
+        data["requiere_bienestar"],
     )).fetchone()["id"]
     return evento_id, asistencia_evento_id

@@ -131,6 +131,22 @@ class HotfixTests(unittest.TestCase):
         self.assertIn("confirmacion['estado'] == 'no_asiste'", template)
         self.assertIn("No requiere bienestar", template)
 
+    def test_event_can_choose_direct_confirmation_or_wellbeing(self):
+        direct = {"tipo": "Evento", "requiere_bienestar": 0}
+        wellbeing = {"tipo": "Evento", "requiere_bienestar": 1}
+        legacy_training = {"tipo": "Entrenamiento"}
+        legacy_match = {"tipo": "Partido"}
+
+        self.assertFalse(app.calendario_evento_requiere_bienestar(direct))
+        self.assertTrue(app.calendario_evento_requiere_bienestar(wellbeing))
+        self.assertTrue(app.calendario_evento_requiere_bienestar(legacy_training))
+        self.assertFalse(app.calendario_evento_requiere_bienestar(legacy_match))
+
+        template = Path("templates/calendario_evento_form.html").read_text(encoding="utf-8")
+        self.assertIn('name="confirmacion_portal" value="bienestar"', template)
+        self.assertIn('name="confirmacion_portal" value="directa"', template)
+        self.assertIn("esta opci&oacute;n se aplica a todos los eventos", template)
+
     def test_service_worker_keeps_cache_busters_and_dynamic_manifest_uncached(self):
         source = Path("static/service-worker.js").read_text(encoding="utf-8")
 

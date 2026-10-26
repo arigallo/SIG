@@ -48,6 +48,7 @@ from openpyxl.utils import get_column_letter
 
 from services.calendario import (
     calendario_evento_es_deportivo,
+    calendario_evento_requiere_bienestar,
     calendario_evento_requiere_asistencia,
     categoria_evento_aplica,
     crear_eventos_calendario,
@@ -219,6 +220,7 @@ def inject_now():
         "asistencia_portal_label": asistencia_portal_label,
         "asistencia_portal_badge_class": asistencia_portal_badge_class,
         "es_evento_partido": es_evento_partido,
+        "calendario_evento_requiere_bienestar": calendario_evento_requiere_bienestar,
         "estado_visual_gasto_compartido_item": estado_visual_gasto_compartido_item,
         "current_month": lambda: ahora_sig().strftime("%Y-%m"),
         "aspirante_etapas": ASPIRANTE_ETAPAS,
@@ -8726,6 +8728,7 @@ def init_db():
         "convocatoria_texto": "TEXT",
         "convocatoria_cierre": "TEXT",
         "minuta_post_evento": "TEXT",
+        "requiere_bienestar": "INTEGER",
     }
     for columna, definicion in columnas_extra_calendario.items():
         if columna not in columnas_calendario_eventos:
@@ -19441,7 +19444,7 @@ def portal_confirmar_asistencia(token, evento_id):
         conn.close()
         abort(404)
 
-    requiere_bienestar = not es_evento_partido(evento) and estado != "no_asiste"
+    requiere_bienestar = calendario_evento_requiere_bienestar(evento) and estado != "no_asiste"
     if not requiere_bienestar:
         confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
         guardar_confirmacion_portal_sin_bienestar(conn, evento, jugador, estado)
@@ -19514,7 +19517,7 @@ def portal_bienestar_asistencia(token, evento_id):
     if estado not in PORTAL_ASISTENCIA_ESTADOS:
         estado = "confirmado"
 
-    requiere_bienestar = not es_evento_partido(evento) and estado != "no_asiste"
+    requiere_bienestar = calendario_evento_requiere_bienestar(evento) and estado != "no_asiste"
     if not requiere_bienestar:
         if request.method == "POST" or request.args.get("estado"):
             confirmado_en = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
@@ -20129,6 +20132,7 @@ def nuevo_evento_calendario():
             "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
+            "requiere_bienestar": 1 if request.form.get("confirmacion_portal") == "bienestar" else 0,
             "origen": origen,
             "repeticion_mes": normalizar_mes(request.form.get("repeticion_mes"), ""),
             "repeticion_dias": request.form.getlist("repeticion_dias"),
@@ -20176,6 +20180,7 @@ def nuevo_evento_calendario():
             "cantidad": len(eventos_creados),
             "repeticion_mes": data["repeticion_mes"],
             "omitidos": eventos_omitidos,
+            "requiere_bienestar": data["requiere_bienestar"],
         })
 
         if not eventos_creados:
@@ -20199,6 +20204,7 @@ def nuevo_evento_calendario():
         evento={
             "publicar_portal": 1,
             "crear_asistencia": 1,
+            "requiere_bienestar": 1,
             "duracion_minutos": 90,
             "origen": origen,
             "tipo": "Entrenamiento" if origen == "asistencia" or request.args.get("modo") == "entrenamientos_mes" else "",
@@ -20251,6 +20257,7 @@ def editar_evento_calendario(evento_id):
             "minuta_post_evento": request.form.get("minuta_post_evento", "").strip(),
             "publicar_portal": 1 if request.form.get("publicar_portal") == "on" else 0,
             "crear_asistencia": 1 if request.form.get("crear_asistencia") == "on" else 0,
+            "requiere_bienestar": 1 if request.form.get("confirmacion_portal") == "bienestar" else 0,
             "origen": origen,
         }
 
@@ -20329,7 +20336,8 @@ def editar_evento_calendario(evento_id):
                 asistencia_evento_id = %s,
                 convocatoria_texto = %s,
                 convocatoria_cierre = %s,
-                minuta_post_evento = %s
+                minuta_post_evento = %s,
+                requiere_bienestar = %s
             WHERE id = %s
         """, (
             data["fecha"],
@@ -20345,6 +20353,7 @@ def editar_evento_calendario(evento_id):
             data["convocatoria_texto"] or None,
             data["convocatoria_cierre"] or None,
             data["minuta_post_evento"] or None,
+            data["requiere_bienestar"],
             evento_id,
         ))
         conn.commit()
@@ -20354,6 +20363,7 @@ def editar_evento_calendario(evento_id):
             "tipo": data["tipo"],
             "fecha": data["fecha"],
             "asistencia_evento_id": asistencia_evento_id,
+            "requiere_bienestar": data["requiere_bienestar"],
         })
 
         flash("Evento actualizado.", "ok")
@@ -26049,7 +26059,7 @@ def tomar_asistencia(evento_id):
         evento=evento,
         participantes=participantes,
         puede_reabrir=session.get("rol") == "admin",
-        requiere_bienestar=not es_evento_partido(evento),
+        requiere_bienestar=calendario_evento_requiere_bienestar(evento),
         bienestar_resumen_evento=bienestar_resumen_evento,
         bienestar_por_categoria=resumen_categoria,
     )

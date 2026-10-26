@@ -109,9 +109,9 @@
                                                 <option value="{{ opcion['valor'] }}" {% if confirmacion and confirmacion['estado'] == opcion['valor'] %}selected{% endif %}>{{ opcion['label'] }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button class="button secondary" type="submit">{% if es_evento_partido(evento) %}Guardar confirmaci&oacute;n{% else %}Continuar{% endif %}</button>
+                                        <button class="button secondary" type="submit">{% if calendario_evento_requiere_bienestar(evento) %}Continuar{% else %}Guardar confirmaci&oacute;n{% endif %}</button>
                                     </form>
-                                    {% if not es_evento_partido(evento) %}
+                                    {% if calendario_evento_requiere_bienestar(evento) %}
                                         {% if confirmacion and confirmacion['estado'] == 'no_asiste' %}
                                             <span class="muted-line">No requiere bienestar</span>
                                         {% elif confirmacion and confirmacion['bienestar_completo'] %}
