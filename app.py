@@ -264,7 +264,7 @@ def static_asset(filename):
 
 def pwa_icon_url(size="192"):
     normalized = "512" if str(size) == "512" else "192"
-    return url_for("static", filename=f"img/pwa-icon-{normalized}.png")
+    return static_asset(f"img/pwa-icon-{normalized}.png")
 
 
 def base64url_decode(value):

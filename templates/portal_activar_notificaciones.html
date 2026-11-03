@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    {% include "_site_icons.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow">
@@ -10,7 +11,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SIG">
     <link rel="manifest" href="{{ url_for('pwa_manifest', portal_token=token) }}">
-    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 <body class="login-body entry-body" data-endpoint="portal_activar_notificaciones" data-username="" data-portal-token="{{ token }}" data-pwa-required="1">

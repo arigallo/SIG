@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    {% include "_site_icons.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SIG{% endblock %}</title>
@@ -10,7 +11,6 @@
     <meta name="apple-mobile-web-app-title" content="SIG">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
-    <link rel="apple-touch-icon" href="{{ pwa_icon_url('192') }}">
 
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>

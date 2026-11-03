@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Formulario - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
+<html lang="es"><head>
+    {% include "_site_icons.html" %}<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex,nofollow"><title>Formulario - SIG</title><link rel="stylesheet" href="{{ static_asset('styles.css') }}"></head>
 <body class="login-body entry-body"><main class="public-form-shell">
 <section class="public-form-header">
     <div class="login-logo entry-logo"><picture><source srcset="{{ url_for('static', filename='img/logo-login.webp') }}" type="image/webp"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo del club"></picture></div>
