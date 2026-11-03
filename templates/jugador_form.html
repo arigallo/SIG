@@ -57,7 +57,7 @@
         <select name="tipo_miembro">
             <option value="Jugador" {% if tipo_actual == 'Jugador' %}selected{% endif %}>Jugador</option>
             <option value="Socio activo" {% if tipo_actual == 'Socio activo' %}selected{% endif %}>Socio activo</option>
-            <option value="Colaborador" {% if tipo_actual == 'Colaborador' %}selected{% endif %}>Colaborador</option>
+            <option value="Miembro Adherente" {% if tipo_actual in ['Miembro Adherente', 'Colaborador'] %}selected{% endif %}>Miembro Adherente</option>
         </select>
     </div>
 

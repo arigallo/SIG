@@ -153,3 +153,16 @@ FACTURA_EMAIL_SECRET_NAME=sig-factura-email-imap-password
 ```
 
 Los filtros se administran desde SIG. Por defecto se crean filtros iniciales para Meta/Facebook/Instagram y Canva, y se pueden agregar proveedores nuevos sin tocar codigo.
+
+
+### Avisos de transferencias BBVA
+
+En Finanzas > Transferencias BBVA se pueden importar los avisos de acreditación de
+`avisos@bbva.com.ar` recibidos en `tesoreria@rudamachorugby.com`, reutilizando su configuración IMAP.
+La lectura es de solo lectura, conserva los emails sin marcar como leídos y evita duplicados por Message-ID.
+El período consultado es el configurado para la casilla. También corre con la automatización de facturas habilitada.
+El CUIT propone un jugador por DNI único; el operador confirma la vinculación y puede recordar el remitente.
+Solo una confirmación individual permite solicitar el comprobante usando `solicitud_comprobante_pago_v2`.
+No se generan movimientos de caja ni se cancelan cuotas. Si un envío queda en curso o con error,
+revisar su historial de WhatsApp antes de cualquier reintento manual desde Finanzas del jugador.
+Las tablas se crean con `init_db` al desplegar; no es necesario guardar el email original ni adjuntos.

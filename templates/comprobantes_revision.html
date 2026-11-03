@@ -48,7 +48,7 @@
         <thead>
             <tr>
                 <th>Jugador</th>
-                <th>Periodo</th>
+                <th>Concepto / periodo</th>
                 <th>Importe</th>
                 <th>Estado</th>
                 <th>Carga</th>
@@ -59,14 +59,17 @@
         </thead>
         <tbody>
             {% for cuota in comprobantes %}
+            {% set compartido = cuota['tipo_comprobante']|default('cuota') == 'compartido' %}
+            {% set archivo_url = url_for('descargar_comprobante_gasto_compartido', item_id=cuota['id']) if compartido else url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) %}
+            {% set revision_url = url_for('actualizar_item_gasto_compartido', item_id=cuota['id']) if compartido else url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) %}
             <tr>
                 <td>
                     {{ cuota['apellido'] }}, {{ cuota['nombre'] }}
                     <span class="muted-line">
-                        <a href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver cuotas</a>
+                        {% if cuota['jugador_id'] %}<a href="{{ url_for('ver_cuotas', jugador_id=cuota['jugador_id']) }}">Ver finanzas</a>{% endif %}
                     </span>
                 </td>
-                <td>{{ cuota['periodo'] }}</td>
+                <td><span class="badge badge-info">{{ 'Tercer tiempo / compartido' if compartido else 'Cuota' }}</span><span class="muted-line">{{ cuota['periodo'] }}</span></td>
                 <td>{{ cuota['importe'] | moneda }}</td>
                 <td>
                     {% if cuota['comprobante_estado_resuelto'] == 'aceptado' %}
@@ -79,7 +82,7 @@
                         <span class="badge badge-muted">Sin comprobante</span>
                     {% endif %}
                     {% if cuota['pagado'] %}
-                        <span class="muted-line">Cuota pagada</span>
+                        <span class="muted-line">{{ 'Gasto pagado' if compartido else 'Cuota pagada' }}</span>
                     {% endif %}
                 </td>
                 <td>
@@ -87,12 +90,12 @@
                     <span class="muted-line">{{ cuota['comprobante_usuario'] or '-' }}</span>
                 </td>
                 <td>
-                    <a class="button secondary" href="{{ url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) }}">Ver</a>
+                    <a class="button secondary" href="{{ archivo_url }}">Ver</a>
                     <span class="muted-line">{{ cuota['comprobante_nombre'] or '-' }}</span>
                     <details class="embedded-preview-card top-gap">
                         <summary>Vista previa</summary>
                         {% with
-                            src=url_for('descargar_comprobante_cuota', cuota_id=cuota['id']),
+                            src=archivo_url,
                             nombre=cuota['comprobante_nombre'],
                             preview_tipo='pdf' if cuota['comprobante_mime_type'] == 'application/pdf' else 'image' if cuota['comprobante_mime_type'] and cuota['comprobante_mime_type'].startswith('image/') else 'other'
                         %}
@@ -109,15 +112,16 @@
                 </td>
                 <td class="review-actions">
                     {% if cuota['comprobante_estado_resuelto'] in ['pendiente', 'rechazado'] %}
-                        <form method="post" action="{{ url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) }}">
+                        <form method="post" action="{{ revision_url }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="next" value="{{ request.full_path }}">
-                            <input type="hidden" name="accion" value="aceptar">
+                            <input type="hidden" name="accion" value="{{ 'aprobar' if compartido else 'aceptar' }}">
+                            {% if compartido %}<label>Fecha de pago<input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}" required></label>{% endif %}
                             <button class="button" type="submit">Aceptar</button>
                         </form>
                     {% endif %}
                     {% if cuota['comprobante_estado_resuelto'] == 'pendiente' %}
-                        <form method="post" action="{{ url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) }}">
+                        <form method="post" action="{{ revision_url }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="next" value="{{ request.full_path }}">
                             <input type="hidden" name="accion" value="rechazar">

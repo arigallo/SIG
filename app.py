@@ -1,5 +1,6 @@
 ﻿from flask import Flask, render_template, request, redirect, url_for, flash, Response, send_file, session, has_request_context, abort, g
 import psycopg
+from services import transferencias_bbva as bbva_service
 from flask import jsonify
 from psycopg.rows import dict_row
 from pathlib import Path
@@ -76,6 +77,7 @@ from services.finanzas import (
     beca_vigente,
     calcular_importe_con_beca,
     calcular_importe_cuota_mensual,
+    importe_social_segun_miembro,
     indice_periodo,
     obtener_cuenta_corriente_jugador,
     obtener_cuotas_impagas_para_plan,
@@ -602,7 +604,7 @@ CLOUD_SQL_PROJECT = os.environ.get("CLOUD_SQL_PROJECT") or os.environ.get("GOOGL
 CLOUD_SQL_INSTANCE = os.environ.get("CLOUD_SQL_INSTANCE", "")
 COMPROBANTE_ESTADOS = {"sin_comprobante", "pendiente", "aceptado", "rechazado"}
 CALENDARIO_TZ = "America/Argentina/Buenos_Aires"
-TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Colaborador"}
+TIPOS_MIEMBRO = {"Jugador", "Socio activo", "Miembro Adherente"}
 ESTADOS_JUGADOR = ["Activo", "Inactivo", "Suspendido", "Baja"]
 
 BITACORA_TIPOS = {
@@ -1331,6 +1333,14 @@ def ejecutar_automatizaciones(usuario="sistema"):
         except Exception as error:
             app.logger.exception("Fallo la sincronizacion automatica de facturas.")
             resultado["errores"].append(f"Facturas: {error}")
+
+    if config["facturas_activas"]:
+        try:
+            resultado["transferencias_bbva"] = bbva_service.sincronizar(
+                conn, obtener_factura_email_configs(conn, incluir_password=True, solo_configuradas=True), imaplib)
+        except Exception:
+            app.logger.exception("Fallo la lectura automática de avisos BBVA.")
+            resultado["errores"].append("BBVA: no se pudieron sincronizar los avisos.")
 
     estado = "error" if resultado["errores"] else "ok"
     detalle = json.dumps(resultado, ensure_ascii=False, default=str)
@@ -3618,6 +3628,8 @@ def normalizar_identificador_portal(valor):
 
 def normalizar_tipo_miembro(valor):
     valor = (valor or "Jugador").strip()
+    if valor == "Colaborador":
+        valor = "Miembro Adherente"
     return valor if valor in TIPOS_MIEMBRO else "Jugador"
 
 
@@ -7371,6 +7383,10 @@ def init_db():
             actualizado_por TEXT
         )
     """)
+
+    bbva_service.crear_tablas(conn)
+
+    conn.execute("UPDATE jugadores SET tipo_miembro = 'Miembro Adherente' WHERE tipo_miembro = 'Colaborador'")
 
     columnas_app_settings = get_columns(conn, "app_settings")
     if "actualizado_en" not in columnas_app_settings:
@@ -15317,7 +15333,7 @@ def nueva_cuota(jugador_id):
                 fecha_vencimiento=fecha_vencimiento
             )
 
-        cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_valor)
+        cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_social_segun_miembro(jugador, importe_valor))
         pagado_inicial = 1 if cuota_calculada["beca_total"] else 0
         fecha_pago_inicial = ahora_sig().strftime("%Y-%m-%d") if pagado_inicial else None
         metodo_inicial = "Beca" if pagado_inicial else None
@@ -15684,6 +15700,31 @@ def listar_comprobantes_revision():
         WHERE comprobante_drive_file_id IS NOT NULL
           AND COALESCE(anulada, 0) = 0
     """).fetchone()
+    compartidos = conn.execute("""
+        SELECT i.*, g.titulo AS periodo, g.estado AS gasto_estado,
+               COALESCE(j.apellido, a.apellido, i.apellido_manual, '') AS apellido,
+               COALESCE(j.nombre, a.nombre, i.nombre_manual, '') AS nombre,
+               CASE WHEN COALESCE(NULLIF(i.comprobante_estado, ''), 'sin_comprobante') = 'sin_comprobante'
+                    THEN 'pendiente' ELSE i.comprobante_estado END AS comprobante_estado_resuelto
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        LEFT JOIN jugadores j ON j.id = i.jugador_id
+        LEFT JOIN aspirantes a ON a.id = i.aspirante_id
+        WHERE i.comprobante_drive_file_id IS NOT NULL
+        ORDER BY i.comprobante_fecha DESC NULLS LAST, i.id DESC
+    """).fetchall()
+    resumen = dict(resumen)
+    for item in compartidos:
+        item['tipo_comprobante'] = 'compartido'
+        item['pagado'] = item.get('estado') == 'pagado'
+        resumen['total'] = (resumen.get('total') or 0) + 1
+        clave = {'pendiente': 'pendientes', 'aceptado': 'aceptados', 'rechazado': 'rechazados'}.get(item['comprobante_estado_resuelto'])
+        if clave:
+            resumen[clave] = (resumen.get(clave) or 0) + 1
+    comprobantes = list(comprobantes) + [item for item in compartidos if estado == 'todos' or item['comprobante_estado_resuelto'] == estado]
+    prioridad = {'pendiente': 0, 'rechazado': 1, 'aceptado': 2}
+    comprobantes.sort(key=lambda item: str(item.get('comprobante_fecha') or ''), reverse=True)
+    comprobantes.sort(key=lambda item: prioridad.get(item['comprobante_estado_resuelto'], 3))
     conn.close()
 
     return render_template(
@@ -16473,7 +16514,7 @@ def generar_cuotas():
                 omitidas += 1
                 continue
 
-            cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_valor)
+            cuota_calculada = calcular_importe_cuota_mensual(conn, jugador, periodo, importe_social_segun_miembro(jugador, importe_valor))
             pagado_inicial = 1 if cuota_calculada["beca_total"] else 0
             fecha_pago_inicial = ahora_sig().strftime("%Y-%m-%d") if pagado_inicial else None
             metodo_inicial = "Beca" if pagado_inicial else None
@@ -18696,6 +18737,7 @@ def actualizar_item_gasto_compartido(item_id):
     if check:
         return check
 
+    next_url = destino_interno(request.form.get("next"), fallback="listar_comprobantes_revision") if request.form.get("next") else None
     accion = request.form.get("accion", "").strip()
     observaciones = request.form.get("observaciones", "").strip()
     conn = get_connection()
@@ -18713,19 +18755,19 @@ def actualizar_item_gasto_compartido(item_id):
     if gasto_cerrado and accion not in {"aprobar", "rechazar"}:
         conn.close()
         flash("El gasto compartido esta cerrado y solo admite revisar comprobantes posteriores.", "error")
-        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+        return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
     if gasto_cerrado and item.get("estado") != "pendiente":
         conn.close()
         flash("Ese saldo ya no esta pendiente.", "warning")
-        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+        return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
     if gasto_cerrado and accion == "aprobar" and not item.get("comprobante_drive_file_id"):
         conn.close()
         flash("Para aprobar un pago posterior primero debe haber un comprobante cargado.", "error")
-        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+        return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
     if gasto_cerrado and accion == "aprobar" and not tiene_permiso("caja_gestionar"):
         conn.close()
         flash("Necesitas permiso de caja para registrar el pago posterior.", "error")
-        return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+        return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
     ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     if accion == "aprobar":
@@ -18735,7 +18777,7 @@ def actualizar_item_gasto_compartido(item_id):
             if mes_esta_cerrado(fecha_pago[:7]):
                 conn.close()
                 flash("No se puede registrar el pago en un mes de caja cerrado.", "error")
-                return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+                return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
             movimiento = registrar_movimiento_pago_posterior_gasto(conn, item, fecha_pago)
         conn.execute("""
         UPDATE gasto_compartido_items
@@ -18815,7 +18857,7 @@ def actualizar_item_gasto_compartido(item_id):
 
     conn.commit()
     conn.close()
-    return redirect(url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
+    return redirect(next_url or url_for("ver_gasto_compartido", gasto_id=item["gasto_id"]))
 
 
 @app.route("/portal/<token>/gastos/<int:item_id>/comprobante", methods=["POST"])
@@ -21432,6 +21474,10 @@ def enviar_email_comunicacion_morosos_lote():
     check = permiso_requerido("comunicaciones_ver")
     if check:
         return check
+
+    if request.form.get("plantilla") == "solicitar_comprobante":
+        flash("La solicitud de comprobante solo puede enviarse de forma individual.", "error")
+        return redirect(url_for("ver_comunicaciones", plantilla="solicitar_comprobante"))
 
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
@@ -26176,6 +26222,105 @@ def tomar_asistencia(evento_id):
         bienestar_resumen_evento=bienestar_resumen_evento,
         bienestar_por_categoria=resumen_categoria,
     )
+
+@app.route("/finanzas/transferencias-bbva")
+def listar_transferencias_bbva():
+    check = permiso_requerido("caja_ver", "caja_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    try:
+        transferencias = conn.execute("SELECT * FROM bbva_transferencias ORDER BY fecha DESC, id DESC LIMIT 200").fetchall()
+        jugadores = conn.execute("SELECT id, nombre, apellido, dni FROM jugadores ORDER BY apellido, nombre").fetchall()
+        vinculos = conn.execute("SELECT * FROM bbva_remitentes").fetchall()
+    finally:
+        conn.close()
+    for item in transferencias:
+        item["sugerido_id"], item["motivo_sugerencia"] = bbva_service.sugerir_jugador(item, jugadores, vinculos)
+    return render_template("transferencias_bbva.html", transferencias=transferencias, jugadores=jugadores)
+
+
+@app.route("/finanzas/transferencias-bbva/sync", methods=["POST"])
+def sincronizar_transferencias_bbva():
+    check = permiso_requerido("caja_gestionar")
+    if check:
+        return check
+    conn = get_connection()
+    try:
+        resultado = bbva_service.sincronizar(conn, obtener_factura_email_configs(conn, incluir_password=True, solo_configuradas=True), imaplib)
+        conn.commit()
+        flash(f"BBVA: {resultado['nuevas']} transferencias nuevas; {resultado['errores']} avisos no procesados.", "ok" if not resultado['errores'] else "warning")
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Fallo al sincronizar BBVA.")
+        flash("No se pudieron leer los avisos BBVA. Revisá la conexión de correo.", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("listar_transferencias_bbva"))
+
+
+@app.route("/finanzas/transferencias-bbva/<int:transferencia_id>/vincular", methods=["POST"])
+def vincular_transferencia_bbva(transferencia_id):
+    check = permiso_requerido("caja_gestionar")
+    if check:
+        return check
+    jugador_id = request.form.get("jugador_id", type=int)
+    conn = get_connection()
+    try:
+        item = conn.execute("SELECT * FROM bbva_transferencias WHERE id = %s FOR UPDATE", (transferencia_id,)).fetchone()
+        jugador = conn.execute("SELECT id FROM jugadores WHERE id = %s", (jugador_id,)).fetchone()
+        if not item or not jugador or item['estado'] != 'pendiente':
+            flash("No se puede vincular esa transferencia. Revisá el jugador y su estado.", "error")
+        else:
+            conn.execute("UPDATE bbva_transferencias SET jugador_id = %s WHERE id = %s", (jugador_id, transferencia_id))
+            if request.form.get("recordar") == "on":
+                conn.execute("""INSERT INTO bbva_remitentes (cuit, cbu, jugador_id) VALUES (%s,%s,%s)
+                    ON CONFLICT (cuit,cbu) DO UPDATE SET jugador_id = EXCLUDED.jugador_id""", (item['cuit'], item['cbu'], jugador_id))
+            conn.commit()
+            registrar_auditoria("vincular", "transferencia_bbva", str(transferencia_id), {"jugador_id": jugador_id})
+            flash("Jugador vinculado. Ahora podés confirmar el pedido de comprobante.", "ok")
+    finally:
+        conn.close()
+    return redirect(url_for("listar_transferencias_bbva"))
+
+
+@app.route("/finanzas/transferencias-bbva/<int:transferencia_id>/whatsapp", methods=["POST"])
+def solicitar_comprobante_bbva(transferencia_id):
+    check = permiso_requerido("caja_gestionar")
+    if check:
+        return check
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+    conn = get_connection()
+    try:
+        item = conn.execute("""UPDATE bbva_transferencias SET estado = 'enviando', solicitado_por = %s
+            WHERE id = %s AND estado = 'pendiente' AND jugador_id IS NOT NULL RETURNING *""",
+            (session.get('username'), transferencia_id)).fetchone()
+        if not item:
+            conn.rollback()
+            flash("La transferencia no está vinculada o ya tiene una solicitud en curso.", "warning")
+            return redirect(url_for("listar_transferencias_bbva"))
+        jugador = conn.execute("SELECT * FROM jugadores WHERE id = %s", (item['jugador_id'],)).fetchone()
+        conn.commit()
+        # Reserva persistida antes del envío para impedir duplicados por doble clic.
+        try:
+            enviado, destinatario, motivo, detalle = enviar_whatsapp_recordatorio_cuota_template(
+                jugador, plantilla="solicitar_comprobante", tipo="solicitud_comprobante_bbva",
+                entidad="transferencia_bbva", entidad_id=str(transferencia_id))
+        except Exception:
+            app.logger.exception("Resultado de envío BBVA desconocido.")
+            flash("No se pudo confirmar el envío. Revisá el historial de WhatsApp antes de reintentarlo.", "error")
+            return redirect(url_for("listar_transferencias_bbva"))
+        estado = 'solicitado' if enviado else 'revisar_envio'
+        conn.execute("UPDATE bbva_transferencias SET estado = %s, solicitado_en = CURRENT_TIMESTAMP WHERE id = %s", (estado, transferencia_id))
+        conn.commit()
+        registrar_auditoria("solicitar_comprobante", "transferencia_bbva", str(transferencia_id), {"enviado": enviado})
+        flash("Solicitud enviada por WhatsApp." if enviado else mensaje_fallo_whatsapp(motivo, destinatario, detalle), "ok" if enviado else "error")
+    finally:
+        conn.close()
+    return redirect(url_for("listar_transferencias_bbva"))
+
 
 if os.environ.get("INIT_DB", "true").lower() in {"1", "true", "yes", "on"}:
     init_db()

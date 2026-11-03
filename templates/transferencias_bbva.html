@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Transferencias BBVA{% endblock %}
+{% block content %}
+<div class="section-header"><div><h2>Transferencias BBVA</h2><p>Avisos recibidos en tesorería. Confirmá el jugador antes de pedir el comprobante.</p></div>
+{% if puede('caja_gestionar') %}<form method="post" action="{{ url_for('sincronizar_transferencias_bbva') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button">Leer avisos de BBVA</button></form>{% endif %}</div>
+<p class="report-note">Se muestran los últimos 200 ingresos. La lectura automática acompaña la sincronización de facturas cuando está habilitada. Detectar una transferencia no contabiliza el pago.</p>
+{% for item in transferencias %}
+<section class="card spaced-small">
+<h3>{{ item['fecha'] }} · {{ item['importe']|moneda }}</h3>
+<p>CUIT de origen: {{ item['cuit'] }} · CBU de origen: {{ item['cbu'] }} · Cuenta destino: {{ item['cuenta'] }}</p>
+<p><strong>Estado:</strong> {{ {'pendiente':'Pendiente de comprobante','enviando':'Envío en curso: revisar historial si persiste','solicitado':'Comprobante solicitado','revisar_envio':'Revisar envío fallido antes de reintentar'}.get(item['estado'], item['estado']) }}</p>
+{% if item['jugador_id'] %}{% for jugador in jugadores if jugador['id'] == item['jugador_id'] %}<p><strong>Jugador confirmado:</strong> {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</p><a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver finanzas</a>{% endfor %}{% endif %}
+{% if item['estado'] == 'pendiente' and puede('caja_gestionar') %}
+<form method="post" action="{{ url_for('vincular_transferencia_bbva', transferencia_id=item['id']) }}">
+<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+<label for="jugador-{{ item['id'] }}">Jugador · {{ item['motivo_sugerencia'] }}</label>
+<select id="jugador-{{ item['id'] }}" name="jugador_id" required><option value="">Seleccionar jugador</option>{% for jugador in jugadores %}<option value="{{ jugador['id'] }}" {% if jugador['id'] == (item['jugador_id'] or item['sugerido_id']) %}selected{% endif %}>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</option>{% endfor %}</select>
+<label><input type="checkbox" name="recordar"> Recordar este remitente para próximas sugerencias</label>
+<button class="button secondary">Confirmar jugador</button></form>
+{% if item['jugador_id'] and puede('comunicaciones_ver') and whatsapp_api_activa %}
+<form method="post" action="{{ url_for('solicitar_comprobante_bbva', transferencia_id=item['id']) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><p>Se enviará la plantilla «Solicitud de comprobante» al contacto del jugador confirmado, con el botón para cargarlo en su portal.</p><button class="button">Confirmar pedido por WhatsApp</button></form>
+{% endif %}{% endif %}
+</section>
+{% else %}<div class="card">Todavía no hay transferencias importadas. Usá «Leer avisos de BBVA».</div>{% endfor %}
+{% endblock %}

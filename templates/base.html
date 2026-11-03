@@ -112,6 +112,7 @@
                             <a class="{% if endpoint in ['ver_caja', 'nuevo_movimiento', 'editar_movimiento'] %}active{% endif %}" href="{{ url_for('ver_caja') }}">Caja</a>
                         {% endif %}
                         {% if puede('facturas_recibidas_ver', 'caja_ver') %}
+                            {% if puede('caja_ver', 'caja_gestionar') %}<a href="{{ url_for('listar_transferencias_bbva') }}">Transferencias BBVA</a>{% endif %}
                             <a class="{% if endpoint in ['listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida'] %}active{% endif %}" href="{{ url_for('listar_facturas_recibidas') }}">Facturas recibidas</a>
                         {% endif %}
                         {% if puede('presupuesto_ver', 'caja_ver') %}

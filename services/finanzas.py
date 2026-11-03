@@ -141,6 +141,13 @@ def adicional_plan_pago_para_periodo(conn, jugador_id, periodo):
     }
 
 
+def importe_social_segun_miembro(jugador, importe_base):
+    base = round(float(importe_base or 0), 2)
+    if (jugador.get("tipo_miembro") or "").strip() in {"Miembro Adherente", "Colaborador"}:
+        return round(base / 2, 2)
+    return base
+
+
 def calcular_importe_cuota_mensual(conn, jugador, periodo, importe_base):
     cuota = calcular_importe_con_beca(jugador, periodo, importe_base)
     adicional_plan = adicional_plan_pago_para_periodo(conn, jugador["id"], periodo)
