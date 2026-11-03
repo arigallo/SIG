@@ -152,7 +152,7 @@
                 <td class="actions">
                     <a class="button" href="{{ url_for('detalle_jugador', jugador_id=jugador['id']) }}">Ver</a>
                     {% if puede('cuotas_ver') %}
-                        <a class="button" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
+                        <a class="button" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Finanzas</a>
                     {% endif %}
                     {% if puede('salud_ver') and tipo_miembro == 'Jugador' %}
                         <a class="button secondary" href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ficha médica</a>

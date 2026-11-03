@@ -5741,6 +5741,7 @@ def enviar_whatsapp_jugador(jugador, mensaje, *, tipo="general", entidad="jugado
 def enviar_whatsapp_recordatorio_cuota_template(
     jugador,
     *,
+    plantilla=None,
     tipo="recordatorio_cuota",
     entidad="cuota",
     entidad_id=None,
@@ -5750,6 +5751,30 @@ def enviar_whatsapp_recordatorio_cuota_template(
         valor_texto_contacto((jugador or {}).get("telefono"))
         or valor_texto_contacto((jugador or {}).get("telefono_tutor"))
     )
+    if plantilla == "solicitar_comprobante":
+        return enviar_whatsapp_template_meta(
+            telefono,
+            "solicitud_comprobante_pago_v2",
+            "es_AR",
+            [nombre],
+            tipo=tipo,
+            entidad=entidad,
+            entidad_id=entidad_id,
+            jugador_id=jugador.get("id") or jugador.get("jugador_id"),
+            mensaje_log=plantillas_cobranza()["solicitar_comprobante"][1].replace("{nombre}", nombre),
+        )
+    if plantilla == "plan_pagos":
+        return enviar_whatsapp_template_meta(
+            telefono,
+            "recordatorio_cuotas_pendientes",
+            "es_AR",
+            [str(jugador.get("cuotas_pendientes") or 0), formato_moneda(jugador.get("deuda") or 0).lstrip("$")],
+            tipo=tipo,
+            entidad=entidad,
+            entidad_id=entidad_id,
+            jugador_id=jugador.get("id") or jugador.get("jugador_id"),
+            mensaje_log=mensaje_moroso(plantillas_cobranza()["plan_pagos"][1], jugador),
+        )
     return enviar_whatsapp_template_meta(
         telefono,
         WHATSAPP_TEMPLATE_CUOTA,
@@ -13962,6 +13987,7 @@ def convertir_aspirante(aspirante_id):
         aspirante["observaciones"],
     )).fetchone()
     jugador_id = jugador_creado["id"]
+    activar_portal_nuevo_jugador(conn, jugador_id)
 
     conn.execute("""
         UPDATE aspirantes
@@ -14105,6 +14131,7 @@ def nuevo_jugador():
             data["beca_hasta"], data["beca_motivo"], data["tipo_miembro"], data["cobra_cuota"], data["debito_automatico"]
         )).fetchone()
 
+        activar_portal_nuevo_jugador(conn, creado["id"])
         if aspirantes_coincidentes:
             conn.execute("""
                 UPDATE aspirantes
@@ -14230,6 +14257,7 @@ def importar_jugadores():
                 data["obra_social"], data["numero_afiliado_obra_social"], data["numero_socio"], data["documentos"],
                 data["observaciones"], data["tipo_miembro"], data["cobra_cuota"],
             )).fetchone()
+            activar_portal_nuevo_jugador(conn, creado["id"])
             if aspirantes_coincidentes:
                 conn.execute("""
                     UPDATE aspirantes
@@ -14648,6 +14676,18 @@ def ver_cuotas(jugador_id):
             id DESC
     """, (jugador_id,)).fetchall()
 
+    gastos_compartidos = conn.execute("""
+        SELECT i.*, g.titulo, g.concepto, g.fecha_evento, g.fecha_vencimiento,
+               g.estado AS gasto_estado
+        FROM gasto_compartido_items i
+        JOIN gastos_compartidos g ON g.id = i.gasto_id
+        WHERE i.jugador_id = %s
+        ORDER BY COALESCE(g.fecha_evento, g.fecha_vencimiento, '') DESC, i.id DESC
+    """, (jugador_id,)).fetchall()
+    for item in gastos_compartidos:
+        item["puntualidad_pago"] = puntualidad_pago_gasto(item)
+    deuda_gastos = sum(float(item.get("importe") or 0) for item in gastos_compartidos
+                      if item.get("estado") == "pendiente" and float(item.get("importe") or 0) > 0)
     conn.close()
 
     return render_template(
@@ -14657,7 +14697,34 @@ def ver_cuotas(jugador_id):
         deuda=deuda,
         becas_historial=becas_historial,
         planes_pago=planes_pago,
+        gastos_compartidos=gastos_compartidos,
+        deuda_cuotas=deuda,
+        deuda_gastos=deuda_gastos,
+        deuda_finanzas=round(float(deuda) + deuda_gastos, 2),
     )
+
+
+@app.route("/jugadores/<int:jugador_id>/finanzas/solicitar-comprobante", methods=["POST"])
+def solicitar_comprobante_jugador(jugador_id):
+    check = permiso_requerido("comunicaciones_ver")
+    if check:
+        return check
+    conn = get_connection()
+    jugador = conn.execute("SELECT * FROM jugadores WHERE id = %s", (jugador_id,)).fetchone()
+    conn.close()
+    if jugador is None:
+        flash("Jugador no encontrado.", "error")
+        return redirect(url_for("listar_jugadores"))
+    enviado, destinatario, motivo, detalle = enviar_whatsapp_recordatorio_cuota_template(
+        jugador, plantilla="solicitar_comprobante", tipo="solicitud_comprobante",
+        entidad="jugador", entidad_id=str(jugador_id),
+    )
+    if enviado:
+        registrar_auditoria("solicitar_comprobante", "jugador", str(jugador_id), {"destinatario": destinatario})
+        flash("Solicitud de comprobante enviada por WhatsApp.", "ok")
+    else:
+        flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
+    return redirect(url_for("ver_cuotas", jugador_id=jugador_id))
 
 
 @app.route("/jugadores/<int:jugador_id>/cuotas/recalcular-becas", methods=["POST"])
@@ -17032,6 +17099,14 @@ def nueva_bitacora_jugador(jugador_id):
     return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
 
 
+def activar_portal_nuevo_jugador(conn, jugador_id):
+    conn.execute("""
+        UPDATE jugadores
+        SET portal_token = %s, portal_activo = 1, portal_actualizado_en = %s
+        WHERE id = %s
+    """, (generar_portal_token(), ahora_sig().strftime("%Y-%m-%d %H:%M:%S"), jugador_id))
+
+
 @app.route("/jugadores/<int:jugador_id>/portal/generar", methods=["POST"])
 def generar_portal_jugador(jugador_id):
     check = permiso_requerido("portal_jugador_gestionar")
@@ -17328,6 +17403,17 @@ def construir_texto_gasto_compartido(item):
 
 def gasto_compartido_esta_cerrado(gasto):
     return (gasto.get("estado") or "").strip().lower() == "cerrado"
+
+
+def puntualidad_pago_gasto(item):
+    if item.get("estado") != "pagado":
+        return None
+    try:
+        fecha_pago = date.fromisoformat(str(item.get("fecha_pago") or "")[:10])
+        vencimiento = date.fromisoformat(str(item.get("fecha_vencimiento") or "")[:10])
+    except ValueError:
+        return "Sin fechas para comparar"
+    return "Abonado a tiempo" if fecha_pago <= vencimiento else "Abonado fuera de término"
 
 
 def estado_visual_gasto_compartido_item(item):
@@ -21173,6 +21259,23 @@ def template_morosos_default():
 def plantillas_cobranza():
     return {
         "recordatorio": ("Recordatorio amable", template_morosos_default()),
+        "solicitar_comprobante": (
+            "Solicitar comprobante de un pago detectado",
+            "Hola {nombre}, identificamos un pago que podría corresponderte en la cuenta de Ruda Macho Rugby.\n\n"
+            "Por favor, ingresá a tu portal y cargá el comprobante para que podamos verificarlo y registrar el pago a tu nombre.\n\n"
+            "Si ya lo cargaste, no hace falta que lo envíes nuevamente.\n\n"
+            "Atte. Ruda Macho Rugby\n\n"
+            "Cargar comprobante: https://sig.rudamachorugby.com/portal",
+        ),
+        "plan_pagos": (
+            "Cuotas pendientes y plan de pagos",
+            "¡Hola compañerx! Este es un mensaje automático de SIG porque se detectó que tenés "
+            "{cuotas_pendientes} cuotas pendientes por abonar, sumando un total de {deuda}. "
+            "Te pedimos que normalices la situación a la brevedad. "
+            "Si necesitás un plan de pagos, comunicate con Ariel Martín Gallo:\n"
+            "https://wa.me/5491161885141?text=Hola%20Ari%21%20Necesito%20ayuda%20con%20mis%20finanzas%20de%20Ruda\n\n"
+            "Atte. Ruda Macho Rugby",
+        ),
         "vencida": (
             "Cuotas vencidas",
             "Hola {nombre}, registramos {cuotas_vencidas} cuota(s) vencida(s), con saldo pendiente de {deuda}. "
@@ -21369,6 +21472,10 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
     if check:
         return check
 
+    if request.form.get("plantilla") == "solicitar_comprobante":
+        flash("La solicitud de comprobante solo puede enviarse de forma individual.", "error")
+        return redirect(url_for("ver_comunicaciones", plantilla="solicitar_comprobante"))
+
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
         "Registramos {cuotas_pendientes} cuota(s) pendiente(s) por {deuda}. "
@@ -21380,11 +21487,12 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
     jugador = next((item for item in jugadores if item["id"] == jugador_id), None)
     if jugador is None:
         flash("Jugador no encontrado en el listado de deuda.", "error")
-        return redirect(url_for("ver_comunicaciones", mensaje=template))
+        return redirect(url_for("ver_comunicaciones", mensaje=template, plantilla=request.form.get("plantilla", "recordatorio")))
 
     enviado, destinatario, motivo, detalle = enviar_whatsapp_recordatorio_cuota_template(
         jugador,
         tipo="comunicacion_moroso",
+        plantilla=request.form.get("plantilla"),
         entidad="moroso",
         entidad_id=str(jugador_id),
     )
@@ -21393,7 +21501,7 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
         flash("WhatsApp enviado.", "ok")
     else:
         flash(mensaje_fallo_whatsapp(motivo, destinatario, detalle), "error")
-    return redirect(url_for("ver_comunicaciones", mensaje=template))
+    return redirect(url_for("ver_comunicaciones", mensaje=template, plantilla=request.form.get("plantilla", "recordatorio")))
 
 
 @app.route("/comunicaciones/whatsapp-lote", methods=["POST"])
@@ -21401,6 +21509,10 @@ def enviar_whatsapp_comunicacion_morosos_lote():
     check = permiso_requerido("comunicaciones_ver")
     if check:
         return check
+
+    if request.form.get("plantilla") == "solicitar_comprobante":
+        flash("La solicitud de comprobante solo puede enviarse de forma individual.", "error")
+        return redirect(url_for("ver_comunicaciones", plantilla="solicitar_comprobante"))
 
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
@@ -21415,6 +21527,7 @@ def enviar_whatsapp_comunicacion_morosos_lote():
         resultados.append(enviar_whatsapp_recordatorio_cuota_template(
             jugador,
             tipo="comunicacion_moroso",
+            plantilla=request.form.get("plantilla"),
             entidad="moroso",
             entidad_id=str(jugador["id"]),
         ))
@@ -21423,7 +21536,7 @@ def enviar_whatsapp_comunicacion_morosos_lote():
     registrar_auditoria("enviar_recordatorio", "morosos", None, {"cantidad": enviados, "tipo": "comunicacion_morosos_whatsapp"})
     mensaje_resultado, nivel = resumir_envio_masivo_whatsapp(resultados, "WhatsApps de comunicacion")
     flash(mensaje_resultado, nivel)
-    return redirect(url_for("ver_comunicaciones", mensaje=template))
+    return redirect(url_for("ver_comunicaciones", mensaje=template, plantilla=request.form.get("plantilla", "recordatorio")))
 
 
 @app.route("/comunicaciones/app", methods=["GET", "POST"])

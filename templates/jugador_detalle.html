@@ -27,7 +27,7 @@
             <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">Nueva cuota</a>
         {% endif %}
         {% if puede_ver_finanzas %}
-            <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver cuotas</a>
+            <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver finanzas</a>
         {% endif %}
         {% if puede_ver_tests %}
             <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Tests</a>

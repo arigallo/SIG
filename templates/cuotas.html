@@ -1,15 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Cuotas{% endblock %}
+{% block title %}Finanzas{% endblock %}
 
 {% block content %}
 <div class="admin-page finance-page">
 <div class="section-header">
     <div>
-        <h2>Cuotas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
-        <p class="page-intro">Gesti&oacute;n de deuda, becas, planes de pago y comprobantes del jugador en una sola pantalla.</p>
+        <h2>Finanzas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
+        <p class="page-intro">Cuotas, terceros tiempos, becas, planes de pago y comprobantes del jugador.</p>
     </div>
     <div class="actions">
+        {% if whatsapp_api_activa and puede('comunicaciones_ver') %}
+        <form method="post" action="{{ url_for('solicitar_comprobante_jugador', jugador_id=jugador['id']) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button secondary" type="submit">Pedir comprobante por WhatsApp</button>
+        </form>
+        {% endif %}
         <a class="button" href="{{ url_for('nueva_cuota', jugador_id=jugador['id']) }}">+ Nueva cuota</a>
         {% if puede('planes_pago_gestionar') %}
             <a class="button secondary" href="{{ url_for('nuevo_plan_pago', jugador_id=jugador['id']) }}">Plan de pago</a>
@@ -20,7 +26,7 @@
 <div class="dashboard-cards spaced admin-kpi-grid">
     <div class="card stat-card">
         <h3>Deuda total</h3>
-        <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</p>
+        <p class="stat-number {% if deuda_finanzas|default(deuda) > 0 %}text-danger{% endif %}">{{ deuda_finanzas|default(deuda) | moneda }}</p>
     </div>
     <div class="card stat-card">
         <h3>Cuotas</h3>
@@ -37,7 +43,8 @@
 </div>
 
 <div class="card spaced-small finance-summary-card">
-    <p><strong>Deuda total:</strong> {{ deuda | moneda }}</p>
+    <p><strong>Deuda en cuotas:</strong> {{ deuda | moneda }}</p>
+    <p><strong>Deuda en terceros tiempos / gastos compartidos:</strong> {{ deuda_gastos|default(0) | moneda }}</p>
     {% if jugador['beca_activa'] %}
         <p>
             <strong>Beca activa:</strong>
@@ -48,6 +55,30 @@
         </p>
     {% endif %}
 </div>
+
+<section class="page-section">
+    <div class="section-header"><h3>Terceros tiempos / gastos compartidos</h3></div>
+    <div class="table-wrapper finance-table">
+        <table class="finance-detail-table">
+            <thead><tr><th>Concepto</th><th>Importe</th><th>Vencimiento</th><th>Fecha de pago</th><th>Estado</th><th>Detalle</th></tr></thead>
+            <tbody>
+                {% for item in gastos_compartidos|default([]) %}
+                {% set estado_visual = estado_visual_gasto_compartido_item(item) %}
+                <tr>
+                    <td data-label="Concepto"><strong>{{ item['titulo'] }}</strong><span class="muted-line">{{ item['concepto'] or '' }}</span><span class="muted-line">{{ item['fecha_evento'] or '' }}</span></td>
+                    <td data-label="Importe">{{ item['importe'] | moneda }}</td>
+                    <td data-label="Vencimiento">{{ item['fecha_vencimiento'] or '-' }}</td>
+                    <td data-label="Fecha de pago">{{ item['fecha_pago'] or '-' }}</td>
+                    <td data-label="Estado"><span class="badge {{ estado_visual['badge'] }}">{{ estado_visual['label'] }}</span>{% if item['puntualidad_pago'] %}<span class="muted-line">{{ item['puntualidad_pago'] }}</span>{% endif %}</td>
+                    <td data-label="Detalle">{% if puede('cuotas_ver', 'cuotas_gestionar', 'caja_ver', 'caja_gestionar') %}<a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver gasto</a>{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty">Sin terceros tiempos ni gastos compartidos registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 
 {% if puede('cuotas_gestionar') %}
 <form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small toolbar-card">

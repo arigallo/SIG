@@ -10,18 +10,22 @@
         <p class="page-intro">Seguimiento de morosidad con mensaje editable, acciones directas y estado de contacto por jugador.</p>
     </div>
     <div class="actions">
+        {% if plantilla_clave != 'solicitar_comprobante' %}
         {% if whatsapp_api_activa %}
         <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_morosos_lote') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="mensaje" value="{{ template }}">
+            <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
             <button class="button secondary" type="submit">Enviar WhatsApps</button>
         </form>
         {% endif %}
         <form method="post" action="{{ url_for('enviar_email_comunicacion_morosos_lote') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="mensaje" value="{{ template }}">
+            <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
             <button class="button secondary" type="submit">Enviar emails</button>
         </form>
+        {% endif %}
         <a class="button secondary" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
     </div>
 </div>
@@ -48,7 +52,13 @@
         </span>
         {% if whatsapp_api_activa %}
         <span class="report-note">
+            {% if plantilla_clave == 'solicitar_comprobante' %}
+            WhatsApp API usa «solicitud_comprobante_pago_v2», con el nombre del jugador y el botón «Cargar comprobante». Requiere aprobación de Meta. Usá el envío individual para la persona cuyo pago identificaste.
+            {% elif plantilla_clave == 'plan_pagos' %}
+            WhatsApp API usa «recordatorio_cuotas_pendientes», con la cantidad de cuotas y el saldo de cada jugador. Requiere aprobación de Meta antes del primer envío. El enlace a Ariel está incluido en el mensaje.
+            {% else %}
             WhatsApp API inicia el contacto con la plantilla aprobada de Meta. Este texto sigue aplicando a emails y a "Abrir chat".
+            {% endif %}
         </span>
         {% endif %}
     </div>
@@ -120,6 +130,7 @@
                     <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_moroso', jugador_id=jugador['id']) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="mensaje" value="{{ template }}">
+            <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
                         <button class="button" type="submit" {% if not item['telefono_whatsapp'] %}disabled{% endif %}>WhatsApp API</button>
                     </form>
                     {% endif %}
@@ -127,9 +138,10 @@
                     <form method="post" action="{{ url_for('enviar_email_comunicacion_moroso', jugador_id=jugador['id']) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="mensaje" value="{{ template }}">
+            <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
                         <button class="button secondary" type="submit" {% if not item['email'] %}disabled{% endif %}>Email</button>
                     </form>
-                    <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Cuotas</a>
+                    <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Finanzas</a>
                 </td>
             </tr>
             {% else %}
