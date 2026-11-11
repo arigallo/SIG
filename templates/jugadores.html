@@ -16,22 +16,24 @@
 </div>
 
 {% if puede('jugadores_gestionar') %}
-<form method="post" action="{{ url_for('recalcular_numeros_socio_route') }}" class="card spaced-small inline-form">
+<details class="maintenance-tools"><summary>Herramientas de numeración de socios</summary><form method="post" action="{{ url_for('recalcular_numeros_socio_route') }}" class="card spaced-small inline-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div>
         <label>Numeración de socios</label>
         <span class="field-hint">Regenera los números de socio del club según fecha de ingreso. Si el afiliado de obra social está vacío, se preserva ahí el número previo antes de renumerar. Eduardo Del Valle queda como 00001.</span>
     </div>
     <button class="button secondary" type="submit" onclick="return confirm('Regenerar todos los números de socio del club actuales?');">Regenerar números de socio</button>
-</form>
+</form></details>
 {% endif %}
 
 <form method="get" class="search-form search-form-wide search-form-players">
     <div class="search-field search-field-primary">
-        <input type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoría o tipo" value="{{ busqueda }}">
+        <label class="sr-only" for="players-query">Buscar jugadores y socios</label>
+        <input id="players-query" type="text" name="q" placeholder="Buscar por nombre, apellido, DNI, categoría o tipo" value="{{ busqueda }}">
     </div>
     <div class="search-field search-field-filter">
-        <select name="tipo">
+        <label class="sr-only" for="players-type">Tipo de miembro</label>
+        <select id="players-type" name="tipo">
             <option value="">Todos los tipos</option>
             {% for tipo in tipos_miembro %}
                 <option value="{{ tipo }}" {% if tipo_filtro == tipo %}selected{% endif %}>{{ tipo }}</option>
@@ -39,7 +41,8 @@
         </select>
     </div>
     <div class="search-field search-field-filter">
-        <select name="estado">
+        <label class="sr-only" for="players-status">Estado del jugador</label>
+        <select id="players-status" name="estado">
             <option value="">Todos los estados</option>
             {% for estado in estados_jugador %}
                 <option value="{{ estado }}" {% if estado_filtro == estado %}selected{% endif %}>{{ estado }}</option>
@@ -47,19 +50,23 @@
         </select>
     </div>
     <div class="search-field search-field-filter">
-        <input type="text" name="categoria" placeholder="Filtrar categoría" value="{{ categoria_filtro }}">
+        <label class="sr-only" for="players-category">Categoría del jugador</label>
+        <input id="players-category" type="text" name="categoria" placeholder="Filtrar categoría" value="{{ categoria_filtro }}">
     </div>
     <div class="search-field search-field-filter">
-        <select name="orden">
+        <label class="sr-only" for="players-order">Orden del listado</label>
+        <select id="players-order" name="orden">
             <option value="apellido" {% if orden == 'apellido' %}selected{% endif %}>Orden alfabético</option>
             <option value="fecha_ingreso_asc" {% if orden == 'fecha_ingreso_asc' %}selected{% endif %}>Ingreso más antiguo</option>
             <option value="fecha_ingreso_desc" {% if orden == 'fecha_ingreso_desc' %}selected{% endif %}>Ingreso más reciente</option>
         </select>
     </div>
-    <button type="submit">Buscar</button>
+    <div class="players-filter-actions">
+    <button class="button" type="submit">Buscar</button>
     {% if busqueda or tipo_filtro or estado_filtro or categoria_filtro or orden != 'apellido' %}
-        <a class="button secondary" href="{{ url_for('listar_jugadores') }}">Limpiar</a>
+        <a class="button secondary" href="{{ url_for('listar_jugadores', limpiar=1) }}">Limpiar</a>
     {% endif %}
+    </div>
 </form>
 
 {% if puede('jugadores_gestionar') %}
@@ -171,4 +178,5 @@
         </tbody>
     </table>
 </div>
+{% include '_pagination.html' %}
 {% endblock %}

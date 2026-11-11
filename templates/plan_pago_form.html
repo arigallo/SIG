@@ -8,7 +8,7 @@
 <h2>{% if es_edicion %}Editar plan de pago{% else %}Nuevo plan de pago{% endif %}</h2>
 
 <form method="post" class="card form-card form-card-medium">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <p><strong>Jugador:</strong> {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</p>
 
     <div class="field">

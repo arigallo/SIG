@@ -6,7 +6,7 @@
 <h2>Registrar pago</h2>
 
 <form method="post" enctype="multipart/form-data" class="card form-card form-card-medium">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <p><strong>Jugador:</strong> {{ cuota['apellido'] }}, {{ cuota['nombre'] }}</p>
     <p><strong>Periodo:</strong> {{ cuota['periodo'] }}</p>
     <p><strong>Importe a cobrar:</strong> {{ cuota['importe'] | moneda }}</p>

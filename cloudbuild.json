@@ -1,0 +1,65 @@
+{
+  "images": [
+    "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+  ],
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY",
+    "substitutionOption": "ALLOW_LOOSE"
+  },
+  "steps": [
+    {
+      "args": [
+        "build",
+        "--no-cache",
+        "-t",
+        "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA",
+        ".",
+        "-f",
+        "Dockerfile"
+      ],
+      "id": "Build",
+      "name": "gcr.io/cloud-builders/docker"
+    },
+    {
+      "args": [
+        "push",
+        "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+      ],
+      "id": "Push",
+      "name": "gcr.io/cloud-builders/docker"
+    },
+    {
+      "args": [
+        "run",
+        "services",
+        "update",
+        "$_SERVICE_NAME",
+        "--platform=managed",
+        "--image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA",
+        "--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID",
+        "--region=$_DEPLOY_REGION",
+        "--quiet",
+        "--no-traffic",
+        "--tag=revision-candidata"
+      ],
+      "entrypoint": "gcloud",
+      "id": "Deploy",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    }
+  ],
+  "substitutions": {
+    "REPO_NAME": "sig",
+    "_AR_HOSTNAME": "us-central1-docker.pkg.dev",
+    "_AR_PROJECT_ID": "rudamacho-app-publica-2026",
+    "_AR_REPOSITORY": "cloud-run-source-deploy",
+    "_DEPLOY_REGION": "us-central1",
+    "_PLATFORM": "managed",
+    "_SERVICE_NAME": "club-jugadores",
+    "_TRIGGER_ID": "dd6897c1-9ce1-4a0f-84db-9d070725f93f"
+  },
+  "tags": [
+    "gcp-cloud-build-deploy-cloud-run",
+    "gcp-cloud-build-deploy-cloud-run-managed",
+    "club-jugadores"
+  ]
+}

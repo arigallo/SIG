@@ -11,28 +11,11 @@
     </div>
 </div>
 
-<div class="dashboard-cards spaced">
-    <div class="card stat-card">
-        <h3>Ingresos totales</h3>
-        <p class="stat-number status-paid">{{ total_ingresos | moneda }}</p>
-    </div>
 
-    <div class="card stat-card">
-        <h3>Egresos totales</h3>
-        <p class="stat-number text-danger">{{ total_egresos | moneda }}</p>
-    </div>
 
-    <div class="card stat-card">
-        <h3>Saldo actual</h3>
-        <p class="stat-number {% if saldo < 0 %}text-danger{% else %}status-paid{% endif %}">
-            {{ saldo | moneda }}
-        </p>
-    </div>
-</div>
 
-<h3>Balance mensual</h3>
 
-<form method="get" class="card form-card form-card-narrow spaced-small">
+<form method="get" class="module-filter-bar module-filter-line">
     <div class="field">
         <label>Mes</label>
         <input type="month" name="mes" value="{{ mes_actual }}">
@@ -131,7 +114,7 @@
                         <form method="post"
                               action="{{ url_for('eliminar_movimiento', movimiento_id=m['id']) }}"
                               onsubmit="return confirm('¿Anular este movimiento? No se borrará del historial.');">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                             <input type="text"
                                    name="motivo_anulacion"
                                    placeholder="Motivo"
@@ -154,7 +137,25 @@
     </div>
 </div>
 
-<div class="page-section">
+<details class="module-editor"><summary>Totales históricos de caja</summary><div class="module-editor-content"><div class="dashboard-cards spaced">
+    <div class="card stat-card">
+        <h3>Ingresos totales</h3>
+        <p class="stat-number status-paid">{{ total_ingresos | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Egresos totales</h3>
+        <p class="stat-number text-danger">{{ total_egresos | moneda }}</p>
+    </div>
+
+    <div class="card stat-card">
+        <h3>Saldo actual</h3>
+        <p class="stat-number {% if saldo < 0 %}text-danger{% else %}status-paid{% endif %}">
+            {{ saldo | moneda }}
+        </p>
+    </div>
+</div></div></details>
+<details class="module-editor" id="movimientos-historicos"><summary>Últimos movimientos de todos los meses</summary><div class="module-editor-content"><div class="page-section">
     <div class="section-header">
         <h3>Últimos movimientos</h3>
     </div>
@@ -220,7 +221,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</div></div></details>
 
 {% if cierre_mes %}
     <div class="flash ok">

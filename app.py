@@ -1,7 +1,10 @@
 ﻿from flask import Flask, render_template, request, redirect, url_for, flash, Response, send_file, session, has_request_context, abort, g
 import psycopg
+from services.workspace import obtener_inicio, obtener_cola_finanzas, obtener_notas_financieras, ordenar_notas_financieras, paginacion
 from services import transferencias_bbva as bbva_service
+from services.operations import crear_tabla_operaciones, instalar_proteccion
 from flask import jsonify
+from services.madrinas import CONTACTOS, CONFIRMACIONES, estados_rapidos, validar_cambios
 from psycopg.rows import dict_row
 from pathlib import Path
 import csv
@@ -13,6 +16,7 @@ import os
 import posixpath
 import re
 import mimetypes
+from math import isfinite
 import imaplib
 import smtplib
 import secrets
@@ -207,6 +211,8 @@ def inject_now():
     return {
         "now": ahora_sig,
         "csrf_token": csrf_token,
+        "operation_token": lambda: secrets.token_urlsafe(24),
+        "volver_listado": session.get('workspace_return') if request.endpoint in {'detalle_jugador', 'ver_cuotas'} else None,
         "puede": tiene_permiso,
         "puede_ver_operacion": puede_ver_operacion,
         "mantenimiento": getattr(g, "mantenimiento", None) if has_request_context() else None,
@@ -229,6 +235,8 @@ def inject_now():
     }
 
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.environ.get("SIG_DATA_DIR") or BASE_DIR).resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 WHATSAPP_ENABLED = str(os.environ.get("WHATSAPP_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
 WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN", "").strip()
 WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
@@ -7065,6 +7073,7 @@ AUDIT_ENDPOINTS = {
     "editar_jugador": ("editar", "jugador"),
     "eliminar_jugador": ("eliminar", "jugador"),
     "nueva_bitacora_jugador": ("crear", "bitacora_jugador"),
+    "resolver_nota_finanzas": ("resolver", "bitacora_jugador"),
     "importar_jugadores": ("importar", "jugadores"),
     "acciones_masivas_jugadores": ("accion_masiva", "jugadores"),
     "nuevo_aspirante": ("crear", "ahijadx"),
@@ -7119,6 +7128,8 @@ AUDIT_ENDPOINTS = {
 }
 
 SENSITIVE_AUDIT_FIELDS = {
+    '_csrf_token',
+    '_operation_token',
     "password",
     "pass",
     "clave",
@@ -7228,6 +7239,7 @@ def registrar_auditoria(
 def init_db():
     conn = get_connection()
     conn.execute("SELECT pg_advisory_xact_lock(hashtext('sig_init_db'))")
+    crear_tabla_operaciones(conn)
 
     conn.execute("""
     CREATE TABLE IF NOT EXISTS jugadores (
@@ -7341,6 +7353,8 @@ def init_db():
         "jugador_id": "INTEGER",
         "observaciones": "TEXT",
         "etapa_seguimiento": "TEXT NOT NULL DEFAULT 'pendiente_contacto'",
+        "contacto_estado": "TEXT",
+        "viene_estado": "TEXT",
         "proxima_accion_fecha": "TEXT",
         "experiencia_previa": "TEXT",
         "disponibilidad": "TEXT",
@@ -7931,6 +7945,15 @@ def init_db():
             FOREIGN KEY (jugador_id) REFERENCES jugadores(id) ON DELETE CASCADE
         )
     """)
+
+    columnas_bitacora = get_columns(conn, "jugador_bitacora")
+    for columna, tipo_columna in {
+        "seguimiento_fecha": "DATE",
+        "resuelto_en": "TIMESTAMPTZ",
+        "resuelto_por": "TEXT",
+    }.items():
+        if columna not in columnas_bitacora:
+            conn.execute(f"ALTER TABLE jugador_bitacora ADD COLUMN {columna} {tipo_columna}")
 
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_jugador_bitacora_jugador
@@ -10082,6 +10105,9 @@ def proteger_rutas():
         return render_template("mantenimiento.html", mantenimiento=g.mantenimiento), 503
 
 
+instalar_proteccion(app, lambda: get_connection())
+
+
 @app.route("/webhooks/whatsapp", methods=["GET"], endpoint="whatsapp_webhook_verify")
 def whatsapp_webhook_verify():
     mode = request.args.get("hub.mode", "").strip()
@@ -11705,232 +11731,15 @@ def institucional():
 
 @app.route("/")
 def index():
-    mes = request.args.get("mes")  # formato YYYY-MM
-    mes_actual = mes or ahora_sig().strftime("%Y-%m")
-
     conn = get_connection()
-
-    total_jugadores = conn.execute("""
-        SELECT COUNT(*) AS total
-        FROM jugadores
-    """).fetchone()["total"]
-
-    jugadores_con_deuda = conn.execute("""
-        SELECT
-            j.id,
-            j.nombre,
-            j.apellido,
-            COALESCE(SUM(c.importe), 0) AS deuda,
-            SUM(
-                CASE
-                    WHEN c.fecha_vencimiento IS NOT NULL
-                     AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
-                     AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-                     AND c.fecha_vencimiento::date < CURRENT_DATE
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS cuotas_vencidas
-        FROM jugadores j
-        JOIN cuotas c ON j.id = c.jugador_id
-        WHERE c.pagado = 0
-          AND COALESCE(c.incobrable, 0) = 0
-          AND COALESCE(c.importe, 0) > 0
-        GROUP BY j.id, j.nombre, j.apellido
-        HAVING COALESCE(SUM(c.importe), 0) > 0
-        ORDER BY deuda DESC, j.apellido, j.nombre
-    """).fetchall()
-
-    fichas_vencidas = conn.execute("""
-        SELECT
-            j.id,
-            j.nombre,
-            j.apellido,
-            f.fecha_vencimiento
-        FROM jugadores j
-        JOIN fichas_medicas f ON j.id = f.jugador_id
-        WHERE f.fecha_vencimiento IS NOT NULL
-          AND NULLIF(f.fecha_vencimiento::text, '') IS NOT NULL
-          AND f.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-          AND f.fecha_vencimiento::date < CURRENT_DATE
-        ORDER BY f.fecha_vencimiento ASC, j.apellido, j.nombre
-    """).fetchall()
-
-    lesiones_activas = conn.execute("""
-        SELECT
-            l.id,
-            j.id AS jugador_id,
-            j.nombre,
-            j.apellido,
-            l.fecha_lesion,
-            l.tipo_lesion,
-            l.zona_cuerpo,
-            l.estado
-        FROM lesiones l
-        JOIN jugadores j ON j.id = l.jugador_id
-        WHERE l.estado IN ('Activa', 'En recuperaci?n')
-        ORDER BY
-            CASE
-                WHEN l.estado = 'Activa' THEN 0
-                ELSE 1
-            END,
-            l.fecha_lesion DESC
-    """).fetchall()
-
-    total_recaudado_mes = conn.execute("""
-        SELECT COALESCE(SUM(importe), 0) AS total
-        FROM cuotas
-        WHERE pagado = 1
-           AND substring(fecha_pago from 1 for 7) = %s
-    """, (mes_actual,)).fetchone()["total"]
-
-    deuda_total = conn.execute("""
-        SELECT COALESCE(SUM(importe), 0) AS total
-        FROM cuotas
-        WHERE pagado = 0
-        AND COALESCE(incobrable, 0) = 0
-        AND COALESCE(importe, 0) > 0
-    """).fetchone()["total"]
-
-    cuotas_pagadas_mes = conn.execute("""
-    SELECT COUNT(*) AS total
-    FROM cuotas
-    WHERE pagado = 1
-      AND substring(fecha_pago from 1 for 7) = %s
-    """, (mes_actual,)).fetchone()["total"]
-
-    deuda_vencida_total = conn.execute("""
-    SELECT COALESCE(SUM(importe), 0) AS total
-    FROM cuotas
-    WHERE pagado = 0
-      AND COALESCE(incobrable, 0) = 0
-      AND COALESCE(importe, 0) > 0
-      AND fecha_vencimiento IS NOT NULL
-      AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
-      AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-      AND fecha_vencimiento::date < CURRENT_DATE
-    """).fetchone()["total"]
-
-    cuotas_pendientes = conn.execute("""
-    SELECT COUNT(*) AS total
-    FROM cuotas
-    WHERE pagado = 0
-      AND COALESCE(incobrable, 0) = 0
-      AND COALESCE(importe, 0) > 0
-      AND substring(periodo from 1 for 7) = %s
-    """, (mes_actual,)).fetchone()["total"]
-
-    cuotas_pendientes_lista = conn.execute("""
-    SELECT
-        c.id,
-        c.periodo,
-        c.importe,
-        c.fecha_vencimiento,
-        j.id AS jugador_id,
-        j.nombre,
-        j.apellido,
-        j.categoria
-    FROM cuotas c
-    JOIN jugadores j ON j.id = c.jugador_id
-    WHERE c.pagado = 0
-      AND COALESCE(c.incobrable, 0) = 0
-      AND COALESCE(c.importe, 0) > 0
-    ORDER BY
-        CASE
-            WHEN c.fecha_vencimiento IS NOT NULL
-             AND NULLIF(c.fecha_vencimiento::text, '') IS NOT NULL
-             AND c.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-             AND c.fecha_vencimiento::date < CURRENT_DATE
-            THEN 0
-            ELSE 1
-        END,
-        c.fecha_vencimiento ASC,
-        j.apellido,
-        j.nombre
-    LIMIT 20
-    """).fetchall()
-
-    comprobantes_pendientes_lista = conn.execute("""
-        SELECT
-            c.id,
-            c.jugador_id,
-            c.periodo,
-            c.importe,
-            c.comprobante_fecha,
-            c.comprobante_usuario,
-            j.nombre,
-            j.apellido
-        FROM cuotas c
-        JOIN jugadores j ON j.id = c.jugador_id
-        WHERE c.comprobante_drive_file_id IS NOT NULL
-          AND COALESCE(c.anulada, 0) = 0
-          AND COALESCE(NULLIF(c.comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
-        ORDER BY c.comprobante_fecha DESC NULLS LAST, c.id DESC
-        LIMIT 10
-    """).fetchall()
-
-    comprobantes_pendientes_count = conn.execute("""
-        SELECT COUNT(*) AS total
-        FROM cuotas
-        WHERE comprobante_drive_file_id IS NOT NULL
-          AND COALESCE(anulada, 0) = 0
-          AND COALESCE(NULLIF(comprobante_estado, ''), 'sin_comprobante') IN ('pendiente', 'sin_comprobante')
-    """).fetchone()["total"]
-
-    fichas_por_vencer_count = conn.execute("""
-        SELECT COUNT(*) AS total
-        FROM fichas_medicas
-        WHERE fecha_vencimiento IS NOT NULL
-          AND NULLIF(fecha_vencimiento::text, '') IS NOT NULL
-          AND fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-          AND fecha_vencimiento::date >= CURRENT_DATE
-          AND fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '30 days'
-    """).fetchone()["total"]
-
-    conn.close()
-
-    total_cuotas_mes = cuotas_pagadas_mes + cuotas_pendientes
-    cobranza_ratio = round((cuotas_pagadas_mes / total_cuotas_mes) * 100, 1) if total_cuotas_mes else None
-
-    resumen_notificaciones = None
-    if tiene_permiso("comunicaciones_ver"):
-        notificaciones = obtener_notificaciones_operativas()
-        resumen_notificaciones = {
-            "cuotas_vencidas": len(notificaciones["cuotas_vencidas"]),
-            "cuotas_por_vencer": len(notificaciones["cuotas_por_vencer"]),
-            "fichas": len(notificaciones["fichas"]),
-            "asistencia_baja": len(notificaciones["asistencia_baja"]),
-            "comprobantes": len(notificaciones["comprobantes_pendientes"]),
-            "cambios_portal": len(notificaciones["cambios_portal"]),
-            "whatsapp": len(notificaciones["whatsapp_conversaciones"]),
-            "ahijadxs": len(notificaciones["ahijadxs_objetivo"]),
-        }
-
-    sistema_resumen = obtener_estado_sistema_admin() if session.get("rol") == "admin" else None
-
-    return render_template(
-        "dashboard.html",
-        total_jugadores=total_jugadores,
-        jugadores_con_deuda=jugadores_con_deuda,
-        fichas_vencidas=fichas_vencidas,
-        lesiones_activas=lesiones_activas,
-        total_recaudado_mes=total_recaudado_mes,
-        deuda_total=deuda_total,
-        deuda_vencida_total=deuda_vencida_total,
-        cuotas_pagadas_mes=cuotas_pagadas_mes,
-        cuotas_pendientes=cuotas_pendientes,
-        cobranza_ratio=cobranza_ratio,
-        fichas_por_vencer_count=fichas_por_vencer_count,
-        cuotas_pendientes_lista=cuotas_pendientes_lista,
-        comprobantes_pendientes_count=comprobantes_pendientes_count,
-        comprobantes_pendientes_lista=comprobantes_pendientes_lista,
-        mes_actual=mes_actual,
-        resumen_notificaciones=resumen_notificaciones,
-        sistema_resumen=sistema_resumen,
+    try:
+        inicio = obtener_inicio(conn, tiene_permiso, session.get("username") or "", modulos_tareas_permitidos(), ahora_sig().date())
+    finally:
+        conn.close()
+    return render_template("dashboard.html", inicio=inicio,
         puede_ver_jugadores=tiene_permiso("jugadores_ver"),
         puede_ver_finanzas=tiene_permiso("cuotas_ver", "cuotas_gestionar"),
-        puede_ver_salud=tiene_permiso("salud_ver"),
-    )
+        puede_ver_salud=tiene_permiso("salud_ver"))
 
 
 @app.route("/operacion")
@@ -12039,7 +11848,19 @@ def ver_panel_cobranzas():
     if check:
         return check
 
-    return render_template("cobranzas.html", panel=obtener_panel_cobranzas())
+    filtros = filtros_workspace('cobranzas', {'vista': 'revision', 'q': '', 'pagina': '1'})
+    vista = filtros['vista'] if filtros['vista'] in {'revision', 'cobros', 'seguimientos'} else 'revision'
+    busqueda = filtros['q'].strip()[:100]
+    conn = get_connection()
+    try:
+        cola, pagina, conteos = obtener_cola_finanzas(conn, ahora_sig().date().isoformat(),
+            vista=vista, busqueda=busqueda, pagina=filtros['pagina'], por_pagina=25)
+    finally:
+        conn.close()
+    guardar_retorno('ver_panel_cobranzas', dict(vista=vista, q=busqueda, pagina=pagina['pagina']))
+    return render_template("cobranzas.html", panel=obtener_panel_cobranzas(), cola=cola, vista=vista,
+        busqueda=busqueda, paginador=pagina, conteos=conteos,
+        paginador_endpoint='ver_panel_cobranzas', paginador_filtros=dict(vista=vista, q=busqueda))
 
 
 @app.route("/finanzas/excepciones")
@@ -12047,8 +11868,10 @@ def ver_excepciones_cobranza():
     check = permiso_requerido("cuotas_ver", "cuotas_gestionar")
     if check:
         return check
+    filtros = filtros_workspace("excepciones", dict(q="", pagina="1"))
+    busqueda = filtros["q"].strip()[:100]
     conn = get_connection()
-    excepciones = conn.execute("""
+    consulta = """
         SELECT 'cuota' AS origen, c.id AS item_id, c.jugador_id, NULL::INTEGER AS gasto_id,
                j.apellido, j.nombre, c.periodo AS concepto,
                c.importe, c.fecha_vencimiento,
@@ -12074,11 +11897,18 @@ def ver_excepciones_cobranza():
           AND (i.comprobante_estado IN ('pendiente', 'rechazado')
                OR CASE WHEN g.fecha_vencimiento::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
                        THEN g.fecha_vencimiento::date < CURRENT_DATE ELSE FALSE END)
-        ORDER BY fecha_vencimiento NULLS LAST, apellido, nombre
-        LIMIT 300
-    """).fetchall()
+    """
+    condiciones = " WHERE concat_ws(' ', apellido, nombre, concepto) ILIKE %s" if busqueda else ''
+    params = ['%' + busqueda.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'] if busqueda else []
+    base = ' FROM (' + consulta + ') excepciones' + condiciones
+    total = conn.execute('SELECT COUNT(*) AS total' + base, params).fetchone()['total']
+    pagina = paginacion(total, filtros['pagina'])
+    excepciones = conn.execute('SELECT *' + base + ' ORDER BY fecha_vencimiento NULLS LAST, apellido, nombre, origen, item_id LIMIT %s OFFSET %s',
+        [*params, pagina['por_pagina'], pagina['offset']]).fetchall()
     conn.close()
-    return render_template("cobranzas_excepciones.html", excepciones=excepciones)
+    guardar_retorno('ver_excepciones_cobranza', dict(q=busqueda, pagina=pagina['pagina']))
+    return render_template("cobranzas_excepciones.html", excepciones=excepciones, busqueda=busqueda,
+        paginador=pagina, paginador_endpoint='ver_excepciones_cobranza', paginador_filtros=dict(q=busqueda))
 
 
 @app.route("/finanzas/debitos-automaticos", methods=["GET", "POST"])
@@ -13228,17 +13058,65 @@ def eliminar_documento_secretaria(documento_id):
     return redirect(url_for("listar_documentos_secretaria", categoria=documento.get("categoria") or ""))
 
 
+def filtros_workspace(nombre, defaults):
+    """Remember only known, bounded GET filters in the signed user session."""
+    saved = session.get('workspace_filters', {})
+    if request.args.get('limpiar') == '1':
+        values = defaults.copy()
+    elif request.args:
+        values = {key: request.args.get(key, value)[:150] for key, value in defaults.items()}
+    else:
+        values = {**defaults, **saved.get(nombre, {})}
+    session['workspace_filters'] = {**saved, nombre: values}
+    return values
+
+
+def guardar_retorno(endpoint, filtros):
+    session['workspace_return'] = url_for(endpoint, **filtros)
+
+
+@app.route('/api/buscar-jugadores')
+def buscar_jugadores_global():
+    if not tiene_permiso('jugadores_ver'):
+        abort(403)
+    consulta = request.args.get('q', '').strip()[:100]
+    if len(consulta) < 2:
+        return jsonify(resultados=[])
+    conditions, params = [], []
+    for term in consulta.split()[:8]:
+        conditions.append("concat_ws(' ', nombre, apellido, dni, numero_socio) ILIKE %s")
+        params.append('%' + term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
+    conn = get_connection()
+    try:
+        rows = conn.execute('SELECT id, nombre, apellido, numero_socio, categoria FROM jugadores WHERE '
+            + ' AND '.join(conditions) + ' ORDER BY apellido, nombre, id LIMIT 12', params).fetchall()
+    finally:
+        conn.close()
+    results = []
+    for row in rows:
+        item = dict(row)
+        item['perfil'] = url_for('detalle_jugador', jugador_id=row['id'])
+        if tiene_permiso('cuotas_ver', 'cuotas_gestionar'):
+            item['finanzas'] = url_for('ver_cuotas', jugador_id=row['id'])
+            item['notas'] = url_for('ver_cuotas', jugador_id=row['id'], _anchor='notas-finanzas')
+        results.append(item)
+    response = jsonify(resultados=results)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route("/jugadores")
 def listar_jugadores():
     check = permiso_requerido("jugadores_ver")
     if check:
         return check
 
-    busqueda = request.args.get("q", "").strip()
-    tipo_filtro = request.args.get("tipo", "").strip()
-    estado_filtro = request.args.get("estado", "").strip()
-    categoria_filtro = request.args.get("categoria", "").strip()
-    orden = request.args.get("orden", "apellido")
+    filtros_guardados = filtros_workspace('jugadores', dict(q='', tipo='', estado='', categoria='', orden='apellido', pagina='1'))
+    busqueda = filtros_guardados['q'].strip()
+    tipo_filtro = filtros_guardados['tipo'].strip()
+    estado_filtro = filtros_guardados['estado'].strip()
+    categoria_filtro = filtros_guardados['categoria'].strip()
+    orden = filtros_guardados['orden']
 
     if tipo_filtro not in TIPOS_MIEMBRO:
         tipo_filtro = ""
@@ -13283,25 +13161,32 @@ def listar_jugadores():
                     OR tipo_miembro ILIKE %s
                     OR concat_ws(' ', nombre, apellido) ILIKE %s
                     OR concat_ws(' ', apellido, nombre) ILIKE %s
+                    OR numero_socio ILIKE %s
                 )
             """)
-            parametros.extend([like] * 10)
+            parametros.extend([like] * 11)
 
     where_sql = "WHERE " + " AND ".join(filtros) if filtros else ""
+    total = conn.execute(f'SELECT COUNT(*) AS total FROM jugadores {where_sql}', parametros).fetchone()['total']
+    pagina = paginacion(total, filtros_guardados['pagina'])
     jugadores = conn.execute(
         f"""
             SELECT * FROM jugadores
             {where_sql}
-            ORDER BY {ordenes_validos[orden]}
+            ORDER BY {ordenes_validos[orden]}, id
+            LIMIT %s OFFSET %s
         """,
-        parametros,
+        [*parametros, pagina['por_pagina'], pagina['offset']],
     ).fetchall()
 
     planteles = planteles_disponibles(conn)
     conn.close()
+    filtros_url = dict(q=busqueda, tipo=tipo_filtro, estado=estado_filtro, categoria=categoria_filtro, orden=orden)
+    guardar_retorno('listar_jugadores', {**filtros_url, 'pagina': pagina['pagina']})
     return render_template(
         "jugadores.html",
         jugadores=jugadores,
+        paginador=pagina, paginador_endpoint='listar_jugadores', paginador_filtros=filtros_url,
         planteles=planteles,
         busqueda=busqueda,
         tipo_filtro=tipo_filtro,
@@ -13627,6 +13512,9 @@ def listar_aspirantes():
     estado = request.args.get("estado", "Aspirante").strip()
     etapa = request.args.get("etapa", "todas").strip()
     asignacion = request.args.get("asignacion", "todas").strip()
+    madrina_filtro = request.args.get("madrina", "").strip()
+    contacto_filtro = request.args.get("contacto", "").strip()
+    viene_filtro = request.args.get("viene", "").strip()
     if estado not in ASPIRANTE_ESTADOS and estado != "todos":
         estado = "Aspirante"
     if etapa not in ASPIRANTE_ETAPAS and etapa != "todas":
@@ -13673,9 +13561,16 @@ def listar_aspirantes():
             a.*,
             m.nombre AS madrina_nombre,
             m.apellido AS madrina_apellido,
+            ultimo.detalle AS ultima_nota,
+            ultimo.fecha AS ultima_actualizacion,
+            ultimo.creado_por AS ultimo_autor,
             COALESCE(stats.entrenamientos_realizados, 0) AS entrenamientos_realizados
         FROM aspirantes a
         LEFT JOIN jugadores m ON m.id = a.madrina_jugador_id
+        LEFT JOIN LATERAL (
+            SELECT detalle, fecha, creado_por FROM aspirante_seguimientos
+            WHERE aspirante_id = a.id ORDER BY fecha DESC, id DESC LIMIT 1
+        ) ultimo ON TRUE
         LEFT JOIN (
             SELECT
                 aa.aspirante_id,
@@ -13692,13 +13587,23 @@ def listar_aspirantes():
         SELECT
             SUM(CASE WHEN estado = 'Aspirante' THEN 1 ELSE 0 END) AS en_seguimiento,
             SUM(CASE WHEN estado = 'Aspirante' AND madrina_jugador_id IS NULL THEN 1 ELSE 0 END) AS sin_asignar,
-            SUM(CASE WHEN estado = 'Aspirante' AND COALESCE(etapa_seguimiento, 'pendiente_contacto') = 'pendiente_contacto' THEN 1 ELSE 0 END) AS pendientes_contacto,
+            SUM(CASE WHEN estado = 'Aspirante' AND COALESCE(contacto_estado,
+                CASE WHEN COALESCE(etapa_seguimiento, 'pendiente_contacto') IN
+                ('contactado', 'esperando_respuesta', 'confirmo_asistencia', 'en_seguimiento', 'listo_ingresar')
+                THEN 'contactado' ELSE 'pendiente' END) = 'pendiente' THEN 1 ELSE 0 END) AS pendientes_contacto,
             SUM(CASE WHEN estado = 'Aspirante' AND NULLIF(proxima_accion_fecha, '') <= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') THEN 1 ELSE 0 END) AS acciones_vencidas
         FROM aspirantes
     """).fetchone()
+    madrinas = obtener_madrinas_disponibles(conn)
     conn.close()
 
-    aspirantes = [aspirante_con_progreso(aspirante) for aspirante in aspirantes]
+    aspirantes = [preparar_aspirante_rapido(aspirante_con_progreso(aspirante)) for aspirante in aspirantes]
+    if madrina_filtro.isdecimal():
+        aspirantes = [a for a in aspirantes if a.get("madrina_jugador_id") == int(madrina_filtro)]
+    if contacto_filtro in CONTACTOS:
+        aspirantes = [a for a in aspirantes if a["contacto_estado"] == contacto_filtro]
+    if viene_filtro in CONFIRMACIONES:
+        aspirantes = [a for a in aspirantes if a["viene_estado"] == viene_filtro]
 
     return render_template(
         "aspirantes.html",
@@ -13710,7 +13615,83 @@ def listar_aspirantes():
         etapa=etapa,
         asignacion=asignacion,
         resumen_aspirantes=resumen_aspirantes,
+        madrinas=madrinas, contactos=CONTACTOS, confirmaciones=CONFIRMACIONES,
+        madrina_filtro=madrina_filtro, contacto_filtro=contacto_filtro, viene_filtro=viene_filtro,
     )
+
+
+def preparar_aspirante_rapido(aspirante):
+    aspirante = dict(aspirante)
+    aspirante.update(estados_rapidos(aspirante))
+    telefono = normalizar_telefono_whatsapp(aspirante.get("telefono"))
+    aspirante["whatsapp_url"] = whatsapp_mensaje(
+        aspirante.get("telefono"),
+        f"¡Hola {aspirante.get('nombre', '')}! Soy del equipo de Madrinas del club. "
+        "Te escribo para acompañarte en tu primer entrenamiento. ¿Cómo estás?",
+    ) if telefono and 10 <= len(telefono) <= 15 else None
+    return aspirante
+
+
+@app.route("/ahijadxs/<int:aspirante_id>/rapido", methods=["POST"])
+def guardar_aspirante_rapido(aspirante_id):
+    check = permiso_requerido("aspirantes_gestionar")
+    if check:
+        return check
+    try:
+        cambios, anteriores, nota = validar_cambios(request.get_json(silent=True))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    conn = get_connection()
+    try:
+        aspirante = conn.execute("SELECT * FROM aspirantes WHERE id = %s FOR UPDATE", (aspirante_id,)).fetchone()
+        if not aspirante:
+            return jsonify(error="Ahijadx no encontrado."), 404
+        if aspirante["estado"] != "Aspirante":
+            return jsonify(error="Este ahijadx ya no está en seguimiento. Recargá la lista."), 409
+        actuales = estados_rapidos(aspirante)
+        if any(actuales[campo] != anteriores[campo] for campo in cambios):
+            return jsonify(error="Otra persona modificó esta fila. Recargá la lista antes de guardar."), 409
+        if cambios.get("madrina_jugador_id") is not None:
+            valida = conn.execute("""SELECT id, nombre, apellido FROM jugadores WHERE id = %s AND estado = 'Activo'
+                AND COALESCE(tipo_miembro, 'Jugador') = 'Jugador'""", (cambios["madrina_jugador_id"],)).fetchone()
+            if not valida:
+                return jsonify(error="La madrina seleccionada ya no está disponible."), 400
+        detalles = []
+        for campo, valor in cambios.items():
+            # Los nombres de columnas provienen exclusivamente de validar_cambios.
+            conn.execute(f"UPDATE aspirantes SET {campo} = %s WHERE id = %s", (valor, aspirante_id))
+            if campo == "madrina_jugador_id":
+                nombre_responsable = f"{valida['apellido']}, {valida['nombre']}" if valor is not None else "sin asignar"
+                detalles.append(f"Responsable: {nombre_responsable}")
+            else:
+                etiquetas = CONTACTOS if campo == "contacto_estado" else CONFIRMACIONES
+                detalles.append(etiquetas[valor])
+        # Conservamos los estados efectivos antes de actualizar la etapa heredada.
+        if "contacto_estado" in cambios or "viene_estado" in cambios:
+            nuevos = {**actuales, **cambios}
+            etapa = aspirante.get("etapa_seguimiento") or "pendiente_contacto"
+            if etapa in {"pendiente_contacto", "contactado", "esperando_respuesta", "confirmo_asistencia"}:
+                etapa = ("confirmo_asistencia" if nuevos["viene_estado"] == "si" else
+                         "esperando_respuesta" if nuevos["viene_estado"] == "esperando" else
+                         "contactado" if nuevos["contacto_estado"] == "contactado" else "pendiente_contacto")
+            conn.execute("""UPDATE aspirantes SET contacto_estado = %s, viene_estado = %s,
+                etapa_seguimiento = %s WHERE id = %s""",
+                (nuevos["contacto_estado"], nuevos["viene_estado"], etapa, aspirante_id))
+        if nota:
+            detalles.append(nota)
+        detalle = " · ".join(detalles)
+        seguimiento = conn.execute("""INSERT INTO aspirante_seguimientos
+            (aspirante_id, tipo, detalle, creado_por) VALUES (%s, 'nota', %s, %s)
+            RETURNING fecha, creado_por""", (aspirante_id, detalle, session.get("username"))).fetchone()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return jsonify(ok=True, valores={**actuales, **cambios}, detalle=detalle,
+                   autor=seguimiento["creado_por"] or "Sistema",
+                   fecha=seguimiento["fecha"].isoformat(), fecha_texto=formato_fecha_hora(seguimiento["fecha"]))
 
 
 @app.route("/ahijadxs/nuevo", methods=["GET", "POST"])
@@ -13814,11 +13795,12 @@ def detalle_aspirante(aspirante_id):
 
     return render_template(
         "aspirante_detalle.html",
-        aspirante=aspirante_con_progreso(aspirante),
+        aspirante=preparar_aspirante_rapido(aspirante_con_progreso(aspirante)),
         asistencias=asistencias,
         seguimientos=seguimientos,
         etapas=ASPIRANTE_ETAPAS,
         jugador_vinculado_id=jugador_vinculado_id,
+        contactos=CONTACTOS, confirmaciones=CONFIRMACIONES,
     )
 
 
@@ -13880,6 +13862,8 @@ def editar_aspirante(aspirante_id):
                 madrina_jugador_id = %s,
                 entrenamientos_objetivo = %s,
                 observaciones = %s,
+                contacto_estado = CASE WHEN etapa_seguimiento IS DISTINCT FROM %s THEN NULL ELSE contacto_estado END,
+                viene_estado = CASE WHEN etapa_seguimiento IS DISTINCT FROM %s THEN NULL ELSE viene_estado END,
                 etapa_seguimiento = %s,
                 proxima_accion_fecha = %s,
                 experiencia_previa = %s,
@@ -13889,7 +13873,8 @@ def editar_aspirante(aspirante_id):
             data["nombre"], data["apellido"], data["dni"], data["fecha_nacimiento"],
             data["telefono"], data["email"], data["categoria"], data["fecha_postulacion"],
             data["estado"], data["madrina_jugador_id"], data["entrenamientos_objetivo"],
-            data["observaciones"], data["etapa_seguimiento"], data["proxima_accion_fecha"],
+            data["observaciones"], data["etapa_seguimiento"], data["etapa_seguimiento"],
+            data["etapa_seguimiento"], data["proxima_accion_fecha"],
             data["experiencia_previa"], data["disponibilidad"], aspirante_id,
         ))
         conn.commit()
@@ -13937,9 +13922,11 @@ def registrar_seguimiento_aspirante(aspirante_id):
     """, (aspirante_id, tipo, detalle, proxima_accion_fecha or None, session.get("username")))
     conn.execute("""
         UPDATE aspirantes
-        SET etapa_seguimiento = %s, proxima_accion_fecha = %s
+        SET contacto_estado = CASE WHEN etapa_seguimiento IS DISTINCT FROM %s THEN NULL ELSE contacto_estado END,
+            viene_estado = CASE WHEN etapa_seguimiento IS DISTINCT FROM %s THEN NULL ELSE viene_estado END,
+            etapa_seguimiento = %s, proxima_accion_fecha = %s
         WHERE id = %s
-    """, (etapa, proxima_accion_fecha or None, aspirante_id))
+    """, (etapa, etapa, etapa, proxima_accion_fecha or None, aspirante_id))
     conn.commit()
     conn.close()
     registrar_auditoria("seguimiento", "ahijadx", str(aspirante_id), {"etapa": etapa, "tipo": tipo})
@@ -14704,11 +14691,16 @@ def ver_cuotas(jugador_id):
         item["puntualidad_pago"] = puntualidad_pago_gasto(item)
     deuda_gastos = sum(float(item.get("importe") or 0) for item in gastos_compartidos
                       if item.get("estado") == "pendiente" and float(item.get("importe") or 0) > 0)
+    notas_finanzas = obtener_notas_financieras(conn, jugador_id)
     conn.close()
 
     return render_template(
         "cuotas.html",
         jugador=jugador,
+        notas_finanzas=notas_finanzas,
+        puede_gestionar_notas_finanzas=puede_crear_bitacora_tipo("finanzas"),
+        hoy_notas=ahora_sig().date().isoformat(),
+        destino_notas="finanzas",
         cuotas=cuotas,
         deuda=deuda,
         becas_historial=becas_historial,
@@ -14959,6 +14951,8 @@ def datos_plan_pago_form(require_monto=True):
     except ValueError:
         raise ValueError("El monto y la cantidad de cuotas deben ser numericos.")
 
+    if not isfinite(monto_total):
+        raise ValueError("El monto total del plan debe ser un numero finito.")
     if monto_total < 0:
         raise ValueError("El monto total del plan no puede ser negativo.")
     if require_monto and monto_total <= 0:
@@ -15538,7 +15532,7 @@ def pagar_cuota(cuota_id):
             flash("El recibo se gener\u00f3, pero el email no est\u00e1 configurado en el sistema.", "warning")
         else:
             flash("El recibo se gener\u00f3, pero no se pudo enviar por email autom\u00e1ticamente.", "warning")
-        return redirect(url_for("ver_cuotas", jugador_id=cuota["jugador_id"]))
+        return redirect(url_for("ver_cuotas", jugador_id=cuota["jugador_id"], pago_registrado="1", _anchor="notas-finanzas"))
 
     conn.close()
     return render_template("pagar_cuota.html", cuota=cuota)
@@ -15637,7 +15631,8 @@ def listar_comprobantes_revision():
     if check:
         return check
 
-    estado = request.args.get("estado", "pendiente").strip() or "pendiente"
+    filtros_guardados = filtros_workspace('comprobantes', dict(estado='pendiente', pagina='1'))
+    estado = filtros_guardados['estado'].strip() or 'pendiente'
     if estado not in COMPROBANTE_ESTADOS and estado != "todos":
         estado = "pendiente"
 
@@ -15680,7 +15675,6 @@ def listar_comprobantes_revision():
             END,
             c.comprobante_fecha DESC NULLS LAST,
             c.id DESC
-        LIMIT 150
     """, tuple(params)).fetchall()
 
     resumen = conn.execute("""
@@ -15725,10 +15719,22 @@ def listar_comprobantes_revision():
     prioridad = {'pendiente': 0, 'rechazado': 1, 'aceptado': 2}
     comprobantes.sort(key=lambda item: str(item.get('comprobante_fecha') or ''), reverse=True)
     comprobantes.sort(key=lambda item: prioridad.get(item['comprobante_estado_resuelto'], 3))
+    numero_pagina = filtros_guardados['pagina']
+    enfocar = request.args.get('enfocar', '')
+    if enfocar:
+        for index, item in enumerate(comprobantes):
+            origen = 'gasto' if item.get('tipo_comprobante') == 'compartido' else 'cuota'
+            if enfocar == f"{origen}:{item['id']}":
+                numero_pagina = index // 25 + 1
+                break
+    pagina = paginacion(len(comprobantes), numero_pagina)
+    comprobantes = comprobantes[pagina['offset']:pagina['offset'] + pagina['por_pagina']]
     conn.close()
+    guardar_retorno('listar_comprobantes_revision', dict(estado=estado, pagina=pagina['pagina']))
 
     return render_template(
         "comprobantes_revision.html",
+        paginador=pagina, paginador_endpoint='listar_comprobantes_revision', paginador_filtros=dict(estado=estado),
         comprobantes=comprobantes,
         estado=estado,
         resumen=resumen,
@@ -16719,7 +16725,6 @@ def timeline_jugador(jugador_id):
         FROM tareas_sig
         WHERE jugador_id = %s
         ORDER BY creado_en DESC, id DESC
-        LIMIT 40
     """, (jugador_id,)).fetchall()
     for tarea in tareas:
         eventos.append({
@@ -16945,7 +16950,6 @@ def detalle_jugador(jugador_id):
         FROM jugador_bitacora
         WHERE jugador_id = %s
         ORDER BY creado_en DESC, id DESC
-        LIMIT 40
     """, (jugador_id,)).fetchall()
 
     tests_recientes = []
@@ -17082,6 +17086,9 @@ def detalle_jugador(jugador_id):
         documentos=documentos,
         documentos_manual=documentos_manual,
         planes_pago=planes_pago,
+        notas_finanzas=ordenar_notas_financieras(bitacora),
+        puede_gestionar_notas_finanzas=puede_crear_bitacora_tipo("finanzas"),
+        hoy_notas=ahora_sig().date().isoformat(),
         bitacora=bitacora,
         bitacora_tipos=tipos_bitacora_disponibles(),
         bitacora_labels=BITACORA_TIPOS,
@@ -17118,9 +17125,17 @@ def nueva_bitacora_jugador(jugador_id):
         flash("No tenes permiso para ese tipo de nota.", "error")
         return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
 
-    if not nota:
-        flash("La nota de bitacora no puede estar vacia.", "error")
+    if not nota or len(nota) > 3000:
+        flash("La nota debe tener entre 1 y 3000 caracteres.", "error")
         return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
+
+    seguimiento_fecha = request.form.get("seguimiento_fecha", "").strip() if tipo == "finanzas" else ""
+    if seguimiento_fecha:
+        try:
+            seguimiento_fecha = datetime.strptime(seguimiento_fecha, "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            flash("La fecha de seguimiento no es válida.", "error")
+            return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
 
     conn = get_connection()
     jugador = conn.execute("SELECT id FROM jugadores WHERE id = %s", (jugador_id,)).fetchone()
@@ -17130,14 +17145,35 @@ def nueva_bitacora_jugador(jugador_id):
         return redirect(url_for("listar_jugadores"))
 
     conn.execute("""
-        INSERT INTO jugador_bitacora (jugador_id, tipo, nota, creado_por)
-        VALUES (%s, %s, %s, %s)
-    """, (jugador_id, tipo, nota, session.get("username")))
+        INSERT INTO jugador_bitacora (jugador_id, tipo, nota, creado_por, seguimiento_fecha)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (jugador_id, tipo, nota, session.get("username"), seguimiento_fecha or None))
     conn.commit()
     conn.close()
 
     flash("Nota agregada a la bitacora.", "ok")
-    return redirect(url_for("detalle_jugador", jugador_id=jugador_id))
+    destino = url_for("ver_cuotas" if tipo == "finanzas" and request.form.get("destino_notas") == "finanzas" else "detalle_jugador", jugador_id=jugador_id)
+    return redirect(destino + "#notas-finanzas" if tipo == "finanzas" else destino)
+
+
+@app.route("/jugadores/<int:jugador_id>/notas-finanzas/<int:nota_id>/resolver", methods=["POST"])
+def resolver_nota_finanzas(jugador_id, nota_id):
+    if not puede_crear_bitacora_tipo("finanzas"):
+        abort(403)
+    conn = get_connection()
+    nota = conn.execute("""
+        UPDATE jugador_bitacora
+        SET resuelto_en = CURRENT_TIMESTAMP, resuelto_por = %s
+        WHERE id = %s AND jugador_id = %s AND tipo = 'finanzas' AND resuelto_en IS NULL
+        RETURNING id
+    """, (session.get("username"), nota_id, jugador_id)).fetchone()
+    conn.commit()
+    conn.close()
+    if nota:
+        flash("Nota financiera marcada como resuelta.", "ok")
+    else:
+        flash("La nota no existe o ya está resuelta.", "error")
+    return redirect(url_for("ver_cuotas" if request.form.get("destino_notas") == "finanzas" else "detalle_jugador", jugador_id=jugador_id) + "#notas-finanzas")
 
 
 def activar_portal_nuevo_jugador(conn, jugador_id):
@@ -18279,7 +18315,7 @@ def exportar_gasto_compartido(gasto_id):
     """, (gasto_id,)).fetchall()
     conn.close()
 
-    export_dir = BASE_DIR / "exports"
+    export_dir = DATA_DIR / "exports"
     export_dir.mkdir(exist_ok=True)
     nombre_archivo = secure_filename(f"gasto_compartido_{gasto_id}_{gasto.get('titulo') or 'detalle'}") or f"gasto_compartido_{gasto_id}"
     ruta = export_dir / f"{nombre_archivo}.csv"
@@ -20066,7 +20102,7 @@ def portal_descargar_recibo(token, cuota_id):
         flash("El recibo esta disponible cuando la cuota figura pagada.", "error")
         return redirect(url_for("portal_jugador", token=token))
 
-    archivo = BASE_DIR / "recibos" / f"recibo_cuota_{cuota_id}.pdf"
+    archivo = DATA_DIR / "recibos" / f"recibo_cuota_{cuota_id}.pdf"
     if not archivo.exists():
         archivo = generar_recibo_pdf(cuota_id)
     if archivo is None or not archivo.exists():
@@ -20981,7 +21017,7 @@ def exportar_reportes():
         "F": '0.0',
     })
 
-    export_dir = BASE_DIR / "exports"
+    export_dir = DATA_DIR / "exports"
     export_dir.mkdir(exist_ok=True)
 
     archivo = export_dir / f"reportes_{filtros['desde']}_a_{filtros['hasta']}.xlsx"
@@ -21265,7 +21301,7 @@ def exportar_datos_integral():
             ],
         )
 
-    export_dir = BASE_DIR / "exports"
+    export_dir = DATA_DIR / "exports"
     export_dir.mkdir(exist_ok=True)
     fecha = ahora_sig().strftime("%Y%m%d_%H%M")
     archivo = export_dir / f"sig_export_integral_{fecha}.xlsx"
@@ -21517,10 +21553,6 @@ def enviar_whatsapp_comunicacion_moroso(jugador_id):
     check = permiso_requerido("comunicaciones_ver")
     if check:
         return check
-
-    if request.form.get("plantilla") == "solicitar_comprobante":
-        flash("La solicitud de comprobante solo puede enviarse de forma individual.", "error")
-        return redirect(url_for("ver_comunicaciones", plantilla="solicitar_comprobante"))
 
     template_default = (
         "Hola {nombre}, te escribimos de Ruda Macho Rugby Club. "
@@ -24256,7 +24288,7 @@ def generar_recibo_pdf(cuota_id):
     if datos is None:
         return None
 
-    recibos_dir = BASE_DIR / "recibos"
+    recibos_dir = DATA_DIR / "recibos"
     recibos_dir.mkdir(exist_ok=True)
     archivo = recibos_dir / f"recibo_cuota_{cuota_id}.pdf"
 
@@ -24571,7 +24603,7 @@ def exportar_caja():
 
     ws.freeze_panes = "A9"
 
-    export_dir = BASE_DIR / "exports"
+    export_dir = DATA_DIR / "exports"
     export_dir.mkdir(exist_ok=True)
 
     archivo = export_dir / f"caja_{mes_actual}.xlsx"
@@ -25500,8 +25532,8 @@ def exportar_tests():
     agregar_hoja_reporte(wb, "Filtros", ["Filtro", "Valor"], filtros_texto)
 
     filename = f"tests_deportivos_{ahora_sig().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    path = os.path.join("exports", filename)
-    os.makedirs("exports", exist_ok=True)
+    path = str(DATA_DIR / "exports" / filename)
+    (DATA_DIR / "exports").mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
     registrar_auditoria(

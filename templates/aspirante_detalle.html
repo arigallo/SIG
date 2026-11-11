@@ -49,6 +49,10 @@
 <div class="detail-grid">
     <div class="card">
         <h3>Datos personales</h3>
+        {% if contactos is defined %}
+        <p><strong>Contacto:</strong> {{ contactos.get(aspirante.contacto_estado, 'Sin contactar') }}</p>
+        <p><strong>¿Viene?:</strong> {{ confirmaciones.get(aspirante.viene_estado, 'Sin consultar') }}</p>
+        {% endif %}
         <p><strong>DNI:</strong> {{ aspirante['dni'] or '-' }}</p>
         <p><strong>Fecha de nacimiento:</strong> {{ aspirante['fecha_nacimiento'] or '-' }}</p>
         <p><strong>Tel&eacute;fono:</strong> {{ aspirante['telefono'] or '-' }}</p>

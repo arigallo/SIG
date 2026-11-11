@@ -1,0 +1,29 @@
+.quick-followup table { min-width: 1120px; }
+.quick-followup td { vertical-align: top; }
+.quick-followup select, .quick-followup textarea { width: 100%; min-width: 145px; font: inherit; }
+.quick-followup select { min-height: 44px; }
+.quick-followup textarea { resize: vertical; min-width: 220px; }
+.quick-followup .quick-notes { min-width: 260px; max-width: 340px; overflow-wrap: anywhere; }
+.quick-notes p { margin: 0 0 6px; white-space: pre-wrap; }
+.quick-notes label { margin-top: 10px; }
+.quick-actions { min-width: 145px; }
+.quick-actions button { min-height: 44px; width: 100%; }
+.quick-actions a, .quick-actions [role="status"] { display: block; margin-top: 10px; }
+.quick-actions [role="status"] { font-size: .85rem; }
+.quick-actions button:disabled { opacity: .55; cursor: default; }
+.aspirantes-filters select { min-height: 44px; }
+.aspirantes-page .aspirantes-filters { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.quick-followup select[data-current="contactado"], .quick-followup select[data-current="si"] { background-color: #e4f4eb; color: #145d3d; }
+.quick-followup select[data-current="esperando"] { background-color: #fff5d6; color: #715219; }
+.quick-followup select[data-current="no"] { background-color: #fce8e6; color: #8d2924; }
+@media (max-width: 760px) {
+    .aspirantes-page .aspirantes-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .quick-followup { overflow: visible; }
+    .quick-followup table, .quick-followup tbody, .quick-followup tr, .quick-followup td { display: block; min-width: 0; width: 100%; }
+    .quick-followup thead { display: none; }
+    .quick-followup tr { border: 1px solid #d5dce5; border-radius: 12px; margin-bottom: 16px; padding: 12px; background: var(--card-bg, #fff); box-sizing: border-box; }
+    .aspirantes-page .quick-followup tbody td { display: block; box-sizing: border-box; padding: 8px 0; border: 0; text-align: left; }
+    .quick-followup td::before { content: attr(data-label); display: block; font-size: .8rem; font-weight: 600; color: #526175; margin-bottom: 5px; }
+    .quick-followup .quick-notes { min-width: 0; max-width: none; }
+    .quick-followup select, .quick-followup textarea { min-width: 0; box-sizing: border-box; }
+}

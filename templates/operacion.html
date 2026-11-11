@@ -89,7 +89,7 @@
     </div>
 
     {% if puede_gestionar_tareas %}
-    <form method="post" action="{{ url_for('crear_tarea_sig') }}" class="card form-card form-card-wide">
+    <details class="module-editor" id="crear-tarea"><summary>Crear una tarea</summary><div class="module-editor-content"><form method="post" action="{{ url_for('crear_tarea_sig') }}" class="card form-card form-card-wide">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <div class="form-grid">
             <div class="field">
@@ -128,7 +128,7 @@
             </div>
         </div>
         <button class="button" type="submit">Crear tarea</button>
-    </form>
+    </form></div></details>
     {% endif %}
 
     <div class="table-wrapper top-gap">

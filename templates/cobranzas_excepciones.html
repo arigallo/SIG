@@ -6,6 +6,7 @@
         <div><h2>Excepciones de cobranza</h2><p class="page-intro">Comprobantes pendientes o rechazados y saldos vencidos que necesitan seguimiento.</p></div>
         <a class="button secondary" href="{{ url_for('ver_panel_cobranzas') }}">Volver a cobranzas</a>
     </div>
+    <form method="get" class="search-form"><label class="sr-only" for="exception-search">Buscar excepción</label><input id="exception-search" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar persona o concepto"><button class="button secondary" type="submit">Buscar</button></form>
     <div class="table-wrapper">
         <table>
             <thead><tr><th>Persona</th><th>Concepto</th><th>Importe</th><th>Vencimiento</th><th>Situación</th><th>Acción</th></tr></thead>
@@ -28,5 +29,6 @@
             </tbody>
         </table>
     </div>
+{% include '_pagination.html' %}
 </div>
 {% endblock %}

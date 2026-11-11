@@ -41,7 +41,7 @@
     </div>
 </div>
 
-<form method="get" class="card form-card form-card-narrow spaced-small">
+<form method="get" class="module-filter-bar card form-card form-card-narrow spaced-small">
     <div class="field">
         <label>Estado</label>
         <select name="estado">
@@ -55,7 +55,7 @@
 </form>
 
 {% if puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
-<div class="page-section">
+<details class="module-editor" id="filtros-email"><summary>Configurar filtros de email</summary><div class="module-editor-content"><div class="page-section">
     <div class="section-header compact">
         <h3>Filtros de email</h3>
     </div>
@@ -118,7 +118,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</div></div></details>
 {% endif %}
 
 <div class="page-section">
@@ -168,7 +168,7 @@
                     <td>
                         {% if factura['estado'] == 'pendiente' and puede('facturas_recibidas_gestionar', 'caja_gestionar') %}
                         <form method="post" action="{{ url_for('registrar_factura_recibida_en_caja', factura_id=factura['id']) }}" class="inline-form-stack">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                             <input type="date" name="fecha" value="{{ (factura['fecha_email'] or '')[:10] or now().strftime('%Y-%m-%d') }}" required>
                             <input type="text" name="concepto" value="{{ factura['proveedor'] }} - {{ factura['asunto'] or 'Factura' }}" required>
                             <input type="number" step="0.01" name="monto" placeholder="Monto" value="{{ factura['monto_detectado'] or '' }}" required>

@@ -4,15 +4,17 @@
 
 {% block content %}
 <div class="admin-page finance-page">
+{% if volver_listado %}<a class="workspace-return" href="{{ volver_listado }}">← Volver al listado con mis filtros</a>{% endif %}
 <div class="section-header">
     <div>
         <h2>Finanzas de {{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
         <p class="page-intro">Cuotas, terceros tiempos, becas, planes de pago y comprobantes del jugador.</p>
     </div>
     <div class="actions">
+        <a class="button secondary" href="{{ url_for('detalle_jugador', jugador_id=jugador['id']) }}">Ver perfil</a>
         {% if whatsapp_api_activa and puede('comunicaciones_ver') %}
         <form method="post" action="{{ url_for('solicitar_comprobante_jugador', jugador_id=jugador['id']) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
             <button class="button secondary" type="submit">Pedir comprobante por WhatsApp</button>
         </form>
         {% endif %}
@@ -23,166 +25,16 @@
     </div>
 </div>
 
-<div class="dashboard-cards spaced admin-kpi-grid">
-    <div class="card stat-card">
-        <h3>Deuda total</h3>
-        <p class="stat-number {% if deuda_finanzas|default(deuda) > 0 %}text-danger{% endif %}">{{ deuda_finanzas|default(deuda) | moneda }}</p>
-    </div>
-    <div class="card stat-card">
-        <h3>Cuotas</h3>
-        <p class="stat-number compact">{{ cuotas|length }}</p>
-    </div>
-    <div class="card stat-card">
-        <h3>Planes</h3>
-        <p class="stat-number compact">{{ planes_pago|length }}</p>
-    </div>
-    <div class="card stat-card">
-        <h3>Beca</h3>
-        <p class="stat-number compact">{% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}-{% endif %}</p>
-    </div>
-</div>
+<dl class="finance-overview" aria-label="Resumen financiero">
+    <div><dt>Deuda total</dt><dd class="{% if deuda_finanzas|default(deuda) > 0 %}text-danger{% endif %}">{{ deuda_finanzas|default(deuda) | moneda }}</dd><small>Cuotas: {{ deuda | moneda }} · Gastos: {{ deuda_gastos|default(0) | moneda }}</small></div>
+    <div><dt>Cuotas registradas</dt><dd>{{ cuotas|length }}</dd></div>
+    <div><dt>Planes de pago</dt><dd>{{ planes_pago|length }}</dd></div>
+    <div><dt>Beca</dt><dd>{% if jugador['beca_activa'] %}{{ jugador['beca_porcentaje'] or 0 }}%{% else %}Sin beca{% endif %}</dd>{% if jugador['beca_activa'] %}<small>{{ jugador['beca_desde'] or 'Sin inicio' }} a {{ jugador['beca_hasta'] or 'sin fin' }}</small>{% endif %}</div>
+</dl>
 
-<div class="card spaced-small finance-summary-card">
-    <p><strong>Deuda en cuotas:</strong> {{ deuda | moneda }}</p>
-    <p><strong>Deuda en terceros tiempos / gastos compartidos:</strong> {{ deuda_gastos|default(0) | moneda }}</p>
-    {% if jugador['beca_activa'] %}
-        <p>
-            <strong>Beca activa:</strong>
-            {{ jugador['beca_porcentaje'] or 0 }}%
-            {% if jugador['beca_desde'] or jugador['beca_hasta'] %}
-                ({{ jugador['beca_desde'] or 'sin inicio' }} a {{ jugador['beca_hasta'] or 'sin fin' }})
-            {% endif %}
-        </p>
-    {% endif %}
-</div>
-
-<section class="page-section">
-    <div class="section-header"><h3>Terceros tiempos / gastos compartidos</h3></div>
-    <div class="table-wrapper finance-table">
-        <table class="finance-detail-table">
-            <thead><tr><th>Concepto</th><th>Importe</th><th>Vencimiento</th><th>Fecha de pago</th><th>Estado</th><th>Detalle</th></tr></thead>
-            <tbody>
-                {% for item in gastos_compartidos|default([]) %}
-                {% set estado_visual = estado_visual_gasto_compartido_item(item) %}
-                <tr>
-                    <td data-label="Concepto"><strong>{{ item['titulo'] }}</strong><span class="muted-line">{{ item['concepto'] or '' }}</span><span class="muted-line">{{ item['fecha_evento'] or '' }}</span></td>
-                    <td data-label="Importe">{{ item['importe'] | moneda }}</td>
-                    <td data-label="Vencimiento">{{ item['fecha_vencimiento'] or '-' }}</td>
-                    <td data-label="Fecha de pago">{{ item['fecha_pago'] or '-' }}</td>
-                    <td data-label="Estado"><span class="badge {{ estado_visual['badge'] }}">{{ estado_visual['label'] }}</span>{% if item['puntualidad_pago'] %}<span class="muted-line">{{ item['puntualidad_pago'] }}</span>{% endif %}</td>
-                    <td data-label="Detalle">{% if puede('cuotas_ver', 'cuotas_gestionar', 'caja_ver', 'caja_gestionar') %}<a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver gasto</a>{% endif %}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="6" class="empty">Sin terceros tiempos ni gastos compartidos registrados.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-
-{% if puede('cuotas_gestionar') %}
-<form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small toolbar-card">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <h3>Recalcular becas en cuotas pendientes</h3>
-    <div class="report-filter-grid">
-        <div>
-            <label>Desde</label>
-            <input type="month" name="periodo_desde">
-        </div>
-        <div>
-            <label>Hasta</label>
-            <input type="month" name="periodo_hasta">
-        </div>
-    </div>
-    <div class="actions-row stack-gap">
-        <button class="button secondary" type="submit">Recalcular pendientes</button>
-    </div>
-</form>
-{% endif %}
-
-{% if planes_pago %}
-<div class="page-section">
-    <div class="section-header">
-        <h3>Planes de pago</h3>
-    </div>
-    <div class="table-wrapper finance-table">
-        <p class="table-hint">En celular, cada plan se acomoda como tarjeta para ver estado, detalle y acciones sin perder contexto.</p>
-        <table class="finance-detail-table finance-plan-table">
-            <thead>
-                <tr>
-                    <th>Inicio</th>
-                    <th>Monto</th>
-                    <th>Cuotas</th>
-                    <th>Estado</th>
-                    <th>Detalle</th>
-                    <th>Acci&oacute;n</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for plan in planes_pago %}
-                <tr>
-                    <td data-label="Inicio">{{ plan['fecha_inicio'] or '-' }}</td>
-                    <td data-label="Monto">
-                        {{ plan['monto_total'] | moneda }}
-                        {% if plan['cuotas_incluidas'] %}
-                            <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
-                        {% endif %}
-                    </td>
-                    <td data-label="Cuotas">
-                        {{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}
-                        <span class="muted-line">Cumplimiento: {{ plan['cuotas_pagadas'] or 0 }}/{{ plan['cantidad_cuotas'] }} cuotas</span>
-                        <span class="muted-line">Pagado: {{ (plan['monto_pagado'] or 0) | moneda }}</span>
-                    </td>
-                    <td data-label="Estado">{{ plan['estado'] }}</td>
-                    <td data-label="Detalle">
-                        {{ plan['descripcion'] or '-' }}
-                        {% if plan['observaciones'] %}
-                            <span class="muted-line">{{ plan['observaciones'] }}</span>
-                        {% endif %}
-                    </td>
-                    <td data-label="Acción" class="actions">
-                        {% if puede('planes_pago_gestionar') %}
-                            <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
-                        {% endif %}
-                        {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
-                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
-                                <input type="hidden" name="estado" value="Cumplido">
-                                <button class="button secondary" type="submit">Cumplido</button>
-                            </form>
-                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
-                                <input type="hidden" name="estado" value="Caido">
-                                <button class="button danger" type="submit">Ca&iacute;do</button>
-                            </form>
-                        {% elif puede('planes_pago_gestionar') %}
-                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
-                                <input type="hidden" name="estado" value="Activo">
-                                <button class="button secondary" type="submit">Reactivar</button>
-                            </form>
-                        {% endif %}
-                        {% if puede('planes_pago_gestionar') %}
-                            <form method="post" action="{{ url_for('eliminar_plan_pago', plan_id=plan['id']) }}" onsubmit="return confirm('Eliminar este plan y restaurar las cuotas incluidas?');">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
-                                <button class="button danger" type="submit">Eliminar</button>
-                            </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
+<section class="finance-ledger">
+    <div class="section-header compact"><h3>Cuotas</h3><span class="muted-line">{{ cuotas|length }} registros</span></div>
 <div class="table-wrapper finance-table">
-    <p class="table-hint">En celular, cada cuota se presenta como tarjeta con estado, comprobante y acciones principales a mano.</p>
     <table class="finance-detail-table finance-quota-table">
         <thead>
             <tr>
@@ -334,9 +186,110 @@
             {% endfor %}
         </tbody>
     </table>
+</div></section>
+{% include '_financial_notes.html' %}
+<div class="finance-secondary">
+<details class="finance-fold" {% if gastos_compartidos|default([]) %}open{% endif %}><summary>Terceros tiempos y gastos compartidos <span>{{ gastos_compartidos|default([])|length }}</span></summary><div class="finance-fold-body"><section class="page-section">
+    <div class="table-wrapper finance-table">
+        <table class="finance-detail-table">
+            <thead><tr><th>Concepto</th><th>Importe</th><th>Vencimiento</th><th>Fecha de pago</th><th>Estado</th><th>Detalle</th></tr></thead>
+            <tbody>
+                {% for item in gastos_compartidos|default([]) %}
+                {% set estado_visual = estado_visual_gasto_compartido_item(item) %}
+                <tr>
+                    <td data-label="Concepto"><strong>{{ item['titulo'] }}</strong><span class="muted-line">{{ item['concepto'] or '' }}</span><span class="muted-line">{{ item['fecha_evento'] or '' }}</span></td>
+                    <td data-label="Importe">{{ item['importe'] | moneda }}</td>
+                    <td data-label="Vencimiento">{{ item['fecha_vencimiento'] or '-' }}</td>
+                    <td data-label="Fecha de pago">{{ item['fecha_pago'] or '-' }}</td>
+                    <td data-label="Estado"><span class="badge {{ estado_visual['badge'] }}">{{ estado_visual['label'] }}</span>{% if item['puntualidad_pago'] %}<span class="muted-line">{{ item['puntualidad_pago'] }}</span>{% endif %}</td>
+                    <td data-label="Detalle">{% if puede('cuotas_ver', 'cuotas_gestionar', 'caja_ver', 'caja_gestionar') %}<a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver gasto</a>{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty">Sin terceros tiempos ni gastos compartidos registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section></div></details><details class="finance-fold" ><summary>Planes de pago <span>{{ planes_pago|length }}</span></summary><div class="finance-fold-body">{% if planes_pago %}
+<div class="page-section">
+    <div class="section-header">
+        <h3>Planes de pago</h3>
+    </div>
+    <div class="table-wrapper finance-table">
+        <p class="table-hint">En celular, cada plan se acomoda como tarjeta para ver estado, detalle y acciones sin perder contexto.</p>
+        <table class="finance-detail-table finance-plan-table">
+            <thead>
+                <tr>
+                    <th>Inicio</th>
+                    <th>Monto</th>
+                    <th>Cuotas</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                    <th>Acci&oacute;n</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plan in planes_pago %}
+                <tr>
+                    <td data-label="Inicio">{{ plan['fecha_inicio'] or '-' }}</td>
+                    <td data-label="Monto">
+                        {{ plan['monto_total'] | moneda }}
+                        {% if plan['cuotas_incluidas'] %}
+                            <span class="muted-line">{{ plan['cuotas_incluidas'] }} cuotas incluidas</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Cuotas">
+                        {{ plan['cantidad_cuotas'] }} x {{ plan['monto_cuota'] | moneda }}
+                        <span class="muted-line">Cumplimiento: {{ plan['cuotas_pagadas'] or 0 }}/{{ plan['cantidad_cuotas'] }} cuotas</span>
+                        <span class="muted-line">Pagado: {{ (plan['monto_pagado'] or 0) | moneda }}</span>
+                    </td>
+                    <td data-label="Estado">{{ plan['estado'] }}</td>
+                    <td data-label="Detalle">
+                        {{ plan['descripcion'] or '-' }}
+                        {% if plan['observaciones'] %}
+                            <span class="muted-line">{{ plan['observaciones'] }}</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Acción" class="actions">
+                        {% if puede('planes_pago_gestionar') %}
+                            <a class="button secondary" href="{{ url_for('editar_plan_pago', plan_id=plan['id']) }}">Editar</a>
+                        {% endif %}
+                        {% if puede('planes_pago_gestionar') and plan['estado'] == 'Activo' %}
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Cumplido">
+                                <button class="button secondary" type="submit">Cumplido</button>
+                            </form>
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Caido">
+                                <button class="button danger" type="submit">Ca&iacute;do</button>
+                            </form>
+                        {% elif puede('planes_pago_gestionar') %}
+                            <form method="post" action="{{ url_for('actualizar_plan_pago', plan_id=plan['id']) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <input type="hidden" name="estado" value="Activo">
+                                <button class="button secondary" type="submit">Reactivar</button>
+                            </form>
+                        {% endif %}
+                        {% if puede('planes_pago_gestionar') %}
+                            <form method="post" action="{{ url_for('eliminar_plan_pago', plan_id=plan['id']) }}" onsubmit="return confirm('Eliminar este plan y restaurar las cuotas incluidas?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">
+                                <button class="button danger" type="submit">Eliminar</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
-
-{% if becas_historial %}
+{% else %}<p class="muted-line">Sin registros.</p>{% endif %}</div></details><details class="finance-fold" ><summary>Historial de becas <span>{{ becas_historial|length }}</span></summary><div class="finance-fold-body">{% if becas_historial %}
 <div class="page-section">
     <div class="section-header">
         <h3>Historial de becas</h3>
@@ -375,6 +328,24 @@
         </table>
     </div>
 </div>
-{% endif %}
+{% else %}<p class="muted-line">Sin registros.</p>{% endif %}</div></details>{% if puede('cuotas_gestionar') %}<details class="finance-fold" ><summary>Herramientas de becas</summary><div class="finance-fold-body">{% if puede('cuotas_gestionar') %}
+<form method="post" action="{{ url_for('recalcular_becas_jugador', jugador_id=jugador['id']) }}" class="card spaced-small toolbar-card">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p class="muted-line">Aplicar la beca vigente a las cuotas pendientes del período seleccionado.</p>
+    <div class="report-filter-grid">
+        <div>
+            <label>Desde</label>
+            <input type="month" name="periodo_desde">
+        </div>
+        <div>
+            <label>Hasta</label>
+            <input type="month" name="periodo_hasta">
+        </div>
+    </div>
+    <div class="actions-row stack-gap">
+        <button class="button secondary" type="submit">Recalcular pendientes</button>
+    </div>
+</form>
+{% endif %}</div></details>{% endif %}</div>
 </div>
 {% endblock %}

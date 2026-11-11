@@ -13,14 +13,14 @@
         {% if plantilla_clave != 'solicitar_comprobante' %}
         {% if whatsapp_api_activa %}
         <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_morosos_lote') }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
             <input type="hidden" name="mensaje" value="{{ template }}">
             <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
             <button class="button secondary" type="submit">Enviar WhatsApps</button>
         </form>
         {% endif %}
         <form method="post" action="{{ url_for('enviar_email_comunicacion_morosos_lote') }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
             <input type="hidden" name="mensaje" value="{{ template }}">
             <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
             <button class="button secondary" type="submit">Enviar emails</button>
@@ -30,7 +30,14 @@
     </div>
 </div>
 
-<form method="get" class="card spaced-small toolbar-card">
+<div class="card spaced-small" role="status">
+    <h3>Antes de enviar</h3>
+    <p>Destinatarios con deuda: {{ comunicaciones | length }} · Con email: {{ comunicaciones | selectattr('email') | list | length }} · Con WhatsApp válido: {{ comunicaciones | selectattr('telefono_whatsapp') | list | length }}</p>
+    {% if comunicaciones %}<p><strong>Vista previa:</strong> {{ comunicaciones[0]['mensaje'] }}</p>{% endif %}
+    <p class="report-note">La tabla muestra el mensaje individual y el último estado de cada canal. «Email enviado» indica aceptación por el servidor de correo; no confirma lectura ni entrega final.</p>
+</div>
+
+<details class="module-editor" id="editar-mensaje"><summary>Plantilla y edición del mensaje</summary><div class="module-editor-content module-form-columns"><form method="get" class="card spaced-small toolbar-card">
     <div class="field">
         <label for="plantilla-cobranza">Situación</label>
         <select id="plantilla-cobranza" name="plantilla">
@@ -69,13 +76,7 @@
     </div>
 </form>
 
-<div class="card spaced-small" role="status">
-    <h3>Antes de enviar</h3>
-    <p>Destinatarios con deuda: {{ comunicaciones | length }} · Con email: {{ comunicaciones | selectattr('email') | list | length }} · Con WhatsApp válido: {{ comunicaciones | selectattr('telefono_whatsapp') | list | length }}</p>
-    {% if comunicaciones %}<p><strong>Vista previa:</strong> {{ comunicaciones[0]['mensaje'] }}</p>{% endif %}
-    <p class="report-note">La tabla muestra el mensaje individual y el último estado de cada canal. «Email enviado» indica aceptación por el servidor de correo; no confirma lectura ni entrega final.</p>
-</div>
-
+</div></details>
 <div class="table-wrapper communication-table">
     <p class="table-hint">En celular, cada jugador se ordena en una tarjeta para que veas primero deuda, contacto y acciones.</p>
     <table class="communication-detail-table">
@@ -128,7 +129,7 @@
                 <td data-label="Acción" class="actions">
                     {% if whatsapp_api_activa %}
                     <form method="post" action="{{ url_for('enviar_whatsapp_comunicacion_moroso', jugador_id=jugador['id']) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                         <input type="hidden" name="mensaje" value="{{ template }}">
             <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
                         <button class="button" type="submit" {% if not item['telefono_whatsapp'] %}disabled{% endif %}>WhatsApp API</button>
@@ -136,7 +137,7 @@
                     {% endif %}
                     <a class="button secondary" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">Abrir chat</a>
                     <form method="post" action="{{ url_for('enviar_email_comunicacion_moroso', jugador_id=jugador['id']) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                         <input type="hidden" name="mensaje" value="{{ template }}">
             <input type="hidden" name="plantilla" value="{{ plantilla_clave }}">
                         <button class="button secondary" type="submit" {% if not item['email'] %}disabled{% endif %}>Email</button>

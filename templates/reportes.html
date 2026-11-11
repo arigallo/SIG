@@ -3,6 +3,7 @@
 {% block title %}Reportes{% endblock %}
 
 {% block content %}
+<div class="module-workspace" data-module-tabs="reports">
 <div class="section-header">
     <h2>Reportes avanzados</h2>
     <div class="actions">
@@ -17,7 +18,7 @@
     </div>
 </div>
 
-<form method="get" class="card spaced-small">
+<form method="get" class="module-filter-bar card spaced-small">
     <div class="report-filter-grid">
         <div>
             <label>Desde</label>
@@ -351,5 +352,6 @@
             </tbody>
         </table>
     </div>
+</div>
 </div>
 {% endblock %}

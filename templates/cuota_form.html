@@ -7,7 +7,7 @@
 <h2>Nueva cuota</h2>
 
 <form method="post" class="card form-card form-card-narrow">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <div class="field">
         <label>Período</label>
         <input type="text" name="periodo" placeholder="Ej: 2026-04" value="{{ periodo or '' }}" required>

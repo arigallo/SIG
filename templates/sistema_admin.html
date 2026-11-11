@@ -3,6 +3,7 @@
 {% block title %}Sistema{% endblock %}
 
 {% block content %}
+<div class="module-workspace" data-module-tabs="system">
 <div class="section-header">
     <div>
         <h2>{% if solo_backup %}Backup{% else %}Estado del sistema{% endif %}</h2>
@@ -235,4 +236,5 @@
     </div>
 </div>
 {% endif %}
+</div>
 {% endblock %}

@@ -1,0 +1,18 @@
+{% if items %}
+<div class="table-wrapper work-queue"><table>
+    <thead><tr><th>Persona y concepto</th><th>Importe</th><th>Situación</th><th>Última gestión</th><th>Próxima acción</th></tr></thead>
+    <tbody>{% for item in items %}<tr>
+        <td data-label="Persona"><strong>{{ item['apellido'] or '' }}, {{ item['nombre'] or '' }}</strong><span class="muted-line">{{ item['concepto'] }}</span></td>
+        <td data-label="Importe">{% if item['origen'] == 'seguimiento' %}<span>Seguimiento: {{ item['seguimiento_fecha'] or 'Sin fecha' }}</span><span class="muted-line">Independiente del saldo</span>{% else %}{{ item['importe']|moneda }}<span class="muted-line">Vence: {{ item['fecha_vencimiento'] or 'Sin fecha' }}</span>{% endif %}</td>
+        <td data-label="Situación"><span class="badge {% if item['prioridad'] <= 1 %}badge-warning{% else %}badge-muted{% endif %}">{{ item['situacion'] }}</span></td>
+        <td data-label="Última gestión">{% if item['nota'] %}<span class="queue-note">{{ item['nota']|truncate(150) }}</span><span class="muted-line">{{ item['gestor'] or 'SIG' }} · {{ item['ultima_gestion']|fecha_hora }}</span>{% else %}<span class="muted-line">Sin gestión registrada</span>{% endif %}</td>
+        <td data-label="Próxima acción"><strong>{{ item['proxima_accion'] }}</strong>
+            <div class="actions top-gap">
+            {% if item['carril'] == 'revision' and puede('cuotas_gestionar') %}<a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente', enfocar=item['origen'] ~ ':' ~ item['id'], _anchor='comprobante-' ~ item['origen'] ~ '-' ~ item['id']) }}">Revisar</a>
+            {% elif item['jugador_id'] %}<a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=item['jugador_id'], _anchor='notas-finanzas') }}">{{ 'Ver acuerdo' if item['prioridad'] == 3 else 'Gestionar' }}</a>
+            {% else %}<a class="button secondary" href="{{ url_for('ver_gasto_compartido', gasto_id=item['gasto_id']) }}">Ver gasto</a>{% endif %}
+            </div>
+        </td>
+    </tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="workspace-empty">{{ empty_message|default('No hay pendientes en esta vista.') }}</p>{% endif %}

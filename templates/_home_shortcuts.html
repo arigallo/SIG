@@ -1,0 +1,41 @@
+
+    {% if puede_ver_jugadores %}
+        <a class="quick-module-card quick-module-club" href="{{ url_for('listar_jugadores') }}">
+            <span class="quick-module-icon" aria-hidden="true">C</span>
+            <strong>Club</strong>
+            <span>Jugadores, asistencia y calendario</span>
+        </a>
+    {% endif %}
+    {% if puede('aspirantes_ver') %}
+        <a class="quick-module-card quick-module-madrinas" href="{{ url_for('listar_aspirantes') }}">
+            <span class="quick-module-icon" aria-hidden="true">A</span>
+            <strong>Madrinas</strong>
+            <span>Ahijadxs, contactos y pr&oacute;ximas acciones</span>
+        </a>
+    {% endif %}
+    {% if puede_ver_finanzas %}
+        <a class="quick-module-card quick-module-finance" href="{{ url_for('ver_panel_cobranzas') }}">
+            <span class="quick-module-icon" aria-hidden="true">$</span>
+            <strong>Finanzas</strong>
+            <span>Cobranzas, cuotas y deuda</span>
+        </a>
+    {% endif %}
+    {% if puede_ver_salud %}
+        <a class="quick-module-card quick-module-health" href="{{ url_for('panel_salud') }}">
+            <span class="quick-module-icon" aria-hidden="true">+</span>
+            <strong>Salud</strong>
+            <span>Fichas, lesiones y vencimientos</span>
+        </a>
+    {% endif %}
+    {% if puede('comunicaciones_ver') %}
+        <a class="quick-module-card quick-module-comms" href="{{ url_for('ver_comunicaciones') }}">
+            <span class="quick-module-icon" aria-hidden="true">@</span>
+            <strong>Comunicaci&oacute;n</strong>
+            <span>Mensajes, avisos y seguimiento</span>
+        </a>
+    {% endif %}
+    {% if puede('secretaria_ver', 'secretaria_gestionar') %}
+    <a class="quick-module-card quick-module-secretaria" href="{{ url_for('listar_documentos_secretaria') }}">
+        <span class="quick-module-icon" aria-hidden="true">S</span><strong>Secretaría</strong><span>Documentación y vencimientos</span>
+    </a>
+    {% endif %}

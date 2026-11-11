@@ -22,26 +22,26 @@
         {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
             <a class="button secondary" href="{{ url_for('editar_gasto_compartido', gasto_id=gasto['id']) }}">Editar</a>
             <form method="post" action="{{ url_for('enviar_recordatorios_gasto_compartido_lote', gasto_id=gasto['id']) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                 <button class="button secondary" type="submit">Recordar pendientes</button>
             </form>
         {% endif %}
         {% if puede('cuotas_gestionar') or puede('caja_gestionar') %}
             {% if gasto['estado'] != 'Cerrado' %}
                 <form method="post" action="{{ url_for('cerrar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('¿Cerrar este gasto compartido? Los cobros pagados se registrarán en caja como un único ingreso y ya no se podrá editar.');">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                     <button class="button" type="submit">Cerrar gasto</button>
                 </form>
             {% elif session.get('rol') == 'admin' %}
                 <form method="post" action="{{ url_for('reabrir_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('¿Reabrir este gasto compartido? El ingreso ya registrado en caja se conservará.');">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                     <button class="button secondary" type="submit">Reabrir gasto</button>
                 </form>
             {% endif %}
         {% endif %}
         {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
             <form method="post" action="{{ url_for('eliminar_gasto_compartido', gasto_id=gasto['id']) }}" onsubmit="return confirm('Eliminar este gasto compartido?');">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                 <button class="button danger" type="submit">Eliminar</button>
             </form>
         {% endif %}
@@ -162,19 +162,19 @@
                 <td class="actions">
                     {% if puede('cuotas_gestionar') and gasto['estado'] != 'Cerrado' %}
                         <form method="post" enctype="multipart/form-data" action="{{ url_for('subir_comprobante_gasto_compartido_admin', item_id=item['id']) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                             <input type="file" name="comprobante_pago" accept=".pdf,.jpg,.jpeg,.png" required>
                             <button class="button secondary" type="submit">Cargar comprobante</button>
                         </form>
                         {% if item['comprobante_drive_file_id'] and item['estado'] == 'pendiente' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="aprobar">
                                 <input type="text" name="observaciones" placeholder="Obs. opcional">
                                 <button class="button secondary" type="submit">Aceptar</button>
                             </form>
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="rechazar">
                                 <input type="text" name="observaciones" placeholder="Motivo de rechazo">
                                 <button class="button danger" type="submit">Rechazar</button>
@@ -182,33 +182,33 @@
                         {% endif %}
                         {% if item['estado'] != 'pagado' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="marcar_pagado">
                                 <button class="button secondary" type="submit">Marcar pagado</button>
                             </form>
                         {% endif %}
                         {% if item['estado'] != 'exento' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="exento">
                                 <button class="button secondary" type="submit">Exento</button>
                             </form>
                         {% endif %}
                         {% if item['estado'] != 'pendiente' %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="restaurar">
                                 <button class="button secondary" type="submit">Restaurar</button>
                             </form>
                         {% endif %}
                         <form method="post" action="{{ url_for('enviar_recordatorio_gasto_compartido', item_id=item['id']) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                             <button class="button secondary" type="submit" {% if not (item['email'] or item['email_tutor']) %}disabled{% endif %}>Email</button>
                         </form>
                     {% elif gasto['estado'] == 'Cerrado' and item['estado'] == 'pendiente' and puede('cuotas_gestionar') %}
                         {% if puede('caja_gestionar') %}
                             <form method="post" enctype="multipart/form-data" action="{{ url_for('subir_comprobante_gasto_compartido_admin', item_id=item['id']) }}" onsubmit="return confirm('Cargar comprobante, registrar ingreso en caja y cancelar la deuda?');">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
                                 <input type="file" name="comprobante_pago" accept=".pdf,.jpg,.jpeg,.png" required>
                                 <button class="button secondary" type="submit">Cargar comprobante posterior</button>
@@ -217,7 +217,7 @@
                         {% if item['comprobante_drive_file_id'] %}
                             {% if puede('caja_gestionar') %}
                                 <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Aceptar este comprobante, registrar ingreso en caja y cancelar la deuda?');">
-                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                     <input type="hidden" name="accion" value="aprobar">
                                     <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
                                     <input type="text" name="observaciones" placeholder="Obs. opcional">
@@ -225,7 +225,7 @@
                                 </form>
                             {% endif %}
                             <form method="post" action="{{ url_for('actualizar_item_gasto_compartido', item_id=item['id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="hidden" name="accion" value="rechazar">
                                 <input type="text" name="observaciones" placeholder="Motivo de rechazo">
                                 <button class="button danger" type="submit">Rechazar</button>
@@ -233,7 +233,7 @@
                         {% endif %}
                         {% if puede('caja_gestionar') %}
                             <form method="post" action="{{ url_for('registrar_pago_posterior_gasto_compartido', item_id=item['id']) }}" onsubmit="return confirm('Registrar este pago en caja y cancelar la deuda?');">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}">
                                 <button class="button secondary" type="submit">Registrar pago sin comprobante</button>
                             </form>

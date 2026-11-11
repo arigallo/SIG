@@ -3,6 +3,7 @@
 {% block title %}Ventas del club{% endblock %}
 
 {% block content %}
+<div class="module-workspace" data-module-tabs="sections">
 <div class="section-header">
     <div>
         <h2>Ventas del club</h2>
@@ -27,10 +28,10 @@
 </div>
 
 {% if puede('ventas_gestionar') %}
-<div class="page-section">
+<details class="module-editor" id="registrar-venta"><summary>Registrar una venta</summary><div class="module-editor-content"><details class="module-editor" id="agregar-producto"><summary>Agregar un producto al catálogo</summary><div class="module-editor-content"><div class="page-section">
     <div class="section-header"><h3>Registrar venta</h3></div>
     <form method="post" enctype="multipart/form-data" action="{{ url_for('registrar_venta_club') }}" class="card form-card form-card-wide" id="venta-form">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
         <div class="form-grid">
             <div>
                 <label>Fecha</label>
@@ -88,7 +89,7 @@
             <button class="button" type="submit">Confirmar venta</button>
         </div>
     </form>
-</div>
+</div></div></details></div></details>
 
 <div class="page-section">
     <div class="section-header"><h3>Agregar producto</h3></div>
@@ -105,7 +106,7 @@
 </div>
 {% endif %}
 
-<div class="page-section">
+<div class="page-section" data-tab-section>
     <div class="section-header"><h3>Catalogo y stock</h3></div>
     <div class="table-wrapper">
         <table>
@@ -139,9 +140,9 @@
     </div>
 </div>
 
-<div class="page-section">
+<div class="page-section" data-tab-section>
     <div class="section-header"><h3>Historial</h3></div>
-    <form method="get" class="card form-card form-card-narrow spaced-small">
+    <form method="get" class="module-filter-bar card form-card form-card-narrow spaced-small">
         <div class="field"><label>Mes</label><input type="month" name="mes" value="{{ mes }}"></div>
         <button class="button secondary" type="submit">Aplicar</button>
     </form>
@@ -214,4 +215,5 @@
     list.addEventListener('change', update);
 })();
 </script>
+</div>
 {% endblock %}

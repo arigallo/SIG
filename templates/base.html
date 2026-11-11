@@ -13,9 +13,21 @@
     <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
 
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
+    {% if session.get("user_id") %}<link rel="stylesheet" href="{{ static_asset('workspace.css') }}">{% endif %}
 </head>
 
-<body class="{% if session.get('user_id') %}admin-body{% endif %}" data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
+{% set path = request.path %}
+{% set area = 'inicio' %}
+{% if path.startswith(('/ahijadxs', '/aspirantes')) %}{% set area = 'madrinas' %}
+{% elif path.startswith(('/finanzas', '/cuotas', '/caja', '/movimientos', '/planes', '/presupuesto', '/gastos-compartidos', '/reportes')) or request.endpoint in ['ver_cuotas', 'nuevo_plan_pago', 'editar_plan_pago', 'nueva_cuota', 'listar_planes_pago'] %}{% set area = 'finanzas' %}
+{% elif path.startswith(('/salud', '/fichas', '/lesiones', '/documentos')) or request.endpoint in ['ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] %}{% set area = 'salud' %}
+{% elif path.startswith(('/comunicacion', '/notificaciones')) %}{% set area = 'comunicacion' %}
+{% elif path.startswith('/secretaria') %}{% set area = 'secretaria' %}
+{% elif path.startswith(('/admin', '/usuarios', '/roles', '/auditoria', '/seguridad')) %}{% set area = 'admin' %}
+{% elif path.startswith(('/jugadores', '/calendario', '/asistencia', '/tests', '/circulares')) %}{% set area = 'club' %}
+{% endif %}
+{% set area_labels = {'inicio': 'Mi espacio', 'club': 'Club', 'madrinas': 'Madrinas', 'finanzas': 'Finanzas', 'salud': 'Salud', 'comunicacion': 'Comunicación', 'secretaria': 'Secretaría', 'admin': 'Administración'} %}
+<body class="{% if session.get('user_id') %}admin-body{% endif %}" data-area="{{ area }}" data-endpoint="{{ request.endpoint or '' }}" data-username="{{ session.get('username') or '' }}" data-portal-token="{{ token|default('') }}">
     <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
     {% set rol_guia = (session.get('rol') or '')|trim|lower %}
     {% set guias_roles = {'admin': 'Administrador', 'tesorero': 'Tesorero', 'medico': 'Médico', 'entrenador': 'Entrenador', 'madrinas': 'Madrinas'} %}
@@ -34,17 +46,26 @@
                 </div>
             </div>
 
+            <div class="workspace-location"><span class="workspace-area">{{ area_labels[area] }}</span><span class="workspace-divider">/</span><span>{{ self.title() }}</span></div>
+            {% if session.get('user_id') and puede('jugadores_ver') %}<div class="global-player-search" data-player-search data-search-url="{{ url_for('buscar_jugadores_global') }}">
+                <button class="global-search-toggle button secondary" type="button" aria-label="Buscar jugador o socio" aria-expanded="false">Buscar</button>
+                <form method="get" action="{{ url_for('listar_jugadores') }}" role="search"><label class="sr-only" for="global-player-query">Buscar jugador o socio</label><input id="global-player-query" type="search" name="q" placeholder="Buscar jugador o socio…" autocomplete="off" aria-expanded="false" aria-controls="global-player-results"><button type="submit" class="button secondary">Buscar</button></form>
+                <div id="global-player-results" class="global-player-results" hidden><p class="muted-line" data-search-status role="status"></p><div data-search-results></div></div>
+            </div>{% endif %}
+            <span class="workspace-user">{{ session.get('username') or '' }} <small>{{ session.get('rol') or '' }}</small></span>
+
             <button class="admin-nav-toggle" type="button" aria-expanded="false" aria-controls="admin-main-nav">
                 <span class="admin-nav-toggle-icon" aria-hidden="true"></span>
                 <span>Men&uacute;</span>
             </button>
 
             <nav class="main-nav" id="admin-main-nav" aria-label="Navegaci&oacute;n principal">
+                <div class="nav-intro"><span>ESPACIO DE TRABAJO</span><label class="sr-only" for="nav-search">Buscar una sección</label><input id="nav-search" type="search" placeholder="Buscar sección…" autocomplete="off"><p class="nav-search-empty" hidden>No hay secciones con ese nombre.</p></div>
                 {% set endpoint = request.endpoint or '' %}
-                <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Panel</a>
+                <a class="nav-link {% if endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Inicio</a>
                 {% if session.get('user_id') %}<a class="nav-link {% if endpoint == 'mis_avisos' %}active{% endif %}" href="{{ url_for('mis_avisos') }}">Mis avisos <span class="nav-badge" data-avisos-postulacion-badge hidden>0</span></a>{% endif %}
                 {% if puede_ver_operacion() %}
-                    <a class="nav-link {% if endpoint == 'ver_operacion_diaria' %}active{% endif %}" href="{{ url_for('ver_operacion_diaria') }}">Operaci&oacute;n</a>
+                    <a class="nav-link {% if endpoint == 'ver_operacion_diaria' %}active{% endif %}" href="{{ url_for('ver_operacion_diaria') }}">Revisión diaria</a>
                 {% endif %}
                 {% if puede('comunicaciones_ver') %}
                     {% set notificaciones_base_count = (notificaciones_count or 0) - (whatsapp_inbox_count or 0) %}
@@ -54,18 +75,14 @@
                     </a>
                 {% endif %}
 
-                {% set mostrar_club = puede('jugadores_ver') or puede('aspirantes_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
+                {% set mostrar_club = puede('jugadores_ver') or puede('asistencia_ver') or puede('tests_ver') or puede('calendario_ver') or puede('jugadores_gestionar') %}
                 {% set club_actual = endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador', 'listar_aspirantes', 'nuevo_aspirante', 'editar_aspirante', 'detalle_aspirante', 'listar_eventos_asistencia', 'tomar_asistencia', 'listar_tests', 'graficos_tests', 'ver_calendario', 'nuevo_evento_calendario', 'editar_evento_calendario', 'listar_circulares_urba'] %}
                 {% if mostrar_club %}
-                <details class="nav-group {% if club_actual %}current{% endif %}" {% if club_actual %}open{% endif %}>
+                <details class="nav-group {% if area == 'club' %}current{% endif %}" {% if area == 'club' %}open{% endif %} data-nav-area="club">
                     <summary>Club</summary>
                     <div class="nav-menu">
                         {% if puede('jugadores_ver') %}
                             <a class="{% if endpoint in ['listar_jugadores', 'nuevo_jugador', 'editar_jugador', 'detalle_jugador'] %}active{% endif %}" href="{{ url_for('listar_jugadores') }}">Jugadores</a>
-                        {% endif %}
-                        {% if puede('aspirantes_ver') %}
-                            <a class="{% if endpoint in ['listar_aspirantes', 'nuevo_aspirante', 'editar_aspirante', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
-                            <a href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Formulario Ven&iacute; a jugar</a>
                         {% endif %}
                         {% if puede('asistencia_ver') %}
                             <a class="{% if endpoint in ['listar_eventos_asistencia', 'tomar_asistencia', 'nuevo_evento_asistencia', 'editar_evento_asistencia'] %}active{% endif %}" href="{{ url_for('listar_eventos_asistencia') }}">Asistencia</a>
@@ -86,12 +103,29 @@
                 </details>
                 {% endif %}
 
+                {% if puede('aspirantes_ver') %}
+                <details class="nav-group {% if area == 'madrinas' %}current{% endif %}" data-nav-area="madrinas" {% if area == 'madrinas' %}open{% endif %}>
+                    <summary>Madrinas</summary><div class="nav-menu">
+                        {% if puede('aspirantes_ver') %}
+                            <a class="{% if endpoint in ['listar_aspirantes', 'nuevo_aspirante', 'editar_aspirante', 'detalle_aspirante'] %}active{% endif %}" href="{{ url_for('listar_aspirantes') }}">Ahijadxs</a>
+                            <a href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Formulario Ven&iacute; a jugar</a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
                 {% set mostrar_finanzas = puede('cuotas_ver') or puede('cuotas_gestionar') or puede('planes_pago_ver') or puede('caja_ver') or puede('facturas_recibidas_ver') or puede('presupuesto_ver') or puede('ventas_ver', 'ventas_gestionar') or puede('reportes_ver') %}
                 {% set finanzas_actual = endpoint in ['generar_cuotas', 'modificar_montos_cuotas', 'pagos_masivos_debito_automatico', 'listar_comprobantes_revision', 'conciliar_pagos', 'listar_planes_pago', 'listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido', 'ver_caja', 'nuevo_movimiento', 'editar_movimiento', 'listar_facturas_recibidas', 'crear_filtro_factura_email', 'alternar_filtro_factura_email', 'sincronizar_facturas_recibidas_view', 'ver_factura_recibida_archivo', 'registrar_factura_recibida_en_caja', 'descartar_factura_recibida', 'ver_presupuesto', 'ver_ventas_club', 'crear_producto_venta', 'ajustar_stock_producto', 'alternar_producto_venta', 'registrar_venta_club', 'comprobante_venta_club', 'anular_venta_club', 'ver_reportes', 'ver_comunicaciones', 'ver_panel_cobranzas'] or (endpoint == 'ver_alertas' and puede('alertas_finanzas')) %}
                 {% if mostrar_finanzas %}
-                <details class="nav-group {% if finanzas_actual %}current{% endif %}" {% if finanzas_actual %}open{% endif %}>
+                <details class="nav-group {% if area == 'finanzas' %}current{% endif %}" {% if area == 'finanzas' %}open{% endif %} data-nav-area="finanzas">
                     <summary>Finanzas</summary>
                     <div class="nav-menu">
+                        <span class="nav-subheading">Cobranza y cuotas</span>
+                        {% if puede('cuotas_ver', 'cuotas_gestionar') %}
+                            <a class="{% if endpoint == 'ver_panel_cobranzas' %}active{% endif %}" href="{{ url_for('ver_panel_cobranzas') }}">Cobranzas</a>
+                        {% endif %}
+                        {% if puede('cuotas_ver') %}<a class="{% if endpoint == 'ver_excepciones_cobranza' %}active{% endif %}" href="{{ url_for('ver_excepciones_cobranza') }}">Excepciones de cobranza</a>{% endif %}
+
                         {% if puede('cuotas_gestionar') %}
                             <a class="{% if endpoint == 'generar_cuotas' %}active{% endif %}" href="{{ url_for('generar_cuotas') }}">Generar cuotas</a>
                             <a class="{% if endpoint == 'pagos_masivos_debito_automatico' %}active{% endif %}" href="{{ url_for('pagos_masivos_debito_automatico') }}">Débitos automáticos</a>
@@ -99,15 +133,13 @@
                             <a class="{% if endpoint == 'listar_comprobantes_revision' %}active{% endif %}" href="{{ url_for('listar_comprobantes_revision') }}">Comprobantes</a>
                             <a class="{% if endpoint == 'conciliar_pagos' %}active{% endif %}" href="{{ url_for('conciliar_pagos') }}">Conciliaci&oacute;n</a>
                         {% endif %}
-                        {% if puede('cuotas_ver', 'cuotas_gestionar') %}
-                            <a class="{% if endpoint == 'ver_panel_cobranzas' %}active{% endif %}" href="{{ url_for('ver_panel_cobranzas') }}">Cobranzas</a>
-                        {% endif %}
                         {% if puede('planes_pago_ver') %}
-                            <a class="{% if endpoint in ['listar_planes_pago', 'nuevo_plan_pago', 'editar_plan_pago'] %}active{% endif %}" href="{{ url_for('listar_planes_pago') }}">Planes</a>
+                            <a class="{% if endpoint in ['listar_planes_pago', 'nuevo_plan_pago', 'editar_plan_pago'] %}active{% endif %}" href="{{ url_for('listar_planes_pago') }}">Planes de pago</a>
                         {% endif %}
                         {% if puede('cuotas_ver') %}
                             <a class="{% if endpoint in ['listar_gastos_compartidos', 'nuevo_gasto_compartido', 'editar_gasto_compartido', 'ver_gasto_compartido'] %}active{% endif %}" href="{{ url_for('listar_gastos_compartidos') }}">Gastos compartidos / terceros tiempos</a>
                         {% endif %}
+                        <span class="nav-subheading">Caja y administración</span>
                         {% if puede('caja_ver') %}
                             <a class="{% if endpoint in ['ver_caja', 'nuevo_movimiento', 'editar_movimiento'] %}active{% endif %}" href="{{ url_for('ver_caja') }}">Caja</a>
                         {% endif %}
@@ -134,7 +166,7 @@
                 {% set mostrar_salud = puede('salud_ver') or puede('salud_gestionar') or puede('documentos_ver') or puede('alertas_salud') %}
                 {% set salud_actual = endpoint in ['panel_salud', 'ver_documentos_vencidos', 'cargar_fichas_medicas_batch', 'ver_ficha_medica', 'editar_ficha_medica', 'ver_lesiones', 'nueva_lesion', 'editar_lesion'] or (endpoint == 'ver_alertas' and puede('alertas_salud')) %}
                 {% if mostrar_salud %}
-                <details class="nav-group {% if salud_actual %}current{% endif %}" {% if salud_actual %}open{% endif %}>
+                <details class="nav-group {% if area == 'salud' %}current{% endif %}" {% if area == 'salud' %}open{% endif %} data-nav-area="salud">
                     <summary>Salud</summary>
                     <div class="nav-menu">
                         {% if puede('salud_ver') %}
@@ -155,7 +187,7 @@
 
                 {% if puede('comunicaciones_ver') %}
                 {% set comunicacion_actual = endpoint in ['ver_comunicaciones', 'enviar_notificacion_app_manual', 'ver_whatsapp_inbox', 'responder_whatsapp_inbox'] %}
-                <details class="nav-group {% if comunicacion_actual %}current{% endif %}" {% if comunicacion_actual %}open{% endif %}>
+                <details class="nav-group {% if area == 'comunicacion' %}current{% endif %}" {% if area == 'comunicacion' %}open{% endif %} data-nav-area="comunicacion">
                     <summary>Comunicaci&oacute;n</summary>
                     <div class="nav-menu">
                         <a class="{% if endpoint == 'ver_comunicaciones' %}active{% endif %}" href="{{ url_for('ver_comunicaciones') }}">Comunicaci&oacute;n</a>
@@ -170,7 +202,7 @@
 
                 {% if puede('secretaria_ver', 'secretaria_gestionar') %}
                 {% set secretaria_actual = endpoint in ['listar_documentos_secretaria', 'nuevo_documento_secretaria', 'ver_documento_secretaria', 'eliminar_documento_secretaria'] %}
-                <details class="nav-group {% if secretaria_actual %}current{% endif %}" {% if secretaria_actual %}open{% endif %}>
+                <details class="nav-group {% if secretaria_actual %}current{% endif %}" {% if secretaria_actual %}open{% endif %} data-nav-area="secretaria">
                     <summary>Secretar&iacute;a</summary>
                     <div class="nav-menu">
                         <a class="{% if endpoint in ['listar_documentos_secretaria', 'nuevo_documento_secretaria', 'ver_documento_secretaria', 'eliminar_documento_secretaria'] %}active{% endif %}" href="{{ url_for('listar_documentos_secretaria') }}">Documentos</a>
@@ -181,8 +213,8 @@
                 {% set mostrar_admin = session.get('rol') == 'admin' or puede('auditoria_ver') or puede('seguridad_ver') or puede('backup_ver') or puede('sugerencias_ver', 'sugerencias_configurar') or puede('encuestas_ver', 'encuestas_gestionar') %}
                 {% set admin_actual = endpoint in ['listar_usuarios', 'listar_roles', 'simular_rol', 'panel_sistema_admin', 'administrar_versiones', 'configurar_facturas_email', 'listar_sugerencias_recomendaciones', 'configurar_sugerencias_recomendaciones', 'listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion', 'configurar_mantenimiento', 'configurar_avisos_login', 'ver_auditoria', 'ver_seguridad', 'backup_db'] %}
                 {% if mostrar_admin %}
-                <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %}>
-                    <summary>Admin</summary>
+                <details class="nav-group {% if admin_actual %}current{% endif %}" {% if admin_actual %}open{% endif %} data-nav-area="admin">
+                    <summary>Administración</summary>
                     <div class="nav-menu">
                         {% if session.get('rol') == 'admin' %}
                             <a class="{% if endpoint == 'listar_usuarios' %}active{% endif %}" href="{{ url_for('listar_usuarios') }}">Usuarios</a>
@@ -190,7 +222,7 @@
                             <a class="{% if endpoint == 'simular_rol' %}active{% endif %}" href="{{ url_for('simular_rol') }}">Simular rol</a>
                             <a class="{% if endpoint == 'panel_sistema_admin' %}active{% endif %}" href="{{ url_for('panel_sistema_admin') }}">Sistema</a>
                             <a class="{% if endpoint == 'administrar_versiones' %}active{% endif %}" href="{{ url_for('administrar_versiones') }}">Versiones</a>
-                            <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Email facturas</a>
+                            <a class="{% if endpoint == 'configurar_facturas_email' %}active{% endif %}" href="{{ url_for('configurar_facturas_email') }}">Casillas de facturas</a>
                             <a class="{% if endpoint == 'configurar_avisos_login' %}active{% endif %}" href="{{ url_for('configurar_avisos_login') }}">Avisos login</a>
                             <a class="{% if endpoint == 'configurar_mantenimiento' %}active{% endif %}" href="{{ url_for('configurar_mantenimiento') }}">Mantenimiento</a>
                         {% endif %}
@@ -200,7 +232,7 @@
                             <a class="{% if endpoint == 'configurar_sugerencias_recomendaciones' %}active{% endif %}" href="{{ url_for('configurar_sugerencias_recomendaciones') }}">Sugerencias</a>
                         {% endif %}
                         {% if puede('encuestas_ver', 'encuestas_gestionar') %}
-                            <a class="{% if endpoint in ['listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion'] %}active{% endif %}" href="{{ url_for('listar_encuestas_satisfaccion') }}">Formularios</a>
+                            <a class="{% if endpoint in ['listar_encuestas_satisfaccion', 'nueva_encuesta_satisfaccion', 'ver_encuesta_satisfaccion'] %}active{% endif %}" href="{{ url_for('listar_encuestas_satisfaccion') }}">Encuestas</a>
                         {% endif %}
                         {% if puede('auditoria_ver') %}
                             <a class="{% if endpoint == 'ver_auditoria' %}active{% endif %}" href="{{ url_for('ver_auditoria') }}">Auditor&iacute;a</a>
@@ -252,17 +284,6 @@
                 </form>
             </div>
         {% endif %}
-        {% if session.get('user_id') and rol_guia in guias_roles %}
-            <div class="role-guide-bar">
-                {% set guia_clave = rol_guia %}
-                {% set guia_nombre = guias_roles[rol_guia] %}
-                {% include '_instructivo_button.html' %}
-                {% if rol_guia == 'madrinas' %}
-                    <a class="role-guide-button role-guide-button--madrinas" href="{{ url_for('static', filename='docs/manual_madrinas.pdf') }}" target="_blank" rel="noopener" aria-label="Abrir manual de madrinas (PDF, nueva pestaña)">Manual de madrinas <span class="role-guide-format">PDF ↗</span></a>
-                {% endif %}
-            </div>
-        {% endif %}
-
         {% if session.get('rol') == 'admin' and mantenimiento and mantenimiento.activo %}
             <div class="maintenance-banner">
                 Modo mantenimiento activo. Solo admin puede usar el sistema.
@@ -321,6 +342,13 @@
             </section>
         {% endif %}
 
+        {% if sig_local_mode|default(false) %}
+        <div class="flash warning" role="status">
+            <strong>SIG LOCAL</strong> · Los cambios se guardan solo en esta computadora. Mensajes simulados y archivos locales.
+            {% if local_interface_revision %}<span class="local-revision" title="Revisión de los archivos de la interfaz local">Interfaz {{ local_interface_revision }}</span>{% endif %}
+            {% if session.get('user_id') %}<a href="{{ url_for('local_outbox') }}">Ver envíos de prueba</a>{% endif %}
+        </div>
+        {% endif %}
         {% if preview_mode|default(false) %}
         <div class="flash warning" role="status">
             Vista de dise&ntilde;o · datos ficticios · guardado deshabilitado.
@@ -333,5 +361,6 @@
     </main>
 
     <script src="{{ static_asset('app.js') }}" defer></script>
+    {% if session.get("user_id") %}<script src="{{ static_asset('workspace.js') }}" defer></script>{% endif %}
 </body>
 </html>

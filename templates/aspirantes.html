@@ -2,12 +2,14 @@
 {% block title %}Ahijadxs{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{{ static_asset('madrinas.css') }}">
 <div class="admin-page aspirantes-page">
+{% if madrinas_demo|default(false) %}<p class="flash warning">Prueba local · datos ficticios · los cambios se guardan solo en esta demo.</p>{% endif %}
 <section class="admin-hero compact-admin-hero">
     <div>
         <span class="admin-eyebrow">Madrinas</span>
         <h2>Gesti&oacute;n de ahijadxs</h2>
-        <p class="page-intro">Postulaciones, responsables y pr&oacute;ximos contactos en un solo lugar.</p>
+        <p class="page-intro">Contact&aacute;, actualiz&aacute; y segu&iacute; a tus ahijadxs desde esta pantalla.</p>
     </div>
     <div class="admin-hero-actions actions">
         <a class="button secondary" href="{{ url_for('postulacion_aspirante_publica') }}" target="_blank" rel="noopener">Ver formulario p&uacute;blico</a>
@@ -17,8 +19,8 @@
 
 <div class="dashboard-cards report-cards aspirantes-summary">
     <div class="card stat-card alert-card-info"><h3>En seguimiento</h3><p class="stat-number">{{ resumen_aspirantes['en_seguimiento'] or 0 }}</p></div>
-    <div class="card stat-card alert-card-critical"><h3>Sin asignar</h3><p class="stat-number">{{ resumen_aspirantes['sin_asignar'] or 0 }}</p></div>
-    <div class="card stat-card alert-card-warning"><h3>Contacto pendiente</h3><p class="stat-number">{{ resumen_aspirantes['pendientes_contacto'] or 0 }}</p></div>
+    <div class="card stat-card alert-card-critical"><h3>Sin asignar</h3><p class="stat-number" data-counter="sin_asignar">{{ resumen_aspirantes['sin_asignar'] or 0 }}</p></div>
+    <div class="card stat-card alert-card-warning"><h3>Contacto pendiente</h3><p class="stat-number" data-counter="pendientes_contacto">{{ resumen_aspirantes['pendientes_contacto'] or 0 }}</p></div>
     <div class="card stat-card alert-card-warning"><h3>Acciones para hoy</h3><p class="stat-number">{{ resumen_aspirantes['acciones_vencidas'] or 0 }}</p></div>
 </div>
 
@@ -30,9 +32,17 @@
         <option value="Baja" {% if estado == 'Baja' %}selected{% endif %}>Baja</option>
         <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
     </select>
-    <select name="etapa" aria-label="Etapa de seguimiento">
-        <option value="todas">Todas las etapas</option>
-        {% for valor, etiqueta in etapas.items() %}<option value="{{ valor }}" {% if etapa == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    <select name="madrina" aria-label="Filtrar por madrina">
+        <option value="">Todas las madrinas</option>
+        {% for m in madrinas|default([]) %}<option value="{{ m.id }}" {% if madrina_filtro|default('') == m.id|string %}selected{% endif %}>{{ m.apellido }}, {{ m.nombre }}</option>{% endfor %}
+    </select>
+    <select name="contacto" aria-label="Filtrar por contacto">
+        <option value="">Todos los contactos</option>
+        {% for valor, etiqueta in (contactos|default({})).items() %}<option value="{{ valor }}" {% if contacto_filtro|default('') == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <select name="viene" aria-label="Filtrar por confirmación">
+        <option value="">Todas las confirmaciones</option>
+        {% for valor, etiqueta in (confirmaciones|default({})).items() %}<option value="{{ valor }}" {% if viene_filtro|default('') == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
     </select>
     <select name="asignacion" aria-label="Asignaci&oacute;n">
         <option value="todas" {% if asignacion == 'todas' %}selected{% endif %}>Todas las asignaciones</option>
@@ -40,74 +50,45 @@
         <option value="sin_asignar" {% if asignacion == 'sin_asignar' %}selected{% endif %}>Sin responsable</option>
     </select>
     <button type="submit">Aplicar filtros</button>
-    {% if busqueda or estado != 'Aspirante' or etapa != 'todas' or asignacion != 'todas' %}
+    {% if busqueda or estado != 'Aspirante' or etapa != 'todas' or asignacion != 'todas' or madrina_filtro|default('') or contacto_filtro|default('') or viene_filtro|default('') %}
         <a class="button secondary" href="{{ url_for('listar_aspirantes') }}">Limpiar</a>
     {% endif %}
 </form>
 
-<div class="table-wrapper">
+<p class="muted-line">Abrir WhatsApp no marca el contacto. Actualizá la fila y tocá Guardar. Las notas se suman al historial.</p>
+<noscript><p class="flash warning">Para guardar desde la tabla necesitás JavaScript. Podés usar la ficha de cada ahijadx.</p></noscript>
+<div class="table-wrapper quick-followup">
     <table>
-        <thead>
-            <tr>
-                <th>Ahijadx</th>
-                <th>Categor&iacute;a</th>
-                <th>Madrina/Padrino</th>
-                <th>Etapa / pr&oacute;xima acci&oacute;n</th>
-                <th>Entrenamientos</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Ahijadx</th><th>Madrina / Padrino</th><th>WhatsApp</th><th>Contacto</th><th>¿Viene?</th><th>Última actualización / nota</th><th>Acciones</th></tr></thead>
         <tbody>
-            {% for aspirante in aspirantes %}
-            <tr>
-                <td data-label="Ahijadx">
-                    {{ aspirante['apellido'] }}, {{ aspirante['nombre'] }}
-                    {% if aspirante['dni'] %}
-                        <span class="muted-line">DNI {{ aspirante['dni'] }}</span>
-                    {% endif %}
-                </td>
-                <td data-label="Categor&iacute;a">{{ aspirante['categoria'] or '-' }}</td>
-                <td data-label="Madrina/Padrino">
-                    {% if aspirante['madrina_apellido'] %}
-                        {{ aspirante['madrina_apellido'] }}, {{ aspirante['madrina_nombre'] }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td data-label="Etapa">
-                    <strong>{{ etapas.get(aspirante['etapa_seguimiento'] or 'pendiente_contacto', 'Pendiente de contacto') }}</strong>
-                    {% if aspirante['proxima_accion_fecha'] %}<span class="muted-line">Pr&oacute;xima: {{ aspirante['proxima_accion_fecha'] }}</span>{% endif %}
-                </td>
-                <td data-label="Entrenamientos">
-                    {{ aspirante['entrenamientos_realizados'] or 0 }} / {{ aspirante['entrenamientos_objetivo'] or 0 }}
-                    <progress class="report-progress" max="100" value="{{ aspirante['progreso'] }}"></progress>
-                </td>
-                <td data-label="Estado">
-                    {% if aspirante['estado'] == 'Ingresado' %}
-                        <span class="status-paid">Ingresado</span>
-                    {% elif aspirante['estado'] == 'Baja' %}
-                        <span class="status-cancelled">Baja</span>
-                    {% elif aspirante['listo_para_ingresar'] %}
-                        <span class="status-paid">Listo</span>
-                    {% else %}
-                        <span class="status-pending">Seguimiento</span>
-                    {% endif %}
-                </td>
-                <td class="actions" data-label="Acciones">
-                    <a class="button" href="{{ url_for('detalle_aspirante', aspirante_id=aspirante['id']) }}">Ver</a>
-                    {% if puede('aspirantes_gestionar') and aspirante['estado'] == 'Aspirante' %}
-                        <a class="button secondary" href="{{ url_for('editar_aspirante', aspirante_id=aspirante['id']) }}">Editar</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="7" class="empty">No hay ahijadxs que coincidan con los filtros.</td>
-            </tr>
-            {% endfor %}
+        {% for a in aspirantes %}
+        {% set editable = puede('aspirantes_gestionar') and a.estado == 'Aspirante' and not preview_mode|default(false) %}
+        <tr class="quick-row" data-save-url="{{ url_for('guardar_aspirante_rapido', aspirante_id=a.id) }}">
+            <td data-label="Ahijadx"><a href="{{ url_for('detalle_aspirante', aspirante_id=a.id) }}"><strong>{{ a.apellido }}, {{ a.nombre }}</strong></a><span class="muted-line">{{ a.categoria or 'Sin categoría' }} · {{ a.estado }}</span></td>
+            <td data-label="Madrina / Padrino">
+                {% if editable %}
+                <select data-field="madrina_jugador_id" aria-label="Madrina de {{ a.nombre }} {{ a.apellido }}">
+                    <option value="">Sin asignar</option>
+                    {% set ids = (madrinas|default([]))|map(attribute='id')|list %}
+                    {% if a.madrina_jugador_id and a.madrina_jugador_id not in ids %}<option value="{{ a.madrina_jugador_id }}" selected>{{ a.madrina_apellido }}, {{ a.madrina_nombre }} (actual)</option>{% endif %}
+                    {% for m in madrinas|default([]) %}<option value="{{ m.id }}" {% if a.madrina_jugador_id == m.id %}selected{% endif %}>{{ m.apellido }}, {{ m.nombre }}</option>{% endfor %}
+                </select>
+                {% else %}{{ (a.madrina_apellido or '') ~ ', ' ~ (a.madrina_nombre or '') if a.madrina_apellido else 'Sin asignar' }}{% endif %}
+            </td>
+            <td data-label="WhatsApp">{% if a.whatsapp_url %}<a class="button secondary" href="{{ a.whatsapp_url }}" target="_blank" rel="noopener">Abrir chat ↗</a><span class="muted-line">{{ a.telefono }}</span>{% else %}<span class="muted-line">Sin teléfono válido</span>{% endif %}</td>
+            <td data-label="Contacto">{% if editable %}<select data-field="contacto_estado" aria-label="Contacto de {{ a.nombre }} {{ a.apellido }}">{% for v, label in contactos.items() %}<option value="{{ v }}" {% if a.contacto_estado == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}{{ (contactos|default({})).get(a.contacto_estado, 'Sin contactar') }}{% endif %}</td>
+            <td data-label="¿Viene?">{% if editable %}<select data-field="viene_estado" aria-label="Confirmación de {{ a.nombre }} {{ a.apellido }}">{% for v, label in confirmaciones.items() %}<option value="{{ v }}" {% if a.viene_estado == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}{{ (confirmaciones|default({})).get(a.viene_estado, 'Sin consultar') }}{% endif %}</td>
+            <td data-label="Última actualización / nota" class="quick-notes">
+                <p data-last-note>{{ a.ultima_nota or 'Sin seguimiento registrado.' }}</p>
+                <span class="muted-line" data-last-author>{% if a.ultima_actualizacion %}{{ a.ultima_actualizacion|fecha_hora }} · {{ a.ultimo_autor or 'Sistema' }}{% endif %}</span>
+                {% if editable %}<label class="muted-line">Nueva nota (opcional)<textarea data-note rows="2" maxlength="3000" placeholder="Respuesta, motivo por el que no viene o siguiente paso"></textarea></label>{% endif %}
+            </td>
+            <td data-label="Acciones" class="quick-actions">{% if editable %}<button type="button" data-save disabled>Guardar</button><span data-save-status role="status" aria-live="polite"></span>{% endif %}<a href="{{ url_for('detalle_aspirante', aspirante_id=a.id) }}">Ver ficha e historial</a></td>
+        </tr>
+        {% else %}<tr><td colspan="7" class="empty">No hay ahijadxs que coincidan con los filtros.</td></tr>{% endfor %}
         </tbody>
     </table>
 </div>
 </div>
+<script src="{{ static_asset('madrinas.js') }}" defer></script>
 {% endblock %}

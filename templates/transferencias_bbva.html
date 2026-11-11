@@ -18,7 +18,7 @@
 <label><input type="checkbox" name="recordar"> Recordar este remitente para próximas sugerencias</label>
 <button class="button secondary">Confirmar jugador</button></form>
 {% if item['jugador_id'] and puede('comunicaciones_ver') and whatsapp_api_activa %}
-<form method="post" action="{{ url_for('solicitar_comprobante_bbva', transferencia_id=item['id']) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><p>Se enviará la plantilla «Solicitud de comprobante» al contacto del jugador confirmado, con el botón para cargarlo en su portal.</p><button class="button">Confirmar pedido por WhatsApp</button></form>
+<form method="post" action="{{ url_for('solicitar_comprobante_bbva', transferencia_id=item['id']) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}"><p>Se enviará la plantilla «Solicitud de comprobante» al contacto del jugador confirmado, con el botón para cargarlo en su portal.</p><button class="button">Confirmar pedido por WhatsApp</button></form>
 {% endif %}{% endif %}
 </section>
 {% else %}<div class="card">Todavía no hay transferencias importadas. Usá «Leer avisos de BBVA».</div>{% endfor %}

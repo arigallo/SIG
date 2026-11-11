@@ -47,6 +47,7 @@ class FinanzasJugadorTests(unittest.TestCase):
                 {"estado": "pendiente", "importe": 25},
                 {"estado": "exento", "importe": 30},
             ]),
+            MagicMock(fetchall=lambda: []),
         ]
         with app.app.test_request_context(), patch.object(app, "permiso_requerido", return_value=None), patch.object(app, "get_connection", return_value=conn), patch.object(app, "render_template") as render:
             app.ver_cuotas(7)

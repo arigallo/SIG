@@ -3,12 +3,12 @@
 {% block title %}Detalle del jugador{% endblock %}
 
 {% block content %}
-<div class="admin-page profile-page">
+{% if volver_listado %}<a class="workspace-return" href="{{ volver_listado }}">← Volver al listado con mis filtros</a>{% endif %}
+<div class="admin-page profile-page" data-profile-tabs>
 <section class="admin-hero">
     <div class="admin-hero-main">
         <span class="badge badge-info">{{ jugador['tipo_miembro'] or 'Jugador' }}</span>
         <h2>{{ jugador['apellido'] }}, {{ jugador['nombre'] }}</h2>
-        <p class="page-intro">Resumen integral del jugador con finanzas, salud, rendimiento y actividad del portal en una sola vista.</p>
         <div class="admin-hero-meta">
             <span><strong>Estado:</strong> {{ jugador['estado'] }}</span>
             <span><strong>Categoria:</strong> {{ jugador['categoria'] or '-' }}</span>
@@ -29,35 +29,23 @@
         {% if puede_ver_finanzas %}
             <a class="button secondary" href="{{ url_for('ver_cuotas', jugador_id=jugador['id']) }}">Ver finanzas</a>
         {% endif %}
-        {% if puede_ver_tests %}
-            <a class="button secondary" href="{{ url_for('graficos_tests', jugadores=jugador['id']) }}">Tests</a>
-        {% endif %}
-        {% if puede('salud_gestionar') %}
-            <a class="button secondary" href="{{ url_for('editar_ficha_medica', jugador_id=jugador['id']) }}">Editar ficha médica</a>
-            <a class="button secondary" href="{{ url_for('nueva_lesion', jugador_id=jugador['id']) }}">Nueva lesión</a>
-        {% endif %}
-        {% if puede_ver_salud %}
-            <a class="button secondary" href="{{ url_for('ver_lesiones', jugador_id=jugador['id']) }}">Ver lesiones</a>
-        {% endif %}
     </div>
 </section>
 
+{% if puede_ver_salud %}
+    {% if not ficha or not ficha['presentada'] %}
+    <div class="workspace-alert" role="status"><strong>Falta la ficha médica.</strong><span>Completar la documentación obligatoria del jugador.</span><a href="{{ url_for('editar_ficha_medica' if puede('salud_gestionar') else 'ver_ficha_medica', jugador_id=jugador['id']) }}">Revisar ficha →</a></div>
+    {% elif ficha_vencida %}
+    <div class="workspace-alert" role="status"><strong>Ficha médica vencida.</strong><span>Solicitar su renovación.</span><a href="{{ url_for('ver_ficha_medica', jugador_id=jugador['id']) }}">Ver ficha →</a></div>
+    {% endif %}
+{% endif %}
+{% if puede_ver_finanzas %}
+    {% set seguimiento = namespace(total=0) %}
+    {% for nota in notas_finanzas|default([]) %}{% if not nota['resuelto_en'] and nota['seguimiento_fecha'] and nota['seguimiento_fecha']|string <= hoy_notas %}{% set seguimiento.total = seguimiento.total + 1 %}{% endif %}{% endfor %}
+    {% if seguimiento.total %}<div class="workspace-alert" role="status"><strong>{{ seguimiento.total }} seguimiento(s) de finanzas para revisar.</strong><a href="#notas-finanzas">Retomar gestión →</a></div>{% endif %}
+{% endif %}
+
 <div class="dashboard-cards spaced">
-    <div class="card stat-card">
-        <h3>Estado</h3>
-        <p class="stat-number compact">{{ jugador['estado'] }}</p>
-    </div>
-
-    <div class="card stat-card">
-        <h3>Tipo</h3>
-        <p class="stat-number compact">{{ jugador['tipo_miembro'] or 'Jugador' }}</p>
-    </div>
-
-    <div class="card stat-card">
-        <h3>Categoría</h3>
-        <p class="stat-number compact">{{ jugador['categoria'] or '-' }}</p>
-    </div>
-
     {% if puede_ver_finanzas %}
         <div class="card stat-card">
             <h3>Beca cuotas</h3>
@@ -79,7 +67,7 @@
 
         <div class="card stat-card">
             <h3>Deuda actual</h3>
-            <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">${{ deuda }}</p>
+            <p class="stat-number {% if deuda > 0 %}text-danger{% endif %}">{{ deuda | moneda }}</p>
         </div>
     {% endif %}
 
@@ -119,6 +107,10 @@
         </table>
     </div>
 </div>
+{% endif %}
+
+{% if puede_ver_finanzas %}
+{% include '_financial_notes.html' %}
 {% endif %}
 
 <div class="detail-grid page-section">
@@ -436,15 +428,17 @@
         <h3>Bitacora</h3>
     </div>
 
-    <div class="detail-grid">
+    {% set bitacora_tipos_generales = bitacora_tipos|rejectattr('clave', 'equalto', 'finanzas')|list %}
+{% set bitacora_general = bitacora|rejectattr('tipo', 'equalto', 'finanzas')|list %}
+<div class="detail-grid">
         <div class="card">
-            {% if bitacora_tipos %}
+            {% if bitacora_tipos_generales %}
                 <form method="post" action="{{ url_for('nueva_bitacora_jugador', jugador_id=jugador['id']) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                     <div class="field">
                         <label>Tipo</label>
                         <select name="tipo" required>
-                            {% for tipo in bitacora_tipos %}
+                            {% for tipo in bitacora_tipos_generales %}
                                 <option value="{{ tipo['clave'] }}">{{ tipo['nombre'] }}</option>
                             {% endfor %}
                         </select>
@@ -461,9 +455,9 @@
         </div>
 
         <div class="card">
-            {% if bitacora %}
+            {% if bitacora_general %}
                 <div class="timeline-list compact-list">
-                    {% for nota in bitacora[:8] %}
+                    {% for nota in bitacora_general[:8] %}
                         <div class="timeline-item">
                             <span class="badge badge-info">{{ bitacora_labels.get(nota['tipo'], nota['tipo']) }}</span>
                             <strong>{{ nota['creado_por'] or 'SIG' }}</strong>

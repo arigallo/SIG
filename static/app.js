@@ -12,7 +12,9 @@
         };
 
         toggle.addEventListener("click", () => {
-            setOpen(!document.body.classList.contains("admin-nav-open"));
+            const open = !document.body.classList.contains("admin-nav-open");
+            setOpen(open);
+            if (open) navigation.querySelector('input')?.focus();
         });
 
         navigation.querySelectorAll("a").forEach((link) => {
@@ -22,7 +24,12 @@
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {
                 setOpen(false);
+                if (window.innerWidth <= 1120 && navigation.contains(document.activeElement)) toggle.focus();
             }
+        });
+
+        document.addEventListener('click', event => {
+            if (window.innerWidth <= 1120 && !navigation.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
         });
 
         window.addEventListener("resize", () => {
@@ -41,6 +48,7 @@
         }
 
         const closeOthers = (activeGroup) => {
+            if (document.querySelector('.main-nav.nav-searching')) return;
             groups.forEach((group) => {
                 if (group !== activeGroup) {
                     group.removeAttribute("open");
@@ -49,7 +57,7 @@
         };
 
         groups.forEach((group) => {
-            group.removeAttribute("open");
+            if (!group.classList.contains('current')) group.removeAttribute("open");
         });
 
         groups.forEach((group) => {
@@ -67,7 +75,7 @@
         });
 
         document.addEventListener("click", (event) => {
-            if (!event.target.closest(".main-nav")) {
+            if (!event.target.closest(".main-nav") && window.innerWidth <= 1120) {
                 closeOthers(null);
             }
         });

@@ -32,7 +32,7 @@
             {% if puede('cuotas_gestionar') %}<a class="button secondary" href="{{ url_for('nuevo_gasto_compartido', calendario_evento_id=evento['id'], fuente_jugadores='presentes_evento') }}">Crear gasto del evento</a>{% endif %}
             {% if puede('comunicaciones_ver') %}
                 <form method="post" action="{{ url_for('enviar_recordatorio_evento_calendario', evento_id=evento['id']) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                     <button class="button secondary" type="submit">Enviar recordatorio</button>
                 </form>
             {% endif %}

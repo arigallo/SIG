@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Revisar operación{% endblock %}
+{% block content %}
+<section class="card form-card-medium"><h2>Revisar operación</h2>
+{% if motivo == 'procesando' %}<p>Esta operación ya se está procesando o su respuesta se interrumpió. Revisá el pago, movimiento o historial de envíos antes de iniciar otra operación.</p>
+{% elif motivo == 'cambio' %}<p>Este formulario ya se utilizó con otros datos. Abrí nuevamente la pantalla para registrar una operación nueva.</p>
+{% else %}<p>Este formulario quedó desactualizado. Volvé a abrir la pantalla antes de continuar.</p>{% endif %}
+<a class="button secondary" href="{{ url_for('index') }}">Volver a mi día</a></section>
+{% endblock %}

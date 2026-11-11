@@ -9,6 +9,7 @@ work/test-deps/
 
 # Local editor and tool state
 .cache/
+.local/
 .vscode/
 
 # Local data, generated files and backups

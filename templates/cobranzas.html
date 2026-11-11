@@ -3,19 +3,30 @@
 {% block title %}Cobranzas{% endblock %}
 
 {% block content %}
-<div class="section-header">
+<div class="section-header finance-workspace-header">
     <div>
-        <h2>Panel de cobranzas</h2>
-        <p class="page-intro">Embudo de cuotas emitidas, pagadas, pendientes, vencidas y comprobantes cargados.</p>
+        <h2>Pagos y cobros</h2>
+        <p class="page-intro">Revisar pagos recibidos, continuar gestiones y registrar movimientos.</p>
     </div>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('ver_excepciones_cobranza') }}">Resolver excepciones</a>
-        <a class="button secondary" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Comprobantes</a>
+        <a class="button" href="{{ url_for('listar_comprobantes_revision', estado='pendiente') }}">Comprobantes</a>
         <a class="button secondary" href="{{ url_for('ver_comunicaciones') }}">Contactar morosos</a>
-        <a class="button" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
+        <a class="button secondary" href="{{ url_for('exportar_morosos') }}">Exportar morosos</a>
     </div>
 </div>
 
+<nav class="finance-workflows" aria-label="Recorridos de Finanzas">
+    <a class="{{ 'active' if vista == 'revision' }}" href="{{ url_for('ver_panel_cobranzas', vista='revision', q=busqueda) }}"><strong>Revisar comprobantes</strong><span>{{ conteos.get('revision', 0) }} pendientes</span></a>
+    <a class="{{ 'active' if vista == 'cobros' }}" href="{{ url_for('ver_panel_cobranzas', vista='cobros', q=busqueda) }}"><strong>Seguir cobros</strong><span>{{ conteos.get('cobros', 0) }} saldos pendientes</span></a>
+    <a class="{{ 'active' if vista == 'seguimientos' }}" href="{{ url_for('ver_panel_cobranzas', vista='seguimientos', q=busqueda) }}"><strong>Acuerdos y seguimientos</strong><span>{{ conteos.get('seguimientos', 0) }} gestiones abiertas, con o sin deuda</span></a>
+    {% if puede('caja_ver') %}<a href="{{ url_for('ver_caja') }}"><strong>Registrar movimientos</strong><span>Ingresos, egresos y cierre de caja →</span></a>{% endif %}
+</nav>
+<section class="queue-section"><div class="section-header compact"><h3>{{ {'revision': 'Comprobantes por revisar', 'cobros': 'Gestiones de cobro', 'seguimientos': 'Acuerdos y seguimientos abiertos'}[vista] }}</h3></div>
+<form method="get" class="search-form"><input type="hidden" name="vista" value="{{ vista }}"><label class="sr-only" for="queue-search">Buscar en esta cola</label><input id="queue-search" name="q" type="search" value="{{ busqueda }}" maxlength="100" placeholder="Buscar persona, concepto o gestión"><button type="submit" class="button secondary">Buscar</button>{% if busqueda %}<a href="{{ url_for('ver_panel_cobranzas', vista=vista) }}">Limpiar búsqueda</a>{% endif %}</form>
+{% with items=cola, empty_message='No hay pendientes que coincidan con esta vista.' %}{% include '_finance_queue.html' %}{% endwith %}
+{% include '_pagination.html' %}</section>
+<details class="module-editor"><summary>Resumen y análisis de cobranzas</summary><div class="module-editor-content">
 <div class="dashboard-cards report-cards">
     <div class="card stat-card alert-card-info">
         <h3>Emitidas</h3>
@@ -90,4 +101,5 @@
         {% endfor %}
     </div>
 </div>
+</div></details>
 {% endblock %}

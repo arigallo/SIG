@@ -77,7 +77,7 @@
             </form>
 
             <form class="page-section compact-form whatsapp-reply-form" method="post" action="{{ url_for('responder_whatsapp_inbox') }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                 <input type="hidden" name="telefono" value="{{ telefono_actual }}">
                 <label for="mensaje">Responder por WhatsApp</label>
                 <div class="quick-replies">

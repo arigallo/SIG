@@ -946,6 +946,7 @@ class HotfixTests(unittest.TestCase):
                 with patch.object(app, "obtener_contador_whatsapp_inbox", return_value=0):
                     html = render_template(
                         "cobranzas.html",
+                        conteos={}, vista='revision', cola=[], busqueda='',
                         panel={
                             "resumen": {
                                 "emitidas": 10,
@@ -961,7 +962,7 @@ class HotfixTests(unittest.TestCase):
                         },
                     )
 
-        self.assertIn("Panel de cobranzas", html)
+        self.assertIn("Pagos y cobros", html)
         self.assertIn("Plantel Superior", html)
         self.assertIn("60%", html)
 
@@ -1484,10 +1485,10 @@ class HotfixTests(unittest.TestCase):
 
     def test_navigation_is_trimmed_for_each_role(self):
         scenarios = (
-            ("madrinas", ["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"], ("Ahijadxs", "Formulario Vení a jugar", "Comunicación"), ("Operación", "Finanzas", "Salud", "Admin", "Circulares URBA")),
-            ("tesorero", app.ROLE_PRESETS["tesorero"], ("Operación", "Finanzas", "Alertas financieras"), ("Salud", "Admin")),
-            ("medico", app.ROLE_PRESETS["medico"], ("Operación", "Salud", "Alertas de salud"), ("Finanzas", "Comunicación", "Admin")),
-            ("entrenador", app.ROLE_PRESETS["entrenador"], ("Operación", "Club", "Asistencia", "Calendario"), ("Finanzas", "Salud", "Comunicación", "Admin")),
+            ("madrinas", ["aspirantes_ver", "aspirantes_gestionar", "comunicaciones_ver"], ("Ahijadxs", "Formulario Vení a jugar", "Comunicación"), ("Revisión diaria", "Finanzas", "Salud", "Admin", "Circulares URBA")),
+            ("tesorero", app.ROLE_PRESETS["tesorero"], ("Revisión diaria", "Finanzas", "Alertas financieras"), ("Salud", "Admin")),
+            ("medico", app.ROLE_PRESETS["medico"], ("Revisión diaria", "Salud", "Alertas de salud"), ("Finanzas", "Comunicación", "Admin")),
+            ("entrenador", app.ROLE_PRESETS["entrenador"], ("Revisión diaria", "Club", "Asistencia", "Calendario"), ("Finanzas", "Salud", "Comunicación", "Admin")),
         )
         template = "{% extends 'base.html' %}{% block content %}<p>contenido</p>{% endblock %}"
         for role, permissions, expected, forbidden in scenarios:

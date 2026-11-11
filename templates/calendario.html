@@ -127,7 +127,7 @@
                     {% endif %}
                     {% if puede('comunicaciones_ver') and evento['origen'] == 'calendario' and evento['edit_url'] %}
                         <form method="post" action="{{ url_for('enviar_recordatorio_evento_calendario', evento_id=evento['id']) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                             <button class="button secondary" type="submit">Recordar</button>
                         </form>
                     {% endif %}

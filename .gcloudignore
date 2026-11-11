@@ -1,4 +1,7 @@
 .cache/
+.local/
+.codex-venv/
+.venv/
 .vscode/
 __pycache__/
 *.py[cod]

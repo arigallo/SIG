@@ -1,0 +1,29 @@
+{% macro note_entry(nota) %}
+<article class="financial-note">
+    <div class="note-meta"><strong>{{ nota['creado_por'] or 'SIG' }}</strong><span>{{ nota['creado_en']|fecha_hora }}</span><span class="badge {{ 'badge-success' if nota['resuelto_en'] else 'badge-warning' }}">{{ 'Resuelta' if nota['resuelto_en'] else 'Pendiente' }}</span></div>
+    {% if nota['nota']|length > 180 %}<details class="note-full"><summary>{{ nota['nota']|truncate(180) }}</summary><p class="note-text">{{ nota['nota'] }}</p></details>{% else %}<p class="note-text">{{ nota['nota'] }}</p>{% endif %}
+    {% if nota['seguimiento_fecha'] %}<p class="note-followup">Seguimiento: <strong>{{ nota['seguimiento_fecha'] }}</strong>{% if not nota['resuelto_en'] and nota['seguimiento_fecha']|string <= hoy_notas %} <span class="badge badge-warning">Revisar</span>{% endif %}</p>{% endif %}
+    {% if nota['resuelto_en'] %}<span class="muted-line">Resuelta por {{ nota['resuelto_por'] or 'SIG' }} · {{ nota['resuelto_en']|fecha_hora }}</span>
+    {% elif puede_gestionar_notas_finanzas %}<form method="post" action="{{ url_for('resolver_nota_finanzas', jugador_id=jugador['id'], nota_id=nota['id']) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}"><input type="hidden" name="destino_notas" value="{{ destino_notas|default('perfil') }}"><button class="button secondary" type="submit">Marcar como resuelta</button>
+    </form>{% endif %}
+</article>
+{% endmacro %}
+<section class="card page-section financial-notes" id="notas-finanzas">
+    <div class="section-header compact"><div><h3>Notas internas de finanzas</h3><span class="muted-line">Historial único de acuerdos y gestiones. Solo visible para el equipo autorizado.</span></div></div>
+    {% if puede_gestionar_notas_finanzas %}
+    <details class="module-editor"><summary>Registrar gestión o acuerdo</summary><div class="module-editor-content">
+        <form method="post" action="{{ url_for('nueva_bitacora_jugador', jugador_id=jugador['id']) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}"><input type="hidden" name="tipo" value="finanzas"><input type="hidden" name="destino_notas" value="{{ destino_notas|default('perfil') }}">
+            <div class="field"><label for="nota-financiera">Nota interna</label><textarea id="nota-financiera" name="nota" rows="3" maxlength="3000" required placeholder="Qué se acordó y cuál es el próximo paso"></textarea></div>
+            <div class="field"><label for="seguimiento-finanzas">Fecha de seguimiento (opcional)</label><input id="seguimiento-finanzas" type="date" name="seguimiento_fecha"></div>
+            <button class="button" type="submit">Guardar gestión</button>
+        </form>
+        <p class="muted-line">No se envía al jugador ni modifica la deuda o su vencimiento.</p>
+    </div></details>{% endif %}
+    {% set pendientes = notas_finanzas|rejectattr('resuelto_en')|list %}
+    {% if request.args.get('pago_registrado') == '1' and pendientes %}<p class="flash warning">El pago quedó registrado. Hay {{ pendientes|length }} gestión(es) abierta(s): revisá cuáles corresponde marcar como resueltas. Los acuerdos se conservan hasta que los cierres.</p>{% endif %}
+    {% set resueltas = notas_finanzas|selectattr('resuelto_en')|list %}
+    {% for nota in pendientes %}{{ note_entry(nota) }}{% else %}<p class="workspace-empty">No hay gestiones abiertas.</p>{% endfor %}
+    {% if resueltas %}<details class="module-editor"><summary>Historial resuelto · {{ resueltas|length }}</summary><div class="module-editor-content">{% for nota in resueltas %}{{ note_entry(nota) }}{% endfor %}</div></details>{% endif %}
+</section>

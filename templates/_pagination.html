@@ -1,0 +1,10 @@
+{% if paginador is defined %}
+<nav class="workspace-pagination" aria-label="Páginas del listado">
+    <span role="status">{{ paginador['offset'] + 1 if paginador['total'] else 0 }}–{{ [paginador['offset'] + paginador['por_pagina'], paginador['total']]|min }} de {{ paginador['total'] }} resultados</span>
+    <div class="actions">
+        {% if paginador['pagina'] > 1 %}<a class="button secondary" rel="prev" href="{{ url_for(paginador_endpoint, pagina=paginador['pagina'] - 1, **paginador_filtros) }}">Anterior</a>{% endif %}
+        <span>Página {{ paginador['pagina'] }} de {{ paginador['paginas'] }}</span>
+        {% if paginador['pagina'] < paginador['paginas'] %}<a class="button secondary" rel="next" href="{{ url_for(paginador_endpoint, pagina=paginador['pagina'] + 1, **paginador_filtros) }}">Siguiente</a>{% endif %}
+    </div>
+</nav>
+{% endif %}

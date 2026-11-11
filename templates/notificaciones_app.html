@@ -3,6 +3,7 @@
 {% block title %}Notificaciones app{% endblock %}
 
 {% block content %}
+<div class="module-workspace" data-module-tabs="sections">
 <div class="admin-page communication-page">
 <div class="section-header">
     <div>
@@ -95,7 +96,7 @@
 </div>
 
 <form method="post" class="card spaced-small toolbar-card">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <div class="form-grid">
         <div class="field">
             <label>T&iacute;tulo</label>
@@ -199,6 +200,7 @@
             </tbody>
         </table>
     </div>
+</div>
 </div>
 </div>
 {% endblock %}

@@ -49,6 +49,10 @@ WHATSAPP_APP_SECRET=<secreto de la app de Meta>
 ```
 
 ## Instalacion
+
+Para probar el sistema completo en Windows con PostgreSQL y guardado persistente
+independientes de producción, abrir `iniciar-local.cmd`. Ver [SIG local funcional](LOCAL.md)
+para usuarios, reinicio, archivos, mensajes de prueba y verificaciones.
 Abri una terminal dentro de esta carpeta y ejecuta:
 
 ```bash

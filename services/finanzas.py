@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isfinite
 import re
 
 from repositories.finanzas import (
@@ -12,7 +13,7 @@ def porcentaje_beca(valor):
         porcentaje = float(valor or 0)
     except (TypeError, ValueError):
         return None
-    if porcentaje < 0 or porcentaje > 100:
+    if not isfinite(porcentaje) or porcentaje < 0 or porcentaje > 100:
         return None
     return round(porcentaje, 2)
 

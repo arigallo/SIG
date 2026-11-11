@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{{ static_asset('styles.css') }}">
 </head>
 <body class="portal-body" data-endpoint="{{ request.endpoint or '' }}" data-username="" data-portal-token="{{ token }}">
+{% if sig_local_mode|default(false) %}<div class="flash warning" role="status"><strong>SIG LOCAL</strong> · Portal de pruebas. Los cambios se guardan solo en esta computadora.</div>{% endif %}
     <main class="container portal-page">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

@@ -30,7 +30,7 @@
     </div>
 </div>
 
-<form method="get" class="card search-form">
+<form method="get" class="module-filter-bar card search-form">
     <div>
         <label>Estado</label>
         <select name="estado">
@@ -62,7 +62,7 @@
             {% set compartido = cuota['tipo_comprobante']|default('cuota') == 'compartido' %}
             {% set archivo_url = url_for('descargar_comprobante_gasto_compartido', item_id=cuota['id']) if compartido else url_for('descargar_comprobante_cuota', cuota_id=cuota['id']) %}
             {% set revision_url = url_for('actualizar_item_gasto_compartido', item_id=cuota['id']) if compartido else url_for('revisar_comprobante_cuota', cuota_id=cuota['id']) %}
-            <tr>
+            <tr id="comprobante-{{ 'gasto' if compartido else 'cuota' }}-{{ cuota['id'] }}">
                 <td>
                     {{ cuota['apellido'] }}, {{ cuota['nombre'] }}
                     <span class="muted-line">
@@ -113,8 +113,8 @@
                 <td class="review-actions">
                     {% if cuota['comprobante_estado_resuelto'] in ['pendiente', 'rechazado'] %}
                         <form method="post" action="{{ revision_url }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
+                            <input type="hidden" name="next" value="{{ url_for('listar_comprobantes_revision', estado=estado, pagina=(paginador|default({'pagina': 1}))['pagina']) }}">
                             <input type="hidden" name="accion" value="{{ 'aprobar' if compartido else 'aceptar' }}">
                             {% if compartido %}<label>Fecha de pago<input type="date" name="fecha_pago" value="{{ now().strftime('%Y-%m-%d') }}" required></label>{% endif %}
                             <button class="button" type="submit">Aceptar</button>
@@ -122,8 +122,8 @@
                     {% endif %}
                     {% if cuota['comprobante_estado_resuelto'] == 'pendiente' %}
                         <form method="post" action="{{ revision_url }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
+                            <input type="hidden" name="next" value="{{ url_for('listar_comprobantes_revision', estado=estado, pagina=(paginador|default({'pagina': 1}))['pagina']) }}">
                             <input type="hidden" name="accion" value="rechazar">
                             <input type="text" name="observaciones" placeholder="Motivo">
                             <button class="button danger" type="submit">Rechazar</button>
@@ -142,4 +142,5 @@
         </tbody>
     </table>
 </div>
+{% include '_pagination.html' %}
 {% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Bandeja de pruebas locales{% endblock %}
+{% block content %}
+<section class="admin-hero"><div class="admin-hero-main">
+    <h2>Bandeja de pruebas locales</h2>
+    <p>Correos, WhatsApp y push simulados. Ningún mensaje se envió a un destinatario real.</p>
+</div></section>
+{% for item in items %}
+<article class="card page-section">
+    <h3>{{ item['canal'] }}{% if item.get('asunto') %} · {{ item['asunto'] }}{% endif %}</h3>
+    <p>{{ item['fecha'] }} · {{ item.get('destinatario', 'Prueba local') }}</p>
+    <pre style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ item.get('texto') or item.get('payload')|tojson(indent=2) }}</pre>
+    {% if item['canal'] == 'email' %}<a href="{{ url_for('local_email', identifier=item['id']) }}">Descargar correo con adjuntos (.eml)</a>{% endif %}
+</article>
+{% else %}<div class="card page-section"><p>Todavía no hay envíos de prueba. Podés probar los recordatorios desde el sistema.</p></div>{% endfor %}
+{% endblock %}

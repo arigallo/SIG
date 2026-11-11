@@ -12,7 +12,7 @@
 
 {% macro boton_descartar(item, label='Ignorar') %}
 <form method="post" action="{{ url_for('descartar_notificacion') }}">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <input type="hidden" name="tipo" value="{{ item['_notificacion_tipo'] }}">
     <input type="hidden" name="entidad_id" value="{{ item['_notificacion_id'] }}">
     <button class="button secondary" type="submit">{{ label }}</button>
@@ -34,7 +34,7 @@
         {% if lote_url %}
             {% if whatsapp_api_activa and tipo in ['cuota', 'ficha'] %}
             <form method="post" action="{% if tipo == 'cuota' %}{{ url_for('enviar_recordatorios_cuotas_whatsapp_lote') }}{% else %}{{ url_for('enviar_recordatorios_fichas_whatsapp_lote') }}{% endif %}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                 {% if tipo == 'cuota' and lote_label == 'vencidas' %}
                     <input type="hidden" name="modo" value="vencidas">
                 {% elif tipo == 'cuota' and lote_label == 'por_vencer' %}
@@ -44,7 +44,7 @@
             </form>
             {% endif %}
             <form method="post" action="{{ lote_url }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                 {% if tipo == 'cuota' and lote_label == 'vencidas' %}
                     <input type="hidden" name="modo" value="vencidas">
                 {% elif tipo == 'cuota' and lote_label == 'por_vencer' %}
@@ -86,24 +86,24 @@
                     <td data-label="Acción" class="actions">
                         {% if whatsapp_api_activa and tipo == 'cuota' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_cuota_whatsapp', cuota_id=fila['cuota_id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <button class="button" type="submit">WhatsApp API</button>
                             </form>
                         {% elif whatsapp_api_activa and tipo == 'ficha' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_ficha_whatsapp', jugador_id=fila['jugador_id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <button class="button" type="submit">WhatsApp API</button>
                             </form>
                         {% endif %}
                         <a class="button secondary" href="{{ item['whatsapp_url'] }}" target="_blank" rel="noopener">Abrir chat</a>
                         {% if tipo == 'cuota' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_cuota', cuota_id=fila['cuota_id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <button class="button secondary" type="submit">Email</button>
                             </form>
                         {% elif tipo == 'ficha' %}
                             <form method="post" action="{{ url_for('enviar_recordatorio_ficha', jugador_id=fila['jugador_id']) }}">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
                                 <button class="button secondary" type="submit">Email</button>
                             </form>
                         {% endif %}
@@ -163,7 +163,7 @@
     </div>
     {% if prioridad_total %}
     <form class="notification-bulk-form" method="post" action="{{ url_for('descartar_notificaciones_lote') }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
         {% for cambio in cambios_portal[5:] %}
             <input type="hidden" name="all_items" value="{{ cambio['_notificacion_tipo'] }}|{{ cambio['_notificacion_id'] }}">
         {% endfor %}

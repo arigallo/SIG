@@ -25,7 +25,7 @@
             </div>
 
             <div>
-                <p class="entry-kicker">Ruda Macho Rugby Club</p>
+                <p class="entry-kicker">{% if sig_local_mode|default(false) %}SIG LOCAL · Entorno de pruebas{% else %}Ruda Macho Rugby Club{% endif %}</p>
                 <h1>Sistema Integral de Gesti&oacute;n</h1>
                 <p>Eleg&iacute; el acceso que necesit&aacute;s para operar el SIG, entrar al portal del jugador o enviar una sugerencia o recomendaci&oacute;n.</p>
             </div>

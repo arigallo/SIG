@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<form method="get" class="card form-card form-card-wide spaced-small">
+<form method="get" class="module-filter-bar card form-card form-card-wide spaced-small">
     <div class="form-grid">
         <div>
             <label>Mes base</label>
@@ -51,7 +51,7 @@
 </div>
 
 {% if puede('presupuesto_gestionar', 'caja_gestionar') %}
-<div class="page-section">
+<details class="module-editor" id="agregar-concepto"><summary>Agregar un concepto al presupuesto</summary><div class="module-editor-content"><div class="page-section">
     <div class="section-header">
         <h3>Agregar concepto</h3>
     </div>
@@ -98,7 +98,7 @@
             <button class="button" type="submit">Agregar al presupuesto</button>
         </div>
     </form>
-</div>
+</div></div></details>
 {% endif %}
 
 <div class="page-section">

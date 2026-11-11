@@ -21,7 +21,7 @@
 </form>
 
 <form method="post" class="card spaced">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="_operation_token" value="{{ operation_token() }}">
     <input type="hidden" name="periodo" value="{{ periodo }}">
     <div class="section-header compact">
         <div>
