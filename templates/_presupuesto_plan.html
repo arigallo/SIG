@@ -1,0 +1,84 @@
+{% if vista == 'guardados' %}
+{% include '_presupuesto_guardados.html' %}
+{% else %}
+{% set p = simulacion.parametros %}
+{% set e = simulacion.base_esperada %}
+{% set meses_nombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+{% macro campo(clave, titulo, ayuda='', maximo=1000000000000, negativo=false) %}
+<div><label for="{{ clave }}">{{ titulo }}</label><input id="{{ clave }}" name="{{ clave }}" type="number" min="{{ -1000000000000 if negativo else 0 }}" max="{{ maximo }}" step="0.01" value="{{ p[clave]|round(2) }}">{% if ayuda %}<small>{{ ayuda }}</small>{% endif %}</div>
+{% endmacro %}
+{% macro mes_campo(clave, titulo) %}
+<div><label for="{{ clave }}">{{ titulo }}</label><select id="{{ clave }}" name="{{ clave }}">{% for nombre in meses_nombres %}<option value="{{ loop.index }}" {% if p[clave] == loop.index %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+{% endmacro %}
+<section class="budget-panel" id="simulador">
+    <div class="section-header"><div><span class="budget-eyebrow">PREVISIÓN · {{ simulacion.anio }}</span><h3>¿Alcanza para lo que queremos hacer?</h3><p>Esta es la estimación del año con los datos cargados. Podés cambiarlos más abajo.</p></div><a href="#datos-plan" class="button secondary">Cambiar los datos</a></div>
+    <p data-budget-dirty hidden>Cambiaste los datos. Volvé a calcular para actualizar este resultado.</p>
+    {% if plan %}<div class="budget-note"><strong>Plan guardado: {{ plan.nombre }}</strong><p>Resultados del {{ simulacion.fecha_corte }}, guardados por {{ plan.creado_por }}. <a href="{{ url_for('ver_presupuesto', vista='planificar', **simulacion.formulario) }}#simulador">Recalcular con los datos actuales</a>.</p></div>{% endif %}
+    <div class="budget-answer {% if simulacion.meses_sin_gastos %}budget-answer-review{% elif not e.viable %}budget-answer-alert{% endif %}">
+        {% if simulacion.meses_sin_gastos %}<h4>Primero hay que completar los gastos</h4><p>Hay {{ simulacion.meses_sin_gastos|length }} meses sin gastos recurrentes cargados. Lo que aparece como disponible puede ser mayor que lo real.</p><a href="{{ navegacion.gastos }}" class="button secondary">Revisar ingresos y gastos</a>
+        {% elif e.viable %}<h4>Con estos datos, el plan alcanza</h4><p>Se cubren los gastos y se conserva el mínimo de {{ p.reserva|moneda }} que elegiste mantener.</p>
+        {% else %}<h4>Con estos datos, hay que ajustar el plan</h4><p>En {{ meses_nombres[e.primer_deficit[-2:]|int - 1] }} el dinero quedaría por debajo del mínimo de {{ p.reserva|moneda }} que elegiste conservar.</p>{% endif %}
+    </div>
+    <div class="budget-metrics">
+        <article class="card"><span>Entraría durante {{ simulacion.anio }}</span><strong>{{ e.ingresos_total|moneda }}</strong><small>Lo que se estima cobrar, considerando atrasos.</small></article>
+        <article class="card"><span>Saldría durante {{ simulacion.anio }}</span><strong>{{ e.gastos_total|moneda }}</strong><small>Gastos previstos y sueldo usado en esta prueba.</small></article>
+        <article class="card"><span>Quedaría al terminar el año</span><strong class="{% if e.saldo_final < p.reserva %}text-danger{% endif %}">{{ e.saldo_final|moneda }}</strong><small>Incluye {{ p.saldo|moneda }} disponibles al empezar.</small></article>
+    </div>
+    {% if p.objetivo > p.sueldo %}<div class="budget-note"><h4>El aumento de sueldo que estás probando</h4><p>De <strong>{{ p.sueldo|moneda }}</strong> a <strong>{{ p.objetivo|moneda }}</strong> por mes, desde {{ meses_nombres[p.mes_sueldo - 1]|lower }}.</p>
+        {% if simulacion.meses_sin_gastos %}<p>Completá los gastos antes de usar el resultado para decidir el aumento.</p>
+        {% elif e.viable %}<p>Con la cuota y los gastos de esta prueba, el aumento se puede cubrir durante el año.</p>
+        {% elif p.fuente != 'presupuesto' and e.cuota_calculable %}<p>Para cubrirlo y conservar el mínimo, el aumento total de cuota tendría que ser de al menos <strong>{{ '%.2f'|format(p.aumento_cuota + e.aumento_cuota_adicional) }}%</strong> desde {{ meses_nombres[p.mes_cuota - 1]|lower }}. Esta prueba usa {{ p.aumento_cuota }}%.</p>
+        {% else %}<p>El aumento de cuota desde el mes elegido no resuelve los meses con faltantes. Probá cambiar la fecha o revisar los gastos.</p>{% endif %}
+    </div>{% endif %}
+    <details class="budget-extras"><summary>Ver de dónde sale este resultado</summary><p>Dinero al empezar {{ p.saldo|moneda }} + cobros del año {{ e.ingresos_total|moneda }} − gastos del año {{ e.gastos_total|moneda }} = dinero al cierre {{ e.saldo_final|moneda }}.</p><p>El mes con menos dinero quedaría en {{ e.saldo_minimo|moneda }}. El mínimo que elegiste conservar es {{ p.reserva|moneda }}.</p><p>Se usa {% if p.fuente == 'socios' %}el padrón de socios, sus becas y descuentos{% elif p.fuente == 'cuotas' %}el total mensual de cuotas ingresado manualmente{% else %}los ingresos cargados en el presupuesto{% endif %}. El sueldo actual {% if p.sueldo_incluido %}se considera incluido en los gastos cargados{% else %}se suma a los gastos cargados{% endif %}.</p></details>
+</section>
+
+<form method="get" action="{{ url_for('ver_presupuesto') }}#simulador" class="budget-plan-form" id="datos-plan">
+    <input type="hidden" name="vista" value="planificar">
+    <section class="budget-panel">
+        <span class="budget-eyebrow">PASO 1</span><h3>¿Cuánto esperamos cobrar?</h3><p>Usá los datos del SIG como punto de partida y revisá el valor de la cuota.</p>
+        <div class="form-grid">
+            <div><label for="anio">Año que querés planificar</label><input id="anio" name="anio" type="number" min="2020" max="2100" value="{{ simulacion.anio }}" required></div>
+            <div><label for="fuente">Calcular los ingresos usando</label><select id="fuente" name="fuente"><option value="socios" {% if p.fuente == 'socios' %}selected{% endif %}>La cantidad de socios y el valor de la cuota</option><option value="cuotas" {% if p.fuente == 'cuotas' %}selected{% endif %}>Un total mensual de cuotas que yo indique</option><option value="presupuesto" {% if p.fuente == 'presupuesto' %}selected{% endif %}>Los ingresos que cargué en el presupuesto</option></select></div>
+            <div data-budget-source="socios">{{ campo('cuota_unitaria', 'Cuota mensual por socio ($)', 'Antes de becas y descuentos. El valor sugerido es aproximado: confirmalo.') }}<small>Referencia para enero: {{ simulacion.configuracion[0].socios }} socios; {{ '%.1f'|format(simulacion.configuracion[0].descuento) }}% de descuento equivalente por becas y tipo de miembro.</small></div>
+            <div data-budget-source="cuotas">{{ campo('cuotas', 'Total de cuotas que se emitirían por mes ($)', 'Ya descontando las becas. Es el total a cobrar, antes de contemplar atrasos.') }}</div>
+            <div data-budget-source="socios cuotas">{{ campo('cobranza', 'De cada $100 de cuotas, ¿cuánto se cobraría?', 'Por ejemplo: 85 significa que se cobran $85 de cada $100.', 100) }}</div>
+            <div data-budget-source="socios cuotas">{{ campo('otros', 'Otros ingresos por mes ($)', 'Sponsors, actividades u otros ingresos. Sin incluir las cuotas.') }}</div>
+        </div>
+        <details class="budget-extras" data-budget-source="socios cuotas" {% if p.aumento_cuota %}open{% endif %}><summary>Quiero probar un aumento de la cuota{% if p.aumento_cuota %} · {{ p.aumento_cuota }}%{% endif %}</summary><div class="form-grid">{{ campo('aumento_cuota', 'Aumento sobre la cuota actual (%)', '0 mantiene el valor actual.', 1000) }}{{ mes_campo('mes_cuota', 'Empezar a cobrarlo en') }}</div></details>
+        {% if simulacion.referencia.meses_con_datos < 6 %}<p class="budget-help">El historial tiene {{ simulacion.referencia.meses_con_datos }} de seis meses con cuotas. Revisá los valores sugeridos antes de calcular.</p>{% endif %}
+    </section>
+    <section class="budget-panel">
+        <span class="budget-eyebrow">PASO 2</span><h3>¿Cuánto tenemos y cuánto queremos conservar?</h3><div class="form-grid">{{ campo('saldo', 'Dinero disponible al empezar enero ($)', 'El saldo de caja de hoy es una referencia; acá va lo que esperás tener al comenzar el año.', negativo=true) }}{{ campo('reserva', 'Dinero que queremos mantener como mínimo ($)', 'Por ejemplo, un fondo para emergencias. Se controla al cierre de cada mes.') }}</div>
+        <p>Los gastos del club se toman de <a href="{{ navegacion.gastos }}">Ingresos y gastos</a>. Ahí cargás alquiler, servicios, sueldos y otros compromisos.</p>
+        <details class="budget-extras" {% if p.aumento_gastos %}open{% endif %}><summary>Prever un aumento general de los gastos{% if p.aumento_gastos %} · {{ p.aumento_gastos }}%{% endif %}</summary><p>Se aplica a todos los gastos del presupuesto, incluidos los sueldos cargados allí.</p><div class="form-grid">{{ campo('aumento_gastos', 'Aumento de los gastos (%)', '', 1000) }}{{ mes_campo('mes_gastos', 'Aplicarlo desde') }}</div></details>
+    </section>
+    <section class="budget-panel">
+        <span class="budget-eyebrow">PASO 3</span><h3>¿Querés probar un aumento de sueldo?</h3><p>Para ver cómo seguimos sin aumentarlo, dejá el sueldo propuesto igual al actual.</p>
+        <div class="form-grid">{{ campo('sueldo', 'Sueldo mensual actual ($)') }}{{ campo('objetivo', 'Sueldo mensual que querés probar ($)') }}{{ mes_campo('mes_sueldo', 'Pagar el nuevo sueldo desde') }}
+        <div><label for="sueldo_incluido">¿El sueldo actual ya está en los gastos del club?</label><select id="sueldo_incluido" name="sueldo_incluido"><option value="si" {% if p.sueldo_incluido %}selected{% endif %}>Sí, ya lo cargué para todo el año</option><option value="no" {% if not p.sueldo_incluido %}selected{% endif %}>No: sumarlo en esta prueba</option></select><small>Esto evita contar el mismo sueldo dos veces.</small></div></div>
+        <details class="budget-extras" {% if p.cargas or p.aguinaldo %}open{% endif %}><summary>Agregar costos del sueldo y aguinaldo</summary><div class="form-grid">{{ campo('cargas', 'Otros costos sobre el sueldo (%)', 'No incluyas aguinaldo acá si lo agregás por separado.', 1000) }}<div><label for="aguinaldo">Aguinaldo</label><select id="aguinaldo" name="aguinaldo"><option value="no" {% if not p.aguinaldo %}selected{% endif %}>No agregar: ya está previsto o no aplica</option><option value="si" {% if p.aguinaldo %}selected{% endif %}>Sumar medio sueldo en junio y diciembre</option></select></div></div></details>
+    </section>
+    <details class="budget-panel budget-advanced" {% if simulacion.ajustes or p.recuperacion %}open{% endif %}><summary>Ajustes detallados · atrasos, recuperación de deuda y cambios por mes{% if simulacion.ajustes %} ({{ simulacion.ajustes|length }} ajustes activos){% endif %}</summary>
+        <p>No hace falta completar esto para una primera prueba. Lo ya cargado se conserva.</p>
+        <div data-budget-source="socios cuotas">{{ campo('demora', 'De lo que se cobra, ¿qué porcentaje entra un mes después?', 'El SIG sugiere un valor según el historial. Se aproxima el atraso a un mes.', 100) }}
+        <h4>Recuperar cuotas que hoy están vencidas</h4><p>Deuda de referencia: {{ simulacion.referencia.deuda_vencida|moneda }}. Solo se suma la parte que esperás recuperar; 0 no cuenta esa deuda como dinero disponible.</p><div class="form-grid">{{ campo('recuperacion', 'Porcentaje de deuda que esperamos recuperar', '', 100) }}{{ mes_campo('mes_recuperacion', 'Empezar a recuperarla en') }}<div><label for="plazo_recuperacion">Repartir el cobro en esta cantidad de meses</label><input id="plazo_recuperacion" name="plazo_recuperacion" type="number" min="1" max="12" value="{{ p.plazo_recuperacion }}"></div></div></div>
+        {% include '_presupuesto_mensual.html' %}
+    </details>
+    <div class="budget-submit"><button class="button" type="submit">Ver cómo quedaría el año</button><small>Esta prueba no cambia las cuotas, los sueldos ni la caja.</small><p data-budget-dirty hidden>Hay cambios sin calcular. Presioná el botón para actualizar el resultado.</p></div>
+</form>
+
+<section class="budget-panel">
+    <h3>¿Qué pasa si se cobra menos de lo esperado?</h3><p>El cálculo principal usa el escenario esperado. Esta comparación muestra cómo cambia si la cobranza mejora o empeora.</p>
+    <div class="table-wrapper"><table><thead><tr><th>Situación</th><th>Qué cambia</th><th>Dinero al cierre</th><th>¿Conserva el mínimo?</th></tr></thead><tbody>{% for escenario in simulacion.escenarios %}<tr><th>{{ escenario.nombre }}</th><td>{{ 'Cobranza 15 puntos menor; se recupera la mitad de la deuda prevista' if loop.index == 1 else 'Los valores que cargaste' if loop.index == 2 else 'Cobranza 10 puntos mayor (hasta 100%)' }}</td><td>{{ escenario.saldo_final|moneda }}</td><td>{{ 'Sí' if escenario.viable else 'No, desde ' ~ meses_nombres[escenario.primer_deficit[-2:]|int - 1]|lower }}</td></tr>{% endfor %}</tbody></table></div>
+    {% if p.fuente == 'presupuesto' %}<p>Al usar solo ingresos del presupuesto, los cambios de cobranza no se aplican y los escenarios dan el mismo resultado.</p>{% endif %}
+    <details class="budget-extras"><summary>Ver gráfico y detalle de cada mes</summary>{% include '_presupuesto_detalles.html' %}</details>
+    <details class="budget-extras"><summary>Ver el margen máximo estimado para un sueldo</summary>{% if simulacion.meses_sin_gastos %}<p>Completá los gastos recurrentes antes de usar este margen para decidir.</p>{% else %}<p>En el escenario esperado, el aumento mensual máximo desde {{ meses_nombres[p.mes_sueldo - 1]|lower }} sería {{ e.aumento_maximo|moneda }}. El sueldo resultante sería {{ e.sueldo_maximo|moneda }}.</p>{% if e.deficit_base %}<p class="text-danger">El plan sin aumento ya incumple el mínimo que querés conservar; primero revisá ese faltante.</p>{% endif %}{% endif %}<p>Es una estimación para este año y puede consumir dinero disponible al inicio.</p></details>
+</section>
+{% if puede('presupuesto_gestionar', 'caja_gestionar') %}
+<section class="budget-panel"><h3>¿Querés guardar esta alternativa?</h3><p>Guardá el último cálculo con un nombre para volver a verlo o compararlo con otro.</p><form method="post" action="{{ url_for('guardar_simulacion_presupuesto') }}" data-budget-save>
+{% for clave, valor in simulacion.formulario.items() %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endfor %}<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><div class="budget-inline-form"><label for="nombre_plan">Nombre del plan</label><input id="nombre_plan" name="nombre" maxlength="120" placeholder="Cuota +15% y aumento desde marzo" required><button class="button secondary" type="submit">Guardar este plan</button></div><small>Se usan los parámetros del último cálculo y las referencias actuales. Si cambiaste algo, volvé a calcular antes de guardar.</small></form></section>
+{% endif %}
+<details class="budget-panel"><summary>Cómo se hace la estimación</summary><p>Se suman los cobros previstos y se restan los gastos mes a mes. El dinero que querés mantener se controla al cierre de cada mes. Las cuotas de diciembre que entrarían en enero del año siguiente no se suman al saldo de diciembre.</p><p>La recuperación de deuda se reparte en el plazo que elegiste, sin adelantar los cobros que quedan para el año siguiente. No se agrega automáticamente lo que se cobraría del diciembre anterior: revisá el saldo inicial para contemplarlo sin duplicar importes.</p><p>El aguinaldo es una previsión de caja de medio sueldo en junio y diciembre. Las becas y descuentos usan el padrón actual y su vigencia; los cambios futuros de socios deben ajustarse manualmente.</p></details>
+{% if plan and simulacion.conceptos %}<details class="budget-panel"><summary>Gastos e ingresos usados en el plan guardado</summary><div class="table-wrapper"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Monto por mes</th><th>Desde / hasta</th></tr></thead><tbody>{% for i in simulacion.conceptos %}<tr><td>{{ i.concepto }}</td><td>{{ i.tipo }}</td><td>{{ i.monto|moneda }}</td><td>{{ i.mes_inicio or 'Sin inicio' }} / {{ i.mes_fin or 'Sin fin' }}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
+{% endif %}

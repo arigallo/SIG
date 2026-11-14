@@ -1,0 +1,16 @@
+    <div class="card spaced-small">
+        <h4>Saldo proyectado por mes</h4>
+        <p><span style="color:#b45309">● Conservador</span> · <span style="color:#2563eb">● Esperado</span> · <span style="color:#16803c">● Optimista</span> · línea punteada: reserva</p>
+        <svg viewBox="0 0 750 220" role="img" aria-label="Evolución del saldo acumulado en los tres escenarios" style="width:100%;height:auto;max-height:330px">
+            <line x1="30" x2="720" y1="{{ simulacion.grafico.cero_y }}" y2="{{ simulacion.grafico.cero_y }}" stroke="currentColor" opacity="0.2" />
+            <line x1="30" x2="720" y1="{{ simulacion.grafico.reserva_y }}" y2="{{ simulacion.grafico.reserva_y }}" stroke="currentColor" stroke-dasharray="6 4" opacity="0.5" />
+            {% for e in simulacion.escenarios %}<polyline points="{{ e.puntos }}" fill="none" stroke="{{ ['#b45309', '#2563eb', '#16803c'][loop.index0] }}" stroke-width="3"><title>{{ e.nombre }} · saldo mínimo {{ e.saldo_minimo|moneda }} · diciembre {{ e.saldo_final|moneda }}</title></polyline>{% endfor %}
+            {% for c in simulacion.configuracion %}<text x="{{ 45 + loop.index0 * 60 }}" y="207" font-size="12" text-anchor="middle" fill="currentColor">{{ c.mes[-2:] }}</text>{% endfor %}
+        </svg>
+        <p>El margen se calcula conservando la reserva todos los meses y puede consumir el saldo inicial. Es una estimación anual, no una garantía de sostenibilidad para años posteriores.</p>
+    </div>
+    {% for e in simulacion.escenarios %}
+    <details class="module-editor"><summary>Flujo mensual · {{ e.nombre }}</summary><div class="module-editor-content table-wrapper"><table><thead><tr><th>Mes</th><th>Emisión</th><th>Cobro de cuotas</th><th>Deuda recuperada</th><th>Ingresos totales</th><th>Gastos base</th><th>Costo del aumento</th><th>Resultado</th><th>Saldo</th></tr></thead><tbody>
+    {% for r in e.filas %}<tr><th>{{ r.mes }}</th><td>{{ r.emision|moneda if p.fuente != 'presupuesto' else '—' }}</td><td>{{ r.cobro|moneda }}</td><td>{{ r.recuperado|moneda }}</td><td>{{ r.ingresos|moneda }}</td><td>{{ r.gastos|moneda }}</td><td>{{ r.adicional|moneda }}</td><td>{{ r.resultado|moneda }}</td><td class="{% if r.saldo < p.reserva %}text-danger{% endif %}">{{ r.saldo|moneda }}</td></tr>{% endfor %}
+    </tbody></table><p>Cobro de cuotas de diciembre trasladado al año siguiente: {{ e.cuotas_por_cobrar_diciembre|moneda }}. Recuperación de deuda programada para después de diciembre: {{ e.deuda_a_recuperar_despues|moneda }}.</p></div></details>
+    {% endfor %}

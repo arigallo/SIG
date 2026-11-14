@@ -78,6 +78,57 @@ hacia el servicio que ejecute esta versión. Este cambio de código no modifica
 DNS ni despliega el servicio. Los botones usan la postulación y el portal
 existentes; el acceso administrativo apunta al subdominio SIG.
 
+## Presupuesto y previsiones
+
+El módulo se recorre en cuatro pantallas: **Cómo estamos** muestra caja, cuotas
+y deudas; **Ingresos y gastos** organiza compromisos y conceptos; **Planificar
+el año** permite probar cambios; **Planes guardados** reúne versiones y
+comparaciones. La planificación muestra primero el resultado esperado y un
+recorrido de tres pasos: ingresos, dinero inicial y mínimo a conservar, y sueldo.
+Los atrasos, recuperación de deuda, ajustes mensuales y escenarios detallados
+quedan en secciones desplegables. Al editar un dato se avisa que el resultado
+debe recalcularse y se bloquea el guardado del cálculo anterior.
+
+`Finanzas > Presupuesto` muestra la cobranza por período de los últimos seis
+meses cerrados, los jugadores con cuotas pendientes y el saldo vencido a hoy.
+Las cuotas anuladas e incobrables se excluyen de estos indicadores.
+
+El plan financiero permite elegir el año, prever ingresos por padrón (socios
+activos que pagan cuota, becas vigentes y descuentos por tipo de miembro),
+por emisión manual o por conceptos de ingreso del presupuesto. La cuota
+individual inicial es una aproximación histórica que debe confirmarse. Cada
+mes permite ajustar socios, descuento equivalente, cuota o emisión, cobranza,
+otros ingresos y gastos extraordinarios. Una celda vacía sigue la referencia;
+una celda completada conserva su propio valor al cambiar los parámetros generales.
+
+La cobranza distingue porcentaje recuperable y demora: una parte ingresa al mes
+siguiente. El histórico de demora mide pagos posteriores al período y se aproxima
+a un mes para la proyección; no predice la duración de cada atraso. Los cobros de
+diciembre diferidos no integran el saldo anual. La deuda vencida existente tiene
+un parámetro separado de recuperación, inicialmente cero, repartido en el plazo
+elegido; lo programado después de diciembre queda fuera del flujo del año.
+
+Los gastos respetan la vigencia de sus conceptos y pueden ajustarse desde un mes.
+El simulador de sueldos admite mes de aumento, costos adicionales y una previsión
+opcional de medio sueldo en junio y diciembre. Confirmar si el sueldo actual ya
+está presupuestado y evitar duplicar aguinaldo en conceptos o cargas. El dinero
+disponible al iniciar enero se ingresa manualmente; el saldo actual de caja se
+muestra por separado. El margen puede consumir el saldo inicial, y mide sólo la
+viabilidad del año elegido al cierre de cada mes.
+
+Se comparan escenarios conservador (cobranza -15 puntos, mitad de la recuperación
+de deuda), esperado y optimista (cobranza +10 puntos, hasta 100%). Cada uno muestra
+saldo mínimo, primer faltante de reserva, margen salarial, cuota adicional
+necesaria y flujo mensual. En modo ingresos del presupuesto no se aplican los
+parámetros de cuotas, cobranza, otros ingresos ni recuperación de deuda.
+
+Quienes gestionan presupuesto o caja pueden guardar versiones con nombre, autor,
+fecha, parámetros, conceptos y resultados en `presupuesto_simulaciones`. Se pueden
+abrir sin recalcular o comparar hasta tres versiones; recalcular usa los datos
+actuales. La lista muestra las últimas 100 versiones. El guardado se realiza por
+POST con CSRF y auditoría y no modifica cuotas, sueldos ni caja. Las nuevas tablas
+se crean con el `init_db()` habitual al iniciar el entorno.
+
 ## Automatizaciones del SIG
 
 Desde `Admin > Sistema` se pueden habilitar:

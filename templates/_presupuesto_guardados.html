@@ -1,0 +1,15 @@
+<div class="page-section" id="versiones-plan">
+    <h3>Planes guardados</h3>
+    <p>Cada versión conserva sus supuestos, conceptos y resultados. Abrila para revisarla o recalculala con datos actuales. Elegí hasta tres versiones para comparar; se muestran las últimas 100.</p>
+    <form method="get" action="{{ url_for('ver_presupuesto') }}#versiones-plan">
+        <input type="hidden" name="vista" value="guardados">
+        <div class="table-wrapper"><table><thead><tr><th>Comparar</th><th>Nombre</th><th>Año</th><th>Autor</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>
+        {% for g in guardadas %}<tr><td><input type="checkbox" name="comparar" value="{{ g.id }}" aria-label="Comparar {{ g.nombre }}" {% if g.id|string in request.args.getlist('comparar') %}checked{% endif %}></td><td>{{ g.nombre }}</td><td>{{ g.anio }}</td><td>{{ g.creado_por }}</td><td>{{ g.creado_en }}</td><td><a href="{{ url_for('ver_presupuesto', plan_id=g.id) }}#simulador">Abrir versión</a></td></tr>{% else %}<tr><td colspan="6" class="empty">Todavía no hay simulaciones guardadas.</td></tr>{% endfor %}
+        </tbody></table></div>
+        <p><a class="button secondary" href="{{ url_for('ver_presupuesto', vista='planificar') }}">Crear un nuevo plan</a></p>
+        {% if guardadas %}<button class="button secondary" type="submit">Comparar versiones seleccionadas (máximo 3)</button>{% endif %}
+    </form>
+    {% if comparaciones %}<div class="table-wrapper spaced-small"><table><thead><tr><th>Versión</th><th>Escenario</th><th>Año</th><th>Cuota / desde mes</th><th>Sueldo objetivo / desde mes</th><th>Saldo mínimo</th><th>Saldo diciembre</th><th>Primer faltante de reserva</th></tr></thead><tbody>
+    {% for g in comparaciones %}{% for e in g.contenido.escenarios %}<tr><th>{{ g.nombre }}</th><td>{{ e.nombre }}</td><td>{{ g.anio }}</td><td>{{ g.contenido.parametros.aumento_cuota }}% / {{ g.contenido.parametros.mes_cuota }}</td><td>{{ g.contenido.parametros.objetivo|moneda }} / {{ g.contenido.parametros.mes_sueldo }}</td><td>{{ e.saldo_minimo|moneda }}</td><td>{{ e.saldo_final|moneda }}</td><td>{{ e.primer_deficit or 'Conserva reserva' }}</td></tr>{% endfor %}{% endfor %}
+    </tbody></table></div>{% endif %}
+</div>

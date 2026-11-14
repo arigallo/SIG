@@ -4,21 +4,73 @@
 
 {% block content %}
 <div class="section-header">
-    <h2>Presupuesto mensual</h2>
+    <h2>Presupuesto</h2>
     <div class="actions">
         <a class="button secondary" href="{{ url_for('ver_caja', mes=mes) }}">Ver caja</a>
         <a class="button secondary" href="{{ url_for('ver_reportes', desde=mes, hasta=mes) }}">Reportes</a>
     </div>
 </div>
 
+<link rel="stylesheet" href="{{ static_asset('presupuesto.css') }}">
+<p class="budget-intro">Mirá cómo estamos hoy, organizá los gastos y probá los cambios para el año que viene.</p>
+<nav class="budget-nav" aria-label="Secciones de presupuesto">
+{% for clave, titulo, ayuda in [('resumen', 'Cómo estamos', 'Caja, cuotas y deudas'), ('gastos', 'Ingresos y gastos', 'Lo que el club tiene previsto'), ('planificar', 'Planificar el año', 'Probar cuotas y sueldos'), ('guardados', 'Planes guardados', 'Revisar y comparar alternativas')] %}
+<a href="{{ navegacion[clave] }}" {% if vista == clave %}aria-current="page"{% endif %}><strong>{{ titulo }}</strong><span>{{ ayuda }}</span></a>
+{% endfor %}
+</nav>
+{% if vista == 'resumen' %}
+{% set r = presupuesto.resumen %}
+<section class="budget-panel">
+    <div class="section-header"><div><h3>Entradas y salidas de {{ mes }}</h3><p>Dinero registrado en caja durante el mes. La deuda pendiente se muestra por separado.</p></div></div>
+    <form method="get" class="budget-inline-form"><input type="hidden" name="vista" value="resumen"><label for="mes-resumen">Mes a consultar</label><input id="mes-resumen" type="month" name="mes" value="{{ mes }}"><button class="button secondary" type="submit">Ver mes</button></form>
+    <div class="budget-metrics">
+        <article class="card"><span>Entró en el mes</span><strong class="status-paid">{{ r.ingresos_reales|moneda }}</strong></article>
+        <article class="card"><span>Salió en el mes</span><strong>{{ r.egresos_reales|moneda }}</strong></article>
+        <article class="card"><span>Diferencia del mes</span><strong class="{% if r.resultado_real < 0 %}text-danger{% else %}status-paid{% endif %}">{{ r.resultado_real|moneda }}</strong><small>Entradas menos salidas; no es el saldo total de caja.</small></article>
+    </div>
+    <a class="button secondary" href="{{ navegacion.planificar }}">Quiero ver si alcanza para el año que viene →</a>
+</section>
+<div class="page-section">
+    <h3>Cobranza y deuda al {{ fecha_corte }}</h3>
+    <p>Datos actuales, independientes del mes base. Saldo de cuotas: excluye anuladas e incobrables; no incluye gastos compartidos.</p>
+    <div class="dashboard-cards report-cards">
+        <div class="card stat-card"><h3>Cuánto se cobró de las cuotas</h3><p class="stat-number">{{ '%.1f'|format(indicadores.tasa) }}%</p><p>{{ indicadores.cobrado|moneda }} de {{ indicadores.emitido|moneda }}</p></div>
+        <div class="card stat-card"><h3>Cuotas que faltan cobrar</h3><p class="stat-number">{{ indicadores.deuda|moneda }}</p><p>{{ indicadores.deudores|length }} jugadores con saldo</p></div>
+        <div class="card stat-card"><h3>Deuda que ya venció</h3><p class="stat-number text-danger">{{ indicadores.vencido|moneda }}</p><p>Vencimiento anterior a hoy</p></div>
+        <div class="card stat-card"><h3>Saldo registrado en caja</h3><p class="stat-number">{{ indicadores.saldo|moneda }}</p><p>Movimientos acumulados hasta hoy; verificar contra el dinero disponible.</p></div>
+    </div>
+    <details class="module-editor"><summary>Ver el historial de cobro de los últimos seis meses</summary><div class="module-editor-content">
+    <h3>Últimos seis meses cerrados</h3>
+    <p>Cobrado a la fecha por período de cuota, incluidos pagos tardíos; no representa los ingresos de caja de ese mes.</p>
+    <div class="table-wrapper"><table><thead><tr><th>Período</th><th>Cuotas</th><th>Emitido</th><th>Cobrado a hoy</th><th>Cobranza</th><th>Pagado en término</th></tr></thead><tbody>
+    {% for r in indicadores.historial %}<tr><td>{{ r.mes }}</td><td>{{ r.cantidad }}</td><td>{{ r.emitido|moneda }}</td><td>{{ r.cobrado|moneda }}</td><td>{{ '%.1f'|format(r.tasa) }}% <progress max="100" value="{{ r.tasa }}" aria-label="Cobranza {{ r.mes }}">{{ r.tasa }}%</progress></td><td>{{ r.en_termino|moneda }}</td></tr>{% endfor %}
+    </tbody></table></div></div></details>
+    <details class="module-editor"><summary>Cómo está pagando cada jugador · últimos seis meses cerrados</summary><div class="module-editor-content table-wrapper">
+    <p>El estado se basa en las cuotas de los seis períodos mostrados; la lista de deudores de abajo incluye todos los períodos. Sin fechas completas no se determina puntualidad.</p>
+    <table><thead><tr><th>Jugador</th><th>Estado</th><th>Emitidas</th><th>Pagadas en término</th><th>Pagadas tarde</th><th>Pagadas sin fechas</th><th>Vencidas impagas</th><th>Saldo pendiente</th></tr></thead><tbody>
+    {% for r in indicadores.comportamiento %}<tr><td>{{ r.apellido }}, {{ r.nombre }}</td><td>{{ 'Con deuda vencida' if r.vencidas else 'Con pagos tardíos' if r.tardias else 'Sin deuda vencida' }}</td><td>{{ r.emitidas }}</td><td>{{ r.al_dia }}</td><td>{{ r.tardias }}</td><td>{{ r.sin_fechas }}</td><td>{{ r.vencidas }}</td><td>{{ r.pendiente|moneda }}</td></tr>{% else %}<tr><td colspan="9" class="empty">No hay datos de cuotas para clasificar pagos.</td></tr>{% endfor %}
+    </tbody></table></div></details>
+    <details class="module-editor"><summary>Jugadores con cuotas pendientes ({{ indicadores.deudores|length }})</summary><div class="module-editor-content table-wrapper"><table><thead><tr><th>Jugador</th><th>Cuotas pendientes</th><th>Total pendiente</th><th>Vencido</th><th>Primer vencimiento</th></tr></thead><tbody>
+    {% for r in indicadores.deudores %}<tr><td>{{ r.apellido }}, {{ r.nombre }}</td><td>{{ r.cuotas }}</td><td>{{ r.deuda|moneda }}</td><td class="text-danger">{{ r.vencido|moneda }}</td><td>{{ r.primer_vencimiento or 'Sin fecha' }}</td></tr>{% else %}<tr><td colspan="5" class="empty">No hay cuotas pendientes.</td></tr>{% endfor %}
+    </tbody></table></div></details>
+</div>
+
+{% endif %}
+{% if vista in ['planificar', 'guardados'] %}{% include "_presupuesto_plan.html" %}{% endif %}
+{% if vista == 'gastos' %}
+<div class="budget-panel"><h3>Lo que el club tiene previsto</h3><p>Cargá aquí los compromisos del club: alquiler, sueldos, servicios y otros gastos. Elegí desde cuándo y hasta cuándo se repiten. Estos importes se usan al planificar.</p><p>Un gasto cargado aquí es una previsión. El pago efectivo se registra en <a href="{{ url_for('ver_caja', mes=mes) }}">Caja</a>.</p></div>
+
 <form method="get" class="module-filter-bar card form-card form-card-wide spaced-small">
+    {% for clave, valor in request.args.items() if clave not in ['mes', 'meses', 'plan_id', 'comparar'] %}
+    <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+    {% endfor %}
     <div class="form-grid">
         <div>
             <label>Mes base</label>
             <input type="month" name="mes" value="{{ mes }}">
         </div>
         <div>
-            <label>Meses a proyectar</label>
+            <label>Meses a comparar con caja</label>
             <input type="number" name="meses" value="{{ meses_proyeccion }}" min="1" max="24">
         </div>
     </div>
@@ -29,25 +81,20 @@
 
 <div class="dashboard-cards report-cards spaced">
     <div class="card stat-card">
-        <h3>Ingresos presupuestados</h3>
+        <h3>Ingresos previstos para {{ mes }}</h3>
         <p class="stat-number status-paid">{{ presupuesto['resumen']['ingresos_presupuestados'] | moneda }}</p>
     </div>
     <div class="card stat-card">
-        <h3>Gastos presupuestados</h3>
+        <h3>Gastos previstos para {{ mes }}</h3>
         <p class="stat-number text-danger">{{ presupuesto['resumen']['egresos_presupuestados'] | moneda }}</p>
     </div>
     <div class="card stat-card">
-        <h3>Resultado estimado</h3>
+        <h3>Diferencia prevista</h3>
         <p class="stat-number {% if presupuesto['resumen']['resultado_presupuestado'] < 0 %}text-danger{% else %}status-paid{% endif %}">
             {{ presupuesto['resumen']['resultado_presupuestado'] | moneda }}
         </p>
     </div>
-    <div class="card stat-card">
-        <h3>Resultado real</h3>
-        <p class="stat-number {% if presupuesto['resumen']['resultado_real'] < 0 %}text-danger{% else %}status-paid{% endif %}">
-            {{ presupuesto['resumen']['resultado_real'] | moneda }}
-        </p>
-    </div>
+
 </div>
 
 {% if puede('presupuesto_gestionar', 'caja_gestionar') %}
@@ -103,7 +150,7 @@
 
 <div class="page-section">
     <div class="section-header">
-        <h3>Conceptos activos para {{ mes }}</h3>
+        <h3>Conceptos del presupuesto</h3>
     </div>
     <div class="table-wrapper">
         <table>
@@ -169,9 +216,9 @@
     </div>
 </div>
 
-<div class="page-section">
+<details class="module-editor"><summary>Ver comparación mensual con caja</summary><div class="module-editor-content">
     <div class="section-header">
-        <h3>Proyeccion y comparacion real</h3>
+        <h3>Comparar lo previsto con lo registrado en caja</h3>
     </div>
     <div class="table-wrapper">
         <table>
@@ -215,5 +262,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</div></details>
+{% endif %}
+<script src="{{ static_asset('presupuesto.js') }}" defer></script>
 {% endblock %}

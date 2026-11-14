@@ -1,0 +1,10 @@
+        <details class="spaced-small"><summary>Ajustar socios, becas, cuotas y gastos mes a mes</summary>
+            <p>Dejá una celda vacía para usar la referencia que muestra. Cada cantidad de socios es el total esperado de ese mes: podés reflejar altas y bajas. El descuento equivalente contempla becas vigentes y reducciones por tipo de miembro del padrón actual; revisalo si cambia la composición. La cuota o emisión se ingresan antes del aumento porcentual general.</p>
+            <p>Socios, descuentos y cuota individual se usan en modo socios. Emisión se usa en modo manual. Otros ingresos, cobranza y recuperación se usan en ambos modos de cuotas. En modo presupuesto, los ingresos provienen exclusivamente de sus conceptos.</p>
+            <div class="table-wrapper"><table><thead><tr><th>Mes</th><th>Socios</th><th>Descuento equivalente (%)</th><th>Cuota por socio ($)</th><th>Emisión manual ($)</th><th>Cobranza (%)</th><th>Otros ingresos ($)</th><th>Gastos extraordinarios ($)</th></tr></thead><tbody>
+            {% for c in simulacion.configuracion %}<tr><th>{{ c.mes }}</th>
+            {% for campo, etiqueta, limite in [('socios', 'Socios', 1000000), ('descuento', 'Descuento', 100), ('cuota', 'Cuota individual', 1000000000000), ('emision', 'Emisión manual', 1000000000000), ('cobranza', 'Cobranza', 100), ('otros', 'Otros ingresos', 1000000000000), ('extra', 'Gastos extraordinarios', 1000000000000)] %}
+                {% set clave = campo ~ '_' ~ c.numero %}<td><input aria-label="{{ etiqueta }} {{ c.mes }}" name="{{ clave }}" type="number" min="0" max="{{ limite }}" step="{{ '1' if campo == 'socios' else '0.01' }}" placeholder="{{ c[campo]|round(2) }}" value="{{ simulacion.ajustes.get(clave, '') }}" style="min-width:110px"></td>
+            {% endfor %}</tr>{% endfor %}
+            </tbody></table></div>
+        </details>

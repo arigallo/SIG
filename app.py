@@ -2,6 +2,8 @@
 import psycopg
 from services.workspace import obtener_inicio, obtener_cola_finanzas, obtener_notas_financieras, ordenar_notas_financieras, paginacion
 from services import transferencias_bbva as bbva_service
+from services.presupuesto import obtener_indicadores, obtener_padron, obtener_comportamiento, simular, validar_parametros, numero as numero_presupuesto
+from repositories import presupuesto as presupuesto_repo
 from services.operations import crear_tabla_operaciones, instalar_proteccion
 from flask import jsonify
 from services.madrinas import CONTACTOS, CONFIRMACIONES, estados_rapidos, validar_cambios
@@ -6454,6 +6456,7 @@ def obtener_presupuesto_mensual(mes, meses_proyeccion=6):
             COALESCE(SUM(CASE WHEN pagado = 0 AND COALESCE(anulada, 0) = 0 AND COALESCE(incobrable, 0) = 0 THEN importe ELSE 0 END), 0) AS total_pendiente
         FROM cuotas
         WHERE periodo = ANY(%s)
+          AND COALESCE(anulada, 0) = 0 AND COALESCE(incobrable, 0) = 0
         GROUP BY periodo
     """, (meses,)).fetchall()
     conn.close()
@@ -8689,6 +8692,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_presupuesto_items_activo
         ON presupuesto_items (activo)
     """)
+    presupuesto_repo.crear_tablas(conn)
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS venta_productos (
@@ -9001,14 +9005,93 @@ def ver_presupuesto():
     check = permiso_requerido("presupuesto_ver", "caja_ver")
     if check:
         return check
+    try:
+        validar_parametros(request.args)
+    except ValueError as error:
+        flash(str(error), 'error')
+        return redirect(url_for('ver_presupuesto'))
 
     mes = normalizar_mes(request.args.get("mes"), ahora_sig().strftime("%Y-%m"))
     try:
         meses_proyeccion = int(request.args.get("meses", "6") or 6)
     except ValueError:
         meses_proyeccion = 6
+    meses_proyeccion = max(1, min(meses_proyeccion, 24))
     presupuesto = obtener_presupuesto_mensual(mes, meses_proyeccion)
-    return render_template("presupuesto.html", presupuesto=presupuesto, mes=mes, meses_proyeccion=meses_proyeccion)
+    hoy = ahora_sig().date()
+    mes_actual = hoy.strftime("%Y-%m")
+    historicos = meses_entre(sumar_meses(mes_actual, -6), sumar_meses(mes_actual, -1))
+    conn = get_connection()
+    try:
+        indicadores = obtener_indicadores(conn, hoy, historicos)
+        indicadores['comportamiento'] = obtener_comportamiento(conn, hoy, historicos)
+        guardadas = presupuesto_repo.listar(conn)
+        plan_id = request.args.get('plan_id', type=int)
+        plan = presupuesto_repo.obtener(conn, plan_id) if plan_id else None
+        if plan_id and not plan:
+            abort(404)
+        anio = int(numero_presupuesto(request.args.get('anio'), hoy.year + 1, minimo=2020, maximo=2100))
+        indicadores['padron'] = obtener_padron(conn, anio)
+        comparaciones = []
+        if len(set(request.args.getlist('comparar'))) > 3:
+            flash('Se muestran las primeras tres versiones seleccionadas.', 'ok')
+        for identificador in list(dict.fromkeys(request.args.getlist('comparar')))[:3]:
+            if identificador.isascii() and identificador.isdigit() and len(identificador) <= 10:
+                comparacion = presupuesto_repo.obtener(conn, int(identificador))
+                if comparacion:
+                    comparaciones.append(comparacion)
+    finally:
+        conn.close()
+    simulacion = plan['contenido'] if plan else simular(presupuesto['items'], indicadores, request.args, anio)
+    vista = request.args.get('vista')
+    if vista not in {'resumen', 'planificar', 'gastos', 'guardados'}:
+        vista = 'planificar' if plan or any(k in request.args for k in simulacion['formulario']) else 'guardados' if request.args.getlist('comparar') else 'resumen'
+    parametros_nav = {k: v for k, v in request.args.to_dict(flat=False).items()
+                      if not k.startswith('_') and k not in {'vista', 'nombre'}}
+    navegacion = {v: url_for('ver_presupuesto', **{**parametros_nav, 'vista': v})
+                  for v in ['resumen', 'planificar', 'gastos', 'guardados']}
+    return render_template("presupuesto.html", presupuesto=presupuesto, mes=mes,
+                           meses_proyeccion=meses_proyeccion, indicadores=indicadores,
+                           simulacion=simulacion, fecha_corte=hoy.isoformat(),
+                           guardadas=guardadas, plan=plan, comparaciones=comparaciones,
+                           vista=vista, navegacion=navegacion)
+
+
+@app.route('/presupuesto/simulaciones', methods=['POST'])
+def guardar_simulacion_presupuesto():
+    check = permiso_requerido('presupuesto_gestionar', 'caja_gestionar')
+    if check:
+        return check
+    try:
+        validar_parametros(request.form)
+    except ValueError as error:
+        flash(str(error), 'error')
+        return redirect(url_for('ver_presupuesto'))
+    nombre = request.form.get('nombre', '').strip()
+    if not nombre or len(nombre) > 120:
+        flash('Ingresá un nombre de hasta 120 caracteres para la simulación.', 'error')
+        return redirect(url_for('ver_presupuesto', **{k: v for k, v in request.form.items()
+                        if k not in {'nombre', '_csrf_token', '_operation_token'}}))
+    hoy = ahora_sig().date()
+    anio = int(numero_presupuesto(request.form.get('anio'), hoy.year + 1, minimo=2020, maximo=2100))
+    presupuesto = obtener_presupuesto_mensual(hoy.strftime('%Y-%m'), 1)
+    historicos = meses_entre(sumar_meses(hoy.strftime('%Y-%m'), -6), sumar_meses(hoy.strftime('%Y-%m'), -1))
+    conn = get_connection()
+    try:
+        indicadores = obtener_indicadores(conn, hoy, historicos)
+        indicadores['padron'] = obtener_padron(conn, anio)
+        simulacion = simular(presupuesto['items'], indicadores, request.form, anio)
+        simulacion['fecha_corte'] = hoy.isoformat()
+        simulacion['conceptos'] = [{k: float(i[k] or 0) if k == 'monto' else i.get(k)
+                                    for k in ['concepto', 'tipo', 'monto', 'mes_inicio', 'mes_fin', 'activo']}
+                                   for i in presupuesto['items']]
+        identificador = presupuesto_repo.guardar(conn, nombre, simulacion, session.get('username', 'usuario'))
+        conn.commit()
+    finally:
+        conn.close()
+    registrar_auditoria('crear', 'presupuesto_simulacion', str(identificador), {'nombre': nombre, 'anio': anio})
+    flash('Simulación guardada con sus supuestos y resultados. Podés compararla con otras versiones.', 'ok')
+    return redirect(url_for('ver_presupuesto', plan_id=identificador, _anchor='simulador'))
 
 
 @app.route("/presupuesto/items", methods=["POST"])
@@ -9028,19 +9111,19 @@ def crear_presupuesto_item():
 
     if tipo not in {"ingreso", "egreso"}:
         flash("Selecciona si el concepto es ingreso o egreso.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
     if categoria not in {"fijo", "variable"}:
         flash("La categoria del presupuesto no es valida.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
     if not concepto:
         flash("El concepto es obligatorio.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
     if monto is None or monto <= 0:
         flash("El monto debe ser mayor a cero.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
     if mes_inicio and mes_fin and mes_fin < mes_inicio:
         flash("El mes de fin no puede ser anterior al inicio.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
 
     ahora = ahora_sig().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_connection()
@@ -9060,7 +9143,7 @@ def crear_presupuesto_item():
         {"tipo": tipo, "categoria": categoria, "concepto": concepto, "monto": monto},
     )
     flash("Concepto agregado al presupuesto.", "ok")
-    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
 
 
 @app.route("/presupuesto/items/<int:item_id>/toggle", methods=["POST"])
@@ -9075,7 +9158,7 @@ def alternar_presupuesto_item(item_id):
     if item is None:
         conn.close()
         flash("Concepto no encontrado.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
 
     nuevo_estado = 0 if item.get("activo") else 1
     conn.execute("""
@@ -9089,7 +9172,7 @@ def alternar_presupuesto_item(item_id):
 
     registrar_auditoria("alternar", "presupuesto_item", str(item_id), {"activo": nuevo_estado})
     flash("Concepto de presupuesto actualizado.", "ok")
-    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
 
 
 @app.route("/presupuesto/items/<int:item_id>/eliminar", methods=["POST"])
@@ -9104,7 +9187,7 @@ def eliminar_presupuesto_item(item_id):
     if item is None:
         conn.close()
         flash("Concepto no encontrado.", "error")
-        return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+        return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
     conn.execute("DELETE FROM presupuesto_items WHERE id = %s", (item_id,))
     conn.commit()
     conn.close()
@@ -9116,7 +9199,7 @@ def eliminar_presupuesto_item(item_id):
         {"concepto": item["concepto"], "monto": item["monto"]},
     )
     flash("Concepto eliminado del presupuesto.", "ok")
-    return redirect(url_for("ver_presupuesto", mes=mes_retorno))
+    return redirect(url_for("ver_presupuesto", mes=mes_retorno, vista="gastos"))
 
 
 @app.route("/caja")
